@@ -378,6 +378,35 @@ class MapData:
             for x in range(self.width):
                 yield x, y
 
+    def apply(self, cell: Cell) -> bool:
+        """按 `Cell.index` 回填一格，返回是否落在范围内。
+
+        用于吸收 `GameState.cells_difference`：服务端只在格子内容变化时才发送，
+        且带上 `index` 与 `shrouded`，故迷雾可增量维护而不必重取整张地图。
+        """
+        index = cell.index
+        if not 0 <= index < self.width * self.height:
+            return False
+        # shrouded 是永久的「已探索」标志，只允许由真变假：引擎侧 AltFlags 只
+        # 置位不清除，这里同样不接受回退，以免被异常的增量重新遮蔽已探明区域。
+        shrouded = self.columns.get("shrouded")
+        if shrouded is not None and index < len(shrouded) and not cell.shrouded:
+            shrouded[index] = 0
+        for name, value in (("land_type", cell.land_type),
+                            ("height", cell.height),
+                            ("level", cell.level),
+                            ("overlay_data", cell.overlay_data),
+                            ("tiberium_value", cell.tiberium_value),
+                            ("passability", cell.passability)):
+            column = self.columns.get(name)
+            if column is not None and index < len(column):
+                column[index] = value
+        return True
+
+    def apply_all(self, cells) -> int:
+        """回填一批格，返回实际生效的数量。"""
+        return sum(1 for cell in cells if self.apply(cell))
+
 
 # ---------------------------------------------------------------- 类型表
 @dataclass(frozen=True)

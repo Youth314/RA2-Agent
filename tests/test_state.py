@@ -7,7 +7,7 @@ import unittest
 from ra2agent.constants import AbstractType, LandType, Mission
 from ra2agent.errors import ProtocolError
 from ra2agent.state import (Coordinates, GameState, MapData, TypeTable,
-                            cell_center, parse_coordinates)
+                            cell_center, parse_cell, parse_coordinates)
 from tests.fixtures import (ENEMY_HOUSE, NEUTRAL_HOUSE, PLAYER_HOUSE,
                             build_cell, build_coordinates, build_factory,
                             build_game_state, build_house, build_map_soa,
@@ -161,6 +161,45 @@ class TestMapData(unittest.TestCase):
 
     def test_iter_cells(self):
         self.assertEqual(len(list(self.map.iter_cells())), 4)
+
+
+class TestMapDataApply(unittest.TestCase):
+    """增量回填：服务端只在格子变化时发送，且带 index 与 shrouded。"""
+
+    def setUp(self):
+        self.map = MapData.parse(build_map_soa(
+            width=2, height=2,
+            shrouded=[1, 1, 1, 1],
+            land=[LandType.ROCK] * 4))
+
+    def test_applies_shrouded_and_land(self):
+        cell = parse_cell(build_cell(0, land_type=LandType.CLEAR, shrouded=False))
+        self.assertTrue(self.map.apply(cell))
+        self.assertFalse(self.map.shrouded(0, 0))
+        self.assertEqual(self.map.land_type(0, 0), LandType.CLEAR)
+        self.assertTrue(self.map.shrouded(1, 0))    # 邻格不受影响
+
+    def test_applies_row_major_index(self):
+        cell = parse_cell(build_cell(2, land_type=LandType.ROAD, shrouded=False))
+        self.map.apply(cell)
+        self.assertFalse(self.map.shrouded(0, 1))
+        self.assertEqual(self.map.land_type(0, 1), LandType.ROAD)
+
+    def test_rejects_out_of_range_index(self):
+        cell = parse_cell(build_cell(99, shrouded=False))
+        self.assertFalse(self.map.apply(cell))
+
+    def test_apply_all_counts(self):
+        cells = [parse_cell(build_cell(0, shrouded=False)),
+                 parse_cell(build_cell(1, shrouded=False)),
+                 parse_cell(build_cell(99, shrouded=False))]
+        self.assertEqual(self.map.apply_all(cells), 2)
+
+    def test_explored_flag_is_monotonic(self):
+        # 实测：shrouded 只从真变假，从不回退
+        self.map.apply(parse_cell(build_cell(0, shrouded=False)))
+        self.map.apply(parse_cell(build_cell(0, shrouded=True)))
+        self.assertFalse(self.map.shrouded(0, 0))
 
 
 class TestTypeTable(unittest.TestCase):
