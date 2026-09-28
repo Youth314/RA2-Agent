@@ -12,7 +12,16 @@
 ## 目录
 
 - `proto/` — ra2yrcpp 的 protobuf 接口定义，上游快照
-- `src/` — Agent 与引擎适配层的源码（尚未开始）
+- `src/ra2agent/` — Agent 与引擎适配层的源码
+- `tests/` — 单元测试
 - `tools/` — 探针与运维脚本
 - `docs/` — 给人看的文档
 - `.agents/` — 给 agent 看的内容，见 [.agents/AGENTS.md](.agents/AGENTS.md)
+
+## 开发
+
+```sh
+PYTHONPATH=src python3 -m unittest discover -s tests -t .
+```
+
+引擎侧接口的实测结论见 [.agents/notes/命令能力测绘结果.md](.agents/notes/命令能力测绘结果.md)。
