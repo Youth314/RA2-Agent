@@ -227,6 +227,24 @@ def parse_house(blob):
     }
 
 
+def parse_factory(blob):
+    """Factory：生产进度。
+
+    `progress_timer` 从 0 走到 `PRODUCTION_STEPS`(54)，到顶即 `completed`。
+    `object` 是正在生产的对象指针。
+    """
+    m = fmap(blob)
+    g = lambda f, d=0: m.get(f, [(0, d)])[0][1]  # noqa: E731
+    return {
+        "progress_timer": g(1),
+        "owner": g(2),
+        "object": g(3),
+        "queued_objects": [v for _, v in m.get(4, [])],
+        "on_hold": bool(g(5)),
+        "completed": bool(g(6)),
+    }
+
+
 class GameState:
     """一帧观测。`objects` 与 `houses` 已解析为字典。"""
 
@@ -240,7 +258,7 @@ class GameState:
         self.houses = [parse_house(v) for _, v in m.get(4, [])]
         self.objects = [parse_object(v) for _, v in m.get(6, [])]
         self.object_types = [v for _, v in m.get(5, [])]
-        self.factories = [v for _, v in m.get(3, [])]
+        self.factories = [parse_factory(v) for _, v in m.get(3, [])]
         self.cells_difference = [v for _, v in m.get(15, [])]
         self._by_pointer = {o["self"]: o for o in self.objects}
 
@@ -306,6 +324,49 @@ class MapData:
         return (f"map={self.width}x{self.height} cells={n} "
                 f"explored={known} ({100.0 * known / n:.1f}%)" if n else
                 f"map={self.width}x{self.height} cells=0")
+
+
+class TypeTable:
+    """对象类型表：由 `pointer_technotypeclass` 或 `array_index` 查类型信息。
+
+    类型表只在首帧的 `GameState.object_types` 中下发，连晚了就取不到，因此经
+    `ReadValue{initial_game_state}` 单独取一次。
+    """
+
+    def __init__(self, entries=None):
+        self.by_pointer = {}
+        self.by_index = {}
+        for e in entries or []:
+            self.by_pointer[e["pointer_self"]] = e
+            self.by_index.setdefault(e["array_index"], e)
+
+    @staticmethod
+    def from_read_value(payload):
+        """解析 `ReadValue{initial_game_state}` 的响应。"""
+        gstate = sub(sub(payload, 1), 3)
+        entries = []
+        for _, blob in fmap(gstate).get(5, []):
+            t = fmap(blob)
+            g = lambda f, d=0: t.get(f, [(0, d)])[0][1]  # noqa: E731
+            name = g(1, b"")
+            entries.append({
+                "name": name.decode(errors="replace") if isinstance(name, bytes) else name,
+                "cost": g(2),
+                "array_index": g(5),
+                "pointer_self": g(6),
+                "type": g(9),
+            })
+        return TypeTable(entries)
+
+    def info(self, object_or_pointer):
+        """接受对象字典或 `pointer_technotypeclass`。"""
+        ptr = (object_or_pointer.get("type_class")
+               if isinstance(object_or_pointer, dict) else object_or_pointer)
+        return self.by_pointer.get(ptr)
+
+    def name(self, object_or_pointer, default="?"):
+        info = self.info(object_or_pointer)
+        return info["name"] if info and info["name"] else default
 
 
 # ---------------------------------------------------------------- 校验
@@ -486,6 +547,53 @@ class Client:
             raise RuntimeError(f"未取得命令 id（返回类型 {tn}）: {pl[:200]!r}")
         return self._poll_for(ack["id"], poll_timeout)
 
+    def send_async(self, type_name, payload=b""):
+        """只发命令并读回 ack，不等结果。
+
+        测量生效延迟必须用这种方式：等结果的写法会一直阻塞到游戏主循环执行
+        完闭包，测不出下令到生效之间经过了多少帧。
+        """
+        resp = self.request(CMD_CLIENT, type_name, payload)
+        tn, pl = any_unpack(resp)
+        ack = {}
+        for f, wt, v in fields(pl):
+            if f == 1 and wt == 0:
+                ack["id"] = v
+            elif f == 2 and wt == 0:
+                ack["queue_id"] = v
+        return ack
+
+    def poll_all(self, poll_timeout_ms=2000):
+        """取回结果队列中当前可用的全部结果。
+
+        与 `_poll_for` 不同，不按 id 过滤，用于观察队列行为（容量、丢失）。
+        """
+        args = pb_uint(1, self.queue_id) + pb_uint(2, poll_timeout_ms)
+        presp = self.request(CMD_POLL_BLOCKING, NS + "PollResults",
+                             pb_bytes(1, args))
+        _, ppl = any_unpack(presp)
+        out = []
+        for f, wt, v in fields(ppl):
+            if f != 2 or wt != 2:
+                continue
+            for rf, rwt, rv in fields(v):
+                if rf != 1 or rwt != 2:
+                    continue
+                item = {"id": None, "code": None, "error": "", "type": ""}
+                body = b""
+                for cf, cwt, cv in fields(rv):
+                    if cf == 1 and cwt == 0:
+                        item["id"] = cv
+                    elif cf == 2 and cwt == 2:
+                        body = cv
+                    elif cf == 3 and cwt == 0:
+                        item["code"] = cv
+                    elif cf == 4 and cwt == 2:
+                        item["error"] = cv.decode(errors="replace")
+                item["type"] = any_unpack(body)[0]
+                out.append(item)
+        return out
+
     # -------------------------------------------------------- 读
     def get_state(self, poll_timeout=5000):
         r = self.send_command(NS + "GetGameState", b"", poll_timeout)
@@ -502,6 +610,16 @@ class Client:
         if r["code"]:
             raise RuntimeError(f"ReadValue 失败: {r['error']}")
         return MapData(r["payload"])
+
+    def read_object_types(self, poll_timeout=20000):
+        """取对象类型表。类型表只在首帧下发，故从 initial_game_state 单独取。"""
+        payload = pb_bytes(1, pb_bytes(3, b""))   # ReadValue{ data{ initial_game_state{} } }
+        r = self.send_command(NS + "ReadValue", payload, poll_timeout)
+        if r["type"] == "POLL_TIMEOUT":
+            raise TimeoutError("ReadValue 超时")
+        if r["code"]:
+            raise RuntimeError(f"ReadValue 失败: {r['error']}")
+        return TypeTable.from_read_value(r["payload"])
 
     def inspect_config(self, poll_timeout=5000):
         r = self.send_command(NS + "InspectConfiguration", b"", poll_timeout)
@@ -583,8 +701,9 @@ def main():
         print(f"连接成功  queue_id={c.queue_id}  ack={ack}", file=sys.stderr)
         st = c.get_state()
         print(st.summary())
+        types = c.read_object_types()
         for o in st.own_objects()[:12]:
-            print(f"  obj self={o['self']:>10} type={o['object_type']:>2} "
+            print(f"  {types.name(o):<26} self={o['self']:>10} "
                   f"mission={MISSION_NAMES.get(o['mission'], o['mission']):<12} "
                   f"@({o['coordinates']['x']},{o['coordinates']['y']}) "
                   f"hp={o['health']} sel={o['selected']}")
