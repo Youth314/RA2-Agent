@@ -859,8 +859,87 @@ def run_final(c):
     return res
 
 
+# ------------------------------------------------------------------ AddEvent
+EV_PRODUCE, EV_SUSPEND, EV_ABANDON = 0xE, 0xF, 0x10
+
+
+def addevent_payload(event_type, rtti_id, heap_id, frame_delay=0):
+    """AddEvent{event{event_type, production{rtti_id, heap_id}}, frame_delay}。"""
+    prod = pb_uint(1, rtti_id) + pb_uint(2, heap_id)
+    ev = pb_uint(4, event_type) + pb_bytes(10, prod)
+    return pb_bytes(1, ev) + pb_uint(2, frame_delay)
+
+
+def test_addevent(c, res, types):
+    """用 AddEvent 注入生产队列事件，检验暂停与取消生产。
+
+    `ProduceOrder` 忽略 action 字段，暂停与取消只能绕道 AddEvent。`add_event`
+    会校验 `(rtti_id, heap_id)` 必须能在类型表中找到，故必须传真实值。
+    """
+    entry = {}
+    e = find_type(types, "Power Plant")
+    if e is None:
+        res["addevent"] = {"status": "fail", "note": "找不到 Allied Power Plant"}
+        return
+    rtti_id, heap_id = e["type"], e["array_index"]
+    entry["type"] = {"name": e["name"], "rtti_id": rtti_id, "heap_id": heap_id}
+
+    r = c.send_command(NS + "ProduceOrder",
+                       pb_bytes(1, object_type_payload(e)) + pb_uint(2, PRODUCE_BEGIN),
+                       poll_timeout=10000)
+    entry["produce"] = {"code": r["code"], "error": r["error"][:160]}
+    if r["code"]:
+        entry["status"] = "fail"
+        res["addevent"] = entry
+        return
+
+    timer = None
+    for _ in range(120):
+        mine = own_factories(c.get_state())
+        if mine and mine[0]["progress_timer"] > 3:
+            timer = mine[0]["progress_timer"]
+            break
+        time.sleep(0.05)
+    entry["timer_before_suspend"] = timer
+
+    def snapshot():
+        return [{"timer": f["progress_timer"], "on_hold": f["on_hold"],
+                 "completed": f["completed"]} for f in own_factories(c.get_state())]
+
+    r2 = c.send_command(NS + "AddEvent",
+                        addevent_payload(EV_SUSPEND, rtti_id, heap_id), 10000)
+    entry["suspend"] = {"code": r2["code"], "error": r2["error"][:160],
+                        "result_type": r2["type"]}
+    time.sleep(1.0)
+    first = snapshot()
+    time.sleep(1.2)
+    second = snapshot()
+    entry["after_suspend_1s"] = first
+    entry["after_suspend_2s"] = second
+    entry["suspend_stalled"] = (
+        bool(first) and bool(second) and first[0]["timer"] == second[0]["timer"])
+
+    r3 = c.send_command(NS + "AddEvent",
+                        addevent_payload(EV_ABANDON, rtti_id, heap_id), 10000)
+    entry["abandon"] = {"code": r3["code"], "error": r3["error"][:160],
+                        "result_type": r3["type"]}
+    time.sleep(1.0)
+    entry["after_abandon"] = snapshot()
+
+    entry["status"] = "pass"
+    res["addevent"] = entry
+
+
+def run_addevent(c):
+    res = {}
+    types = c.read_object_types()
+    test_addevent(c, res, types)
+    return res
+
+
 RUNNERS = {"timing": run_timing, "batch": run_batch, "engage": run_engage,
-           "observe": run_observe, "build": run_build, "final": run_final}
+           "observe": run_observe, "build": run_build, "final": run_final,
+           "addevent": run_addevent}
 
 
 def main():
