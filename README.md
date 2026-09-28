@@ -11,6 +11,7 @@
 
 ## 目录
 
+- `proto/` — ra2yrcpp 的 protobuf 接口定义，上游快照
 - `src/` — Agent 与引擎适配层的源码（尚未开始）
 - `tools/` — 探针与运维脚本
 - `docs/` — 给人看的文档
