@@ -16,8 +16,9 @@ import urllib.error
 import urllib.request
 from dataclasses import dataclass, field, fields
 
-#: 桥插件的路由。DSH 侧若改了端口，这里跟着改。
-DEFAULT_ENDPOINT = "http://127.0.0.1:8765/ra2/wake"
+#: 桥插件的路由。它挂在 **DSH 的 WebServer 上**（与 GUI 同一个端口），不是自己另开
+#: 一个——所以这里填的是 DSH 的地址。端口随部署变，故以 `config/wake.json` 为准。
+DEFAULT_ENDPOINT = "http://127.0.0.1:3080/ra2/wake"
 
 #: 投递超时（秒）。本地路由，不该久等。
 DEFAULT_TIMEOUT = 3.0

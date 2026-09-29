@@ -1,0 +1,22 @@
+# Bundle patch: mount the local ra2 wake bridge in a dsh profile.
+#
+# The row loads this same package (`@local/ra2-wake`) as the plugin module, so
+# the profile's dependencies must contain it. Install it with the profile's own
+# package manager (`plugin_manager` `install_bundle` / `dsh plugin install`);
+# never edit the profile's package.json by hand.
+#
+# The route is registered on the profile's WebServer, bound by that server's own
+# `host` config (the shipped Web profile binds 127.0.0.1).
+- insert:
+    - id: ra2-wake
+      name: '@local/ra2-wake'
+      config:
+        path: /ra2/wake
+        maxBodyBytes: 8192
+        mcpServerName: ra2
+        # Session identity used when discovery finds zero or several idle
+        # Sessions carrying the ra2 MCP tools. Leave empty to fail loud instead.
+        fallbackSession: ''
+        # Credential reference holding a shared secret. Empty means: no secret,
+        # and the route refuses to register unless the WebServer is on 127.0.0.1.
+        secretEnv: ''

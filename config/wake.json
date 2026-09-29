@@ -1,5 +1,5 @@
 {
-  "endpoint": "http://127.0.0.1:8765/ra2/wake",
+  "endpoint": "http://127.0.0.1:3080/ra2/wake",
   "max_per_match": 30,
   "min_frames": 180
 }

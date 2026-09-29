@@ -48,6 +48,12 @@ class TestDelivery(WakeCase):
         self.assertEqual(self.poster.calls, [])
         self.assertEqual(record["skipped"], "空说明")
 
+    def test_default_endpoint_is_the_dsh_webserver(self):
+        # 桥插件挂在 DSH 的 WebServer 上（与 GUI 同端口），不是自己另开一个
+        from ra2agent.wake import DEFAULT_ENDPOINT
+        self.assertIn(":3080", DEFAULT_ENDPOINT)
+        self.assertTrue(DEFAULT_ENDPOINT.endswith("/ra2/wake"))
+
     def test_endpoint_comes_from_the_policy(self):
         self.build(endpoint="http://127.0.0.1:9999/x")
         self.bridge.request("hi", frame=1)

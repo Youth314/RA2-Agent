@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    "target": "es2024",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "lib": ["es2024"],
+    "types": ["node"],
+    "typeRoots": ["/home/youthz/deepseek-harness/node_modules/@types"],
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "paths": {
+      "@deepseek-ai/cordis": ["/home/youthz/deepseek-harness/vendor/cordis/lib/types/index.d.ts"],
+      "@deepseek-ai/schemastery": ["/home/youthz/deepseek-harness/vendor/schemastery/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-agent": ["/home/youthz/deepseek-harness/packages/core/agent/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-agent-loop": ["/home/youthz/deepseek-harness/packages/core/agent-loop/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-api-session-controller": ["/home/youthz/deepseek-harness/packages/api/session-controller/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-credentials": ["/home/youthz/deepseek-harness/packages/credentials/credentials/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-host-webserver": ["/home/youthz/deepseek-harness/packages/host/webserver/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-llm": ["/home/youthz/deepseek-harness/packages/llm/llm/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-session": ["/home/youthz/deepseek-harness/packages/core/session/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-scope": ["/home/youthz/deepseek-harness/packages/core/scope/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-session-projection": ["/home/youthz/deepseek-harness/packages/session/session-projection/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-system-prompt": ["/home/youthz/deepseek-harness/packages/core/system-prompt/lib/types/index.d.ts"],
+      "@deepseek-ai/dsh-tools": ["/home/youthz/deepseek-harness/packages/core/tools/lib/types/index.d.ts"],
+      "@deepseek-ai/cordis-plugin-include": ["/home/youthz/deepseek-harness/vendor/include/lib/types/index.d.ts"],
+      "@deepseek-ai/cordis-plugin-loader": ["/home/youthz/deepseek-harness/vendor/loader/lib/types/index.d.ts"]
+    }
+  },
+  "include": ["src", "tests"]
+}
