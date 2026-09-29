@@ -1,0 +1,295 @@
+"""读原版 `rulesmd.ini`，产出单位 / 建筑 / 武器 / 弹头的结构化表。
+
+只做解析与索引，不做判断、不联网。原始文件不入库，见 `corpus/README.md`。
+
+两处**不在 INI 里**、由引擎硬编码的东西：
+
+- **装甲类型的顺序。** 弹头用 `Verses=25%,25%,15%,...` 给 11 个百分比，但那 11 个位置
+  分别是什么装甲，INI 里没有（没有 `[ArmorTypes]` 节）。出处是 ModEnc 的 `Verses` 页。
+- **武器的清单。** 没有 `[Weapons]` 节，武器只能从单位与建筑的 `Primary=` /
+  `Secondary=` 反查。
+
+故本模块顺着引用走一遍，只收**可达的**武器与弹头。
+"""
+import re
+from dataclasses import dataclass, field
+
+#: 引擎硬编码的装甲顺序，对应弹头 `Verses=` 的 11 个百分比。
+#: 出处：ModEnc 的 `Verses` 页（`corpus/raw/modenc/pages.jsonl`）。
+ARMOR_TYPES = ("none", "flak", "plate", "light", "medium", "heavy",
+               "wood", "steel", "concrete", "special_1", "special_2")
+
+#: 单位的三个来源节，按此顺序读。
+UNIT_SECTIONS = (("infantry", "InfantryTypes"),
+                 ("vehicle", "VehicleTypes"),
+                 ("aircraft", "AircraftTypes"))
+
+#: 建筑上对决策有意义的旗标，映射成人话标签。
+BUILDING_FLAGS = (
+    ("SecretLab", "secret_lab"),
+    ("UnitRepair", "repairs_units"),
+    ("Refinery", "refinery"),
+    ("ResourceGatherer", "harvester"),
+    ("SpySat", "spy_satellite"),
+    ("PowersUnit", "powers_unit"),
+    ("Unsellable", "cannot_sell"),
+)
+
+_TRUE = frozenset({"yes", "true", "1"})
+_SECTION = re.compile(r"^\[([^\]]+)\]\s*$")
+
+
+def strip_comment(line):
+    """去掉 INI 的 `;` 注释并去空白。"""
+    return line.split(";")[0].strip()
+
+
+def as_bool(value, default=False):
+    """RA2 的布尔写法不统一：`yes` / `true` / `1` 都算真。"""
+    if value is None:
+        return default
+    return value.strip().lower() in _TRUE
+
+
+def as_int(value, default=0):
+    """取整数；取不到给默认值。"""
+    try:
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def as_list(value):
+    """逗号分隔的清单。"""
+    if not value:
+        return ()
+    return tuple(part.strip() for part in value.split(",") if part.strip())
+
+
+def load_sections(text):
+    """把 INI 读成 `{节名: {键: 值}}`，节名按出现顺序。"""
+    sections = {}
+    current = None
+    for raw in text.splitlines():
+        line = strip_comment(raw)
+        if not line:
+            continue
+        match = _SECTION.match(line)
+        if match:
+            current = match.group(1).strip()
+            sections.setdefault(current, {})
+            continue
+        if current is None or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        sections[current][key.strip()] = value.strip()
+    return sections
+
+
+def parse_verses(value):
+    """把 `Verses=25%,25%,...` 读成百分比整数元组，顺序即 `ARMOR_TYPES`。"""
+    if not value:
+        return ()
+    return tuple(as_int(part.strip().rstrip("%"))
+                 for part in value.split(",") if part.strip())
+
+
+def collect_ids(sections, section_name):
+    """读 `[XxxTypes]` 这类清单节。值可能是单个 id，也可能是逗号清单。"""
+    out = []
+    for value in sections.get(section_name, {}).values():
+        for identifier in as_list(value):
+            if identifier not in out:
+                out.append(identifier)
+    return out
+
+
+@dataclass(frozen=True)
+class Weapon:
+    """一个武器节。`rof` 是两次开火的间隔帧数。"""
+
+    id: str
+    damage: int
+    rof: int
+    rng: float
+    warhead: str
+    projectile: str
+    burst: int = 1
+
+    @property
+    def dps(self):
+        """每帧伤害（单发，不含弹头倍率）。"""
+        return self.damage * self.burst / self.rof if self.rof else 0.0
+
+
+@dataclass(frozen=True)
+class Warhead:
+    """一个弹头节。`verses` 是 11 种装甲的伤害倍率百分比。"""
+
+    id: str
+    verses: tuple
+
+    def multiplier(self, armor, armor_types=ARMOR_TYPES):
+        """对某种装甲的倍率（1.0 为满伤）。装甲名不认识或没写这一位时给 1.0。"""
+        try:
+            index = armor_types.index(armor.lower())
+        except (ValueError, AttributeError):
+            return 1.0
+        if index >= len(self.verses):
+            return 1.0
+        return self.verses[index] / 100.0
+
+
+@dataclass(frozen=True)
+class UnitType:
+    """一个可动单位：步兵、载具或飞行器。"""
+
+    id: str
+    name: str
+    kind: str
+    cost: int
+    strength: int
+    armor: str
+    speed: int
+    sight: int
+    tech_level: int
+    prerequisite: tuple
+    owners: tuple
+    primary: str = ""
+    secondary: str = ""
+    passengers: int = 0
+
+
+@dataclass(frozen=True)
+class BuildingType:
+    """一个建筑。`special` 是从旗标推出的人话标签。"""
+
+    id: str
+    name: str
+    cost: int
+    strength: int
+    armor: str
+    power: int
+    tech_level: int
+    prerequisite: tuple
+    owners: tuple
+    capturable: bool = False
+    can_be_occupied: bool = False
+    max_occupants: int = 0
+    special: tuple = ()
+    foundation: str = ""
+    primary: str = ""
+    secondary: str = ""
+
+
+@dataclass
+class Rules:
+    """一份解析好的 `rulesmd.ini`。"""
+
+    units: tuple = ()
+    buildings: tuple = ()
+    weapons: dict = field(default_factory=dict)
+    warheads: dict = field(default_factory=dict)
+
+    def unit(self, identifier):
+        """按 id 找单位。"""
+        return next((u for u in self.units if u.id == identifier), None)
+
+    def building(self, identifier):
+        """按 id 找建筑。"""
+        return next((b for b in self.buildings if b.id == identifier), None)
+
+    def damage_per_shot(self, attacker, defender):
+        """一次开火对某个防御者的伤害；算不出来返回 `None`。
+
+        走 武器 → 弹头 → `Verses` 三步，缺任何一步都算不出来。
+        """
+        weapon = self.weapons.get(getattr(attacker, "primary", ""))
+        if weapon is None:
+            return None
+        warhead = self.warheads.get(weapon.warhead)
+        if warhead is None:
+            return None
+        return weapon.damage * warhead.multiplier(defender.armor)
+
+
+def _parse_weapon(sections, weapon_id):
+    """读一个武器节；没有这一节返回 `None`。"""
+    data = sections.get(weapon_id)
+    if data is None:
+        return None
+    return Weapon(
+        id=weapon_id,
+        damage=as_int(data.get("Damage")),
+        rof=as_int(data.get("ROF"), 1) or 1,
+        rng=float(as_int(data.get("Range"))),
+        warhead=data.get("Warhead", ""),
+        projectile=data.get("Projectile", ""),
+        burst=as_int(data.get("Burst"), 1) or 1,
+    )
+
+
+def _building_special(data):
+    """从建筑旗标推出人话标签。"""
+    special = [label for key, label in BUILDING_FLAGS if as_bool(data.get(key))]
+    if as_int(data.get("NumberOfDocks")) > 0:
+        special.append("naval_dock")
+    if as_int(data.get("ExtraPower")):
+        special.append("extra_power")
+    return tuple(special)
+
+
+def parse_rules(text):
+    """把 `rulesmd.ini` 解析成 `Rules`。"""
+    sections = load_sections(text)
+    owners_of = lambda data: as_list(data.get("Owner") or data.get("Owners"))  # noqa: E731
+
+    units, buildings, holders = [], [], []
+    for kind, section_name in UNIT_SECTIONS:
+        for identifier in collect_ids(sections, section_name):
+            data = sections.get(identifier)
+            if not data:
+                continue
+            units.append(UnitType(
+                id=identifier, name=data.get("Name", identifier), kind=kind,
+                cost=as_int(data.get("Cost")), strength=as_int(data.get("Strength")),
+                armor=data.get("Armor", "none"), speed=as_int(data.get("Speed")),
+                sight=as_int(data.get("Sight")),
+                tech_level=as_int(data.get("TechLevel"), -1),
+                prerequisite=as_list(data.get("Prerequisite")), owners=owners_of(data),
+                primary=data.get("Primary", ""), secondary=data.get("Secondary", ""),
+                passengers=as_int(data.get("Passengers"))))
+            holders.append((data.get("Primary", ""), data.get("Secondary", "")))
+
+    for identifier in collect_ids(sections, "BuildingTypes"):
+        data = sections.get(identifier)
+        if not data:
+            continue
+        buildings.append(BuildingType(
+            id=identifier, name=data.get("Name", identifier),
+            cost=as_int(data.get("Cost")), strength=as_int(data.get("Strength")),
+            armor=data.get("Armor", "none"), power=as_int(data.get("Power")),
+            tech_level=as_int(data.get("TechLevel"), -1),
+            prerequisite=as_list(data.get("Prerequisite")), owners=owners_of(data),
+            capturable=as_bool(data.get("Capturable")),
+            can_be_occupied=as_bool(data.get("CanBeOccupied")),
+            max_occupants=as_int(data.get("MaxNumberOccupants")),
+            special=_building_special(data), foundation=data.get("Foundation", ""),
+            primary=data.get("Primary", ""), secondary=data.get("Secondary", "")))
+        holders.append((data.get("Primary", ""), data.get("Secondary", "")))
+
+    weapons, warheads = {}, {}
+    for primary, secondary in holders:
+        for weapon_id in (primary, secondary):
+            if weapon_id and weapon_id not in weapons:
+                weapon = _parse_weapon(sections, weapon_id)
+                if weapon is not None:
+                    weapons[weapon_id] = weapon
+    for weapon in weapons.values():
+        data = sections.get(weapon.warhead)
+        if weapon.warhead and data is not None and weapon.warhead not in warheads:
+            warheads[weapon.warhead] = Warhead(id=weapon.warhead,
+                                               verses=parse_verses(data.get("Verses")))
+
+    return Rules(units=tuple(units), buildings=tuple(buildings),
+                 weapons=weapons, warheads=warheads)
