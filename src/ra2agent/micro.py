@@ -121,7 +121,10 @@ class MicroLayer:
         self.max_retries = max_retries
         self._sleep = sleep
         self._squads: list = []
+        #: 已结算的任务，供指挥层读取
         self.completed: list = []
+        #: 值得一提的运行时事件（失焦暂停、条件变化导致空转），供指挥层上报
+        self.notices: list = []
         self.last_tick_frame: int | None = None
         if executor is None:
             executor = Executor(
@@ -192,6 +195,33 @@ class MicroLayer:
         """当前在管的编队。"""
         return tuple(self._squads)
 
+    def progress(self) -> tuple:
+        """在管任务的进度摘要，供指挥层读给模型。"""
+        out = []
+        for squad in self._squads:
+            counts: dict = {}
+            for unit in squad.units:
+                counts[str(unit.mode)] = counts.get(str(unit.mode), 0) + 1
+            out.append({
+                "intent_id": squad.intent.id,
+                "tactic": squad.intent.tactic,
+                "units": [unit.agent_id for unit in squad.units],
+                "created_frame": squad.intent.created_frame,
+                "modes": counts,
+            })
+        return tuple(out)
+
+    def cancel(self, intent_id) -> bool:
+        """撤销一条在管任务，交还它占用的单位。已结束或不存在时返回假。"""
+        for squad in list(self._squads):
+            if squad.intent.id != intent_id:
+                continue
+            squad.intent.state = IntentState.SUPERSEDED
+            # 不动单位的状态：任务撤了不等于到位，结算里就不该记到位
+            self._finish(squad, squad._observation, [], IntentState.SUPERSEDED)
+            return True
+        return False
+
     def cards(self, observation, squad=None):
         """此刻该给模型看的卡片。"""
         return self.registry.cards(Mode.MATCH, observation, squad)
@@ -248,14 +278,14 @@ class MicroLayer:
             "intent_id": squad.intent.id,
             "tactic": squad.intent.tactic,
             "state": str(state),
-            "frame": observation.frame,
+            "frame": observation.frame if observation is not None else 0,
             "arrived": [u.agent_id for u in squad.units if u.mode == UnitMode.ARRIVED],
             "lost": [u.agent_id for u in squad.units if u.mode == UnitMode.LOST],
             "failed": [u.agent_id for u in squad.units if u.mode == UnitMode.FAILED],
         }
         self.completed.append(record)
         self._squads.remove(squad)
-        self._record(observation.frame, "squad_settled", squad.intent, record)
+        self._record(record["frame"], "squad_settled", squad.intent, record)
 
     # ------------------------------------------------------------ 下令
     def _order(self, squad, observation, outcomes) -> None:
@@ -274,6 +304,8 @@ class MicroLayer:
             # 条件不满足：本拍什么都不做，等局面变化
             self._record(observation.frame, "squad_waiting", squad.intent,
                          {"tactic": squad.intent.tactic, "reason": str(error)})
+            self._notify("waiting", observation.frame, squad.intent.tactic,
+                         str(error))
             return
         except TacticError as error:
             self._fail_squad(squad, observation, outcomes, str(error))
@@ -289,6 +321,8 @@ class MicroLayer:
             # 失焦不是命令失败：整拍挂起，等帧恢复
             self._record(observation.frame, "command_paused", squad.intent,
                          {"intent": intent.kind, "reason": str(error)})
+            self._notify("paused", observation.frame, squad.intent.tactic,
+                         str(error))
             for unit in active:
                 unit.goal = None
             return
@@ -356,6 +390,11 @@ class MicroLayer:
                      {"tactic": squad.intent.tactic, "reason": reason})
         # 结算交给紧随其后的 _settle：一处收尾，免得同一条编队被记两次
         squad.intent.state = IntentState.FAILED
+
+    def _notify(self, kind, frame, tactic, detail) -> None:
+        """记一条运行时告警，等着指挥层报给模型。"""
+        self.notices.append({"kind": kind, "frame": frame, "tactic": tactic,
+                             "detail": detail})
 
     def _record(self, frame, event, intent, detail) -> None:
         """写决策日志。"""

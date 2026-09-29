@@ -295,7 +295,7 @@ class TacticRegistry:
                 if not info.expose or not self.policy.allows(info):
                     continue
                 if observation is not None and subject is not None:
-                    if self._missing_conditions(info, observation, subject):
+                    if self.missing_conditions(info, observation, subject):
                         continue
             out.append(Card(name=info.name, summary=info.summary,
                             level=str(info.level), params=info.params,
@@ -334,7 +334,7 @@ class TacticRegistry:
             log=None, attempt=0) -> tuple:
         """顶层调用：校验参数、建上下文、调用、检查产出总量。"""
         tactic = self.get(name)
-        clean = self._check_params(tactic, params or {})
+        clean = self.check_params(name, params or {})
         context = TacticContext(
             registry=self, tactic=tactic, observation=observation, subject=subject,
             params=clean, frame=frame, memo=memo if memo is not None else {},
@@ -355,7 +355,7 @@ class TacticRegistry:
         if len(parent.chain) >= self.policy.max_depth:
             raise TacticError(f"技法调用深度超过 {self.policy.max_depth}")
         parent._budget.spend()
-        clean = self._check_params(tactic, params)
+        clean = self.check_params(name, params)
         context = TacticContext(
             registry=self, tactic=tactic, observation=parent.observation,
             subject=parent.subject, params=clean, frame=parent.frame,
@@ -376,7 +376,7 @@ class TacticRegistry:
         if not self.policy.allows(info):
             self._record(context, "tactic_denied", "被策略拒绝")
             raise TacticDenied(f"技法 {info.name}（{info.level}）被策略拒绝")
-        missing = self._missing_conditions(info, context.observation, context.subject)
+        missing = self.missing_conditions(info, context.observation, context.subject)
         if missing:
             self._record(context, "tactic_denied", f"适用条件不满足：{missing}")
             raise TacticDenied(
@@ -393,7 +393,7 @@ class TacticRegistry:
         self._record(context, "tactic_run", f"产出 {len(intents)} 条意图")
         return intents
 
-    def _missing_conditions(self, info, observation, subject) -> tuple:
+    def missing_conditions(self, info, observation, subject) -> tuple:
         """返回此刻不满足的适用条件名。"""
         if not info.requires:
             return ()
@@ -403,8 +403,13 @@ class TacticRegistry:
             log=None, chain=(info.name,), attempt=0, budget=_Budget(0))
         return check_conditions(info.requires, probe)
 
-    def _check_params(self, tactic, params) -> dict:
-        """按声明的参数表校验并补默认值。"""
+    def check_params(self, name, params) -> dict:
+        """按声明的参数表校验并补默认值。
+
+        指挥层在受理模型请求时先调它，使模型当场拿到「参数不对」而不是等一拍之后
+        静默失败。
+        """
+        tactic = self.get(name)
         declared = {p.name: p for p in tactic.info.params}
         unknown = set(params) - set(declared)
         if unknown:
