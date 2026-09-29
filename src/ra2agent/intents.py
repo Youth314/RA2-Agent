@@ -268,6 +268,31 @@ class Sell(Intent):
     buildings: tuple[int, ...] = ()
 
 
+@register("wake")
+@dataclass
+class Wake(Intent):
+    """请求唤醒模型，附一句说明。
+
+    **它不落到引擎**——没有对应的引擎命令，`Executor` 处理不了。技法层会把它拦下来
+    交给桥接层，其余意图照常下发。
+
+    它仍是意图：带信封、可记录、可回放，与其余意图同构。
+    """
+
+    text: str = ""
+
+
+def split_wakes(intents) -> tuple:
+    """把一批意图分成 `(给引擎的, 唤醒用的)`。
+
+    技法只返回意图，不自己发命令；分辨哪条往下走、哪条往上走是技法层的活。
+    """
+    engine, wakes = [], []
+    for intent in intents:
+        (wakes if isinstance(intent, Wake) else engine).append(intent)
+    return tuple(engine), tuple(wakes)
+
+
 @register("call")
 @dataclass
 class TacticCall(Intent):

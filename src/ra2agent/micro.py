@@ -13,10 +13,11 @@ from enum import StrEnum
 from .errors import (CommandFailed, GameNotResponding, InvalidCommand, Timeout,
                      TacticDenied, TacticError)
 from .executor import Executor
-from .intents import IntentState, TacticCall
+from .intents import IntentState, TacticCall, split_wakes
 from .observation import Observation
 from .tactics import Mode, TacticRegistry
 from .validate import Validator
+from .wake import WakeBridge
 
 #: 每 tick 之间的默认帧数。44 fps 下约 0.5 秒。
 DEFAULT_TICK_FRAMES = 22
@@ -111,7 +112,7 @@ class MicroLayer:
                  tick_frames=DEFAULT_TICK_FRAMES,
                  arrive_radius=DEFAULT_ARRIVE_RADIUS,
                  stuck_frames=DEFAULT_STUCK_FRAMES,
-                 max_retries=DEFAULT_MAX_RETRIES, sleep=time.sleep):
+                 max_retries=DEFAULT_MAX_RETRIES, sleep=time.sleep, wake=None):
         self.observer = observer
         self.registry = registry or TacticRegistry(log=log).load_builtin()
         self.log = log
@@ -120,6 +121,8 @@ class MicroLayer:
         self.stuck_frames = stuck_frames
         self.max_retries = max_retries
         self._sleep = sleep
+        #: 唤醒桥。**一个会话一份**，自动层与模型调用的路径共用同一份额度。
+        self.wake = wake if wake is not None else WakeBridge(log=log)
         self._squads: list = []
         #: 已结算的任务，供指挥层读取
         self.completed: list = []
@@ -316,8 +319,17 @@ class MicroLayer:
         except TacticError as error:
             self._fail_squad(squad, observation, outcomes, str(error))
             return
-        for intent in intents:
+        # `Wake` 不落到引擎——它往上走，交给唤醒桥
+        engine, wakes = split_wakes(intents)
+        for intent in wakes:
+            self._request_wake(intent, observation, squad.intent.tactic)
+        for intent in engine:
             self._dispatch(squad, active, intent, observation, outcomes)
+
+    def _request_wake(self, intent, observation, tactic) -> None:
+        """把一条 `Wake` 意图投给桥。投递失败不改任务状态——它是旁路，不是命令。"""
+        record = self.wake.request(intent.text, observation.frame, tactic=tactic)
+        self._record(observation.frame, "wake_requested", intent, record)
 
     def _dispatch(self, squad, active, intent, observation, outcomes) -> None:
         """下发一条意图，并按结果更新进度。"""

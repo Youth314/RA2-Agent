@@ -43,6 +43,13 @@ def describe_auto(record) -> str:
     return f"{name}｜" + "、".join(parts)
 
 
+def describe_wake(record) -> str:
+    """一行说清一条唤醒为什么没送到。"""
+    reason = record.get("error") or record.get("skipped") or record.get("deferred") or "未送达"
+    text = (record.get("text") or "").strip().splitlines()[0][:40] if record.get("text") else ""
+    return f"{reason}｜{text}" if text else reason
+
+
 def observation_events(observer, cursor):
     """`observer` 上自 `cursor` 起的新事件，返回 `(事件, 新游标)`。
 
@@ -173,6 +180,8 @@ class StatusReport:
     events: tuple = ()
     #: 自动触发层做成或失败的事。空转与没触发的不在其中。
     auto: tuple = ()
+    #: **没送出去**的唤醒。送成功的不报——那条消息本身就是通知。
+    wakes: tuple = ()
     units: tuple = ()
     enemies: tuple = ()
     running: tuple = ()
@@ -192,6 +201,9 @@ class StatusReport:
         if self.auto:
             lines.append(f"自动层 {len(self.auto)} 项：")
             lines.extend(f"- {describe_auto(record)}" for record in self.auto)
+        if self.wakes:
+            lines.append(f"唤醒未送达 {len(self.wakes)} 条：")
+            lines.extend(f"- {describe_wake(record)}" for record in self.wakes)
         if self.units:
             lines.append(f"己方单位 {len(self.units)}：")
             for unit in self.units[:MAX_LISTED_UNITS]:
@@ -244,8 +256,11 @@ class Commander:
         self._seen_events = 0
         self._auto_cursor = 0
         self._seen_auto = 0
+        self._seen_wakes = 0
         #: 自动触发层。技法按名片里的触发声明自己跑，产出的是脉冲。
-        self.autopilot = Autopilot(layer.registry, layer.executor, log=log)
+        # 唤醒桥挂在技法层上：一个会话一份额度，自动层与模型调用的路径共用
+        self.autopilot = Autopilot(layer.registry, layer.executor, log=log,
+                                   wake=layer.wake)
 
     # ------------------------------------------------------------ 工具一：局势
     def status(self, observation=None) -> StatusReport:
@@ -261,8 +276,10 @@ class Commander:
         match, brief = self._match_info(observation)
         new_events, self._seen_events = observation_events(self.observer, self._seen_events)
         auto, self._seen_auto = self.auto_records(self._seen_auto)
+        wakes, self._seen_wakes = self.wake_records(self._seen_wakes)
         return StatusReport(frame=observation.frame, summary=observation.summary(),
                             match=match, brief=brief, events=new_events, auto=auto,
+                            wakes=wakes,
                             units=self._own_units(observation),
                             enemies=self._enemy_units(observation),
                             running=self.layer.progress(), results=tuple(completed),
@@ -287,6 +304,16 @@ class Commander:
         records = self.autopilot.records
         notable = tuple(r for r in records[since:] if is_notable(r))
         return notable, len(records)
+
+    def wake_records(self, since):
+        """`since` 之后**没送出去**的唤醒，返回 `(记录, 新游标)`。
+
+        送成功的**不报**——那条消息本身就是通知，再在 `status` 里说一遍是重复。
+        失败、被限流、没送出去的才要报，否则会静默丢事件。
+        """
+        records = self.layer.wake.records
+        missed = tuple(r for r in records[since:] if not r.get("sent"))
+        return missed, len(records)
 
     def _match_info(self, observation):
         """本局信息：`(每拍一行, 首次的详细简报)`。

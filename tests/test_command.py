@@ -552,3 +552,63 @@ class TestAutoTriggeredTactics(Case):
                                            subject=Subject("house", 0, "me"))])
         self.layer.tick(self.observation)
         self.assertEqual([i.kind for i in self.executor.calls], ["deploy"])
+
+
+class TestWakeRequests(Case):
+    """`Wake` 不落到引擎——它往上走，交给唤醒桥。"""
+
+    def _tactic(self, run, trigger=None):
+        from ra2agent.tactics import Trigger
+        return Tactic(info=TacticInfo(name="ask_model", summary="叫醒模型",
+                                      trigger=trigger or Trigger.every(10)), run=run)
+
+    def _build(self, run):
+        from ra2agent.wake import WakeBridge, WakePolicy
+        state = GameState.parse(build_game_state(houses=[
+            build_house(PLAYER_HOUSE, current_player=True)]))
+        self.build(state, registry=TacticRegistry().load([self._tactic(run)]))
+        self.posts = []
+
+        def poster(endpoint, payload, timeout):
+            self.posts.append(payload)
+            return True, '{"ok": true, "session": "s1"}'
+
+        self.layer.wake = WakeBridge(policy=WakePolicy(min_frames=1), poster=poster)
+        self.commander.autopilot.wake = self.layer.wake
+        self.layer.on_tick = self.commander.auto
+        return state
+
+    def test_wake_goes_to_the_bridge_not_the_executor(self):
+        from ra2agent.intents import Wake
+        self._build(lambda ctx: (ctx.intent(Wake, text="基地被打"),))
+        self.layer.tick(self.observation)
+        self.assertEqual(self.executor.calls, [], "没有引擎命令")
+        self.assertEqual(len(self.posts), 1)
+        self.assertIn("基地被打", self.posts[0]["text"])
+
+    def test_wake_can_accompany_engine_intents(self):
+        from ra2agent.intents import Deploy, Wake
+        self._build(lambda ctx: (ctx.intent(Deploy, units=(1,)),
+                                 ctx.intent(Wake, text="顺手说一声")))
+        self.layer.tick(self.observation)
+        self.assertEqual([i.kind for i in self.executor.calls], ["deploy"])
+        self.assertEqual(len(self.posts), 1)
+
+    def test_successful_wakes_are_not_reported(self):
+        # 那条消息本身就是通知，再在 status 里说一遍是重复
+        from ra2agent.intents import Wake
+        self._build(lambda ctx: (ctx.intent(Wake, text="基地被打"),))
+        self.layer.tick(self.observation)
+        self.assertNotIn("唤醒未送达", self.commander.status(self.observation).render())
+
+    def test_undelivered_wakes_are_reported(self):
+        from ra2agent.intents import Wake
+        from ra2agent.wake import WakeBridge, WakePolicy
+        self._build(lambda ctx: (ctx.intent(Wake, text="基地被打"),))
+        self.layer.wake = WakeBridge(policy=WakePolicy(min_frames=1),
+                                     poster=lambda *a: (False, "连接被拒绝"))
+        self.commander.autopilot.wake = self.layer.wake
+        self.layer.tick(self.observation)
+        text = self.commander.status(self.observation).render()
+        self.assertIn("唤醒未送达", text)
+        self.assertIn("连接被拒绝", text)

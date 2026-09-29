@@ -8,6 +8,8 @@
 触发层不是后门——等级门槛、停用名单、适用条件，自动触发一样要过。
 """
 from .errors import GameNotResponding, Ra2Error
+from .intents import split_wakes
+from .wake import WakeBridge
 
 #: 保留多少条自动执行记录给 `status` 查。
 DEFAULT_MAX_RECORDS = 64
@@ -22,10 +24,12 @@ def kind_of(event) -> str:
 class Autopilot:
     """按触发声明跑技法。由技法层每拍驱动一次。"""
 
-    def __init__(self, registry, executor, log=None, max_records=DEFAULT_MAX_RECORDS):
+    def __init__(self, registry, executor, log=None, wake=None,
+                 max_records=DEFAULT_MAX_RECORDS):
         self.registry = registry
         self.executor = executor
         self.log = log
+        self.wake = wake if wake is not None else WakeBridge(log=log)
         self.max_records = max_records
         #: 技法名 → 上次跑的帧。`every` 靠它计时。
         self._last_run: dict = {}
@@ -87,7 +91,14 @@ class Autopilot:
             # 技法自己判断此刻无事可做——常见且正常，不必报给模型
             record["idle"] = True
             return record
-        record["outcomes"] = self._dispatch(intents, observation, record)
+        # `Wake` 不落到引擎——它往上走，交给唤醒桥
+        engine, wakes = split_wakes(intents)
+        if engine:
+            record["outcomes"] = self._dispatch(engine, observation, record)
+        if wakes:
+            record["wakes"] = [self.wake.request(intent.text, observation.frame,
+                                                 tactic=name)
+                               for intent in wakes]
         self._log(observation, "auto_ran", record)
         return record
 

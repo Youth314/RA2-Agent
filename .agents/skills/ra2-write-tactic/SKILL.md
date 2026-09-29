@@ -47,6 +47,30 @@ TacticInfo(..., trigger=Trigger.automatic("low_power", every_frames=90))
 
 实体清单见 `src/ra2agent/tactics/builtin/opening.py`。
 
+### 叫醒模型
+
+自动层多数时候不该打扰模型。真到了**只有模型能决定**的事（该扩张还是该防守、
+这笔钱怎么花），返回一条 `Wake`：
+
+```python
+from ra2agent.intents import Wake
+
+return (ctx.intent(Wake, text="基地被打了，3 个建筑在掉血"),)
+```
+
+它**不落到引擎**——技法层把它拦下来交给唤醒桥，其余意图照常下发。
+
+三条节制（都在库里，不必自己写）：
+
+- **限流**：两次唤醒之间至少隔若干游戏帧；
+- **合并**：被挡住的内容不丢，攒进待发队列，下次并成一条投出去；
+- **额度**：一局最多唤醒几次。**一次唤醒就是一轮 LLM 调用**，写歪的策略会烧掉一整局的额度。
+
+所以：**能不叫醒就不叫醒。** 多数事让技法自己做完，`Wake` 只留给真正需要判断的。
+
+送成功的唤醒不会出现在 `status` 里（那条消息本身就是通知）；**没送出去的会报**——
+静默丢事件比报错糟得多。
+
 ## 二、允许的 import
 
 白名单：`math`、`typing`、`dataclasses`、`enum`，以及本项目的

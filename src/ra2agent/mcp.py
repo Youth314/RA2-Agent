@@ -24,6 +24,7 @@ from .intents import DecisionLog
 from .micro import MicroLayer
 from .observation import Observer
 from .rules import attach_type_aliases
+from .wake import WakeBridge, WakePolicy
 from .tactics import TacticPolicy, TacticRegistry
 from .validate import Validator
 
@@ -146,6 +147,8 @@ class GameSession:
     """
 
 DEFAULT_ALIASES_PATH = "corpus/derived/rules.json"
+#: 唤醒桥的配置。不存在就用默认值。
+DEFAULT_WAKE_CONFIG = "config/wake.json"
 
 
 class GameSession:
@@ -156,11 +159,12 @@ class GameSession:
 
     def __init__(self, host=None, port=None, log_path=None,
                  tick_interval=TICK_INTERVAL, on_log=None, game_host=None,
-                 aliases_path=None):
+                 aliases_path=None, wake_config_path=None):
         self.host = host
         self.port = port
         self.log_path = log_path
         self.aliases_path = aliases_path or DEFAULT_ALIASES_PATH
+        self.wake_config_path = wake_config_path or DEFAULT_WAKE_CONFIG
         self.tick_interval = tick_interval
         self.on_log = on_log
         self.game_host = game_host or GameHost(host=host or DEFAULT_HOST,
@@ -200,6 +204,16 @@ class GameSession:
                                f"game start 启动。") from error
             return self
 
+    def _build_wake(self, log):
+        """按 `config/wake.json` 建唤醒桥。文件不在就用默认值。"""
+        try:
+            policy = WakePolicy.load(self.wake_config_path)
+        except (OSError, ValueError, json.JSONDecodeError) as error:
+            self._emit(f"唤醒配置读不了，改用默认值：{error}")
+            policy = WakePolicy()
+        return WakeBridge(endpoint=policy.endpoint, policy=policy, log=log,
+                          timeout=policy.timeout)
+
     def reset(self):
         """丢掉整条会话，下次调用重建。
 
@@ -235,7 +249,8 @@ class GameSession:
         executor = Executor(client, observer.identity, types=observer.types,
                             validator=Validator(observer.map_data), log=log,
                             read_state=lambda: observer.poll().state)
-        layer = MicroLayer(observer, registry, executor, log=log)
+        layer = MicroLayer(observer, registry, executor, log=log,
+                           wake=self._build_wake(log))
         self._client, self._observer, self._layer = client, observer, layer
         self._commander = Commander(layer, observer, log=log)
         # 自动触发挂在技法层的每拍开头：本拍发起的任务同拍就能下令
