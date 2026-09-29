@@ -172,6 +172,14 @@ class TestCall(Case):
         self.assertFalse(results[0].accepted)
         self.assertIn("缺少参数", results[0].error)
 
+    def test_bad_value_is_rejected_up_front(self):
+        # 参数只查「在不在」不够：cell 给了 None，要当场说清楚，而不是等技法里炸
+        results = self.commander.call([CallRequest(
+            tactic="advance_to_cell", units=(self.agent(ALLY_A),),
+            params={"cell": None})])
+        self.assertFalse(results[0].accepted)
+        self.assertIn("取值不合法", results[0].error)
+
     def test_unmet_condition_is_rejected_up_front(self):
         results = self.commander.call([CallRequest(
             tactic="engage_nearest", units=(self.agent(ALLY_A),),

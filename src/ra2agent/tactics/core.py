@@ -47,16 +47,45 @@ REQUIRED = object()
 
 @dataclass(frozen=True)
 class Param:
-    """一个参数。默认值同时用于向模型展示。"""
+    """一个参数：名字、默认值、说明，以及取值检查。
+
+    `check` 在受理时就把不合法的值挡回去。只查「在不在」不够：模型可能给出
+    `cell: null` 这类形状不对的值，一路走到技法里才炸，那时它拿到的是一句
+    看不懂的 TypeError。
+    """
 
     name: str
     default: object = REQUIRED
     help: str = ""
+    check: Callable[[object], bool] | None = None
 
     @property
     def required(self) -> bool:
         """是否必填。"""
         return self.default is REQUIRED
+
+
+def is_cell(value) -> bool:
+    """是否是 `(x, y)` 两个整数。JSON 往返后会变成列表，故两者都收。"""
+    return (isinstance(value, (tuple, list)) and len(value) == 2
+            and all(isinstance(v, int) and not isinstance(v, bool) for v in value))
+
+
+def is_stance(value) -> bool:
+    """是否是已知姿态。"""
+    from ..intents import Stance
+    return value in tuple(Stance)
+
+
+def is_non_negative_int(value) -> bool:
+    """是否是非负整数。"""
+    return (isinstance(value, int) and not isinstance(value, bool) and value >= 0)
+
+
+def is_positive_number(value) -> bool:
+    """是否是正数。"""
+    return (isinstance(value, (int, float)) and not isinstance(value, bool)
+            and value > 0)
 
 
 @dataclass(frozen=True)
@@ -421,6 +450,13 @@ class TacticRegistry:
                    if p.required and name not in params]
         if missing:
             raise TacticError(f"技法 {tactic.info.name} 缺少参数：{missing}")
+        for name, declared_param in declared.items():
+            if declared_param.check is None or name not in clean:
+                continue
+            if not declared_param.check(clean[name]):
+                raise TacticError(
+                    f"技法 {tactic.info.name} 的参数 {name} 取值不合法："
+                    f"{clean[name]!r}（{declared_param.help}）")
         return clean
 
     def _record(self, context, event, detail) -> None:

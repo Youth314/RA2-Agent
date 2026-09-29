@@ -278,7 +278,8 @@ class MicroLayer:
             "intent_id": squad.intent.id,
             "tactic": squad.intent.tactic,
             "state": str(state),
-            "frame": observation.frame if observation is not None else 0,
+            "frame": (observation.frame if observation is not None
+                      else squad.intent.created_frame),
             "arrived": [u.agent_id for u in squad.units if u.mode == UnitMode.ARRIVED],
             "lost": [u.agent_id for u in squad.units if u.mode == UnitMode.LOST],
             "failed": [u.agent_id for u in squad.units if u.mode == UnitMode.FAILED],

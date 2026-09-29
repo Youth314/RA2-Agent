@@ -5,7 +5,8 @@
 """
 from ...formation import blocked_cells, formation_cells
 from ...intents import Attack, Hold, MoveTo, Stance
-from ..core import REQUIRED, Param, Tactic, TacticInfo
+from ..core import (REQUIRED, Param, Tactic, TacticInfo, is_cell,
+                    is_non_negative_int, is_positive_number, is_stance)
 
 
 def _hold(context):
@@ -104,9 +105,10 @@ TACTICS = (
         name="advance_to_cell",
         summary="把这队单位推进到目标格附近，逐单位展开队形",
         params=(
-            Param("cell", REQUIRED, "目标格 (x, y)"),
-            Param("stance", Stance.AGGRESSIVE, "接战姿态：aggressive / passive / hold"),
-            Param("spread", 1, "队形展开；0 表示全去中心格"),
+            Param("cell", REQUIRED, "目标格 (x, y)", is_cell),
+            Param("stance", Stance.AGGRESSIVE, "接战姿态：aggressive / passive / hold",
+                  is_stance),
+            Param("spread", 1, "队形展开；0 表示全去中心格", is_non_negative_int),
         ),
         requires=("has_units", "has_map"),
     ), _advance_to_cell),
@@ -114,7 +116,7 @@ TACTICS = (
     Tactic(TacticInfo(
         name="engage_nearest",
         summary="对半径内最近的可见敌人开火",
-        params=(Param("radius", 8, "接战半径（格）"),),
+        params=(Param("radius", 8, "接战半径（格）", is_positive_number),),
         requires=("has_units", "has_enemies"),
     ), _engage_nearest),
 
@@ -122,10 +124,10 @@ TACTICS = (
         name="advance_covering",
         summary="有敌人先接战，没有敌人再推进",
         params=(
-            Param("cell", REQUIRED, "目标格 (x, y)"),
-            Param("radius", 8, "接战半径（格）"),
-            Param("stance", Stance.AGGRESSIVE, "推进姿态"),
-            Param("spread", 1, "队形展开；0 表示全去中心格"),
+            Param("cell", REQUIRED, "目标格 (x, y)", is_cell),
+            Param("radius", 8, "接战半径（格）", is_positive_number),
+            Param("stance", Stance.AGGRESSIVE, "推进姿态", is_stance),
+            Param("spread", 1, "队形展开；0 表示全去中心格", is_non_negative_int),
         ),
         requires=("has_units", "has_map"),
     ), _advance_covering),

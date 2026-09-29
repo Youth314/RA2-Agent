@@ -71,8 +71,8 @@ return (ctx.intent(MoveTo, units=ctx.subject.agents(), cell=(40, 40)),)
 Tactic(TacticInfo(
     name="advance_to_cell",              # 唯一名，模型按它引用
     summary="把这队单位推进到目标格附近",   # 一句话，进卡片
-    params=(Param("cell", REQUIRED, "目标格 (x, y)"),
-            Param("stance", "aggressive", "姿态")),
+    params=(Param("cell", REQUIRED, "目标格 (x, y)", is_cell),
+            Param("stance", "aggressive", "姿态", is_stance)),
     requires=("has_units", "has_map"),   # 适用条件
     level=Level.NORMAL,                  # 等级，见下
     expose=True,                         # 是否进对战时的卡片
@@ -81,6 +81,10 @@ Tactic(TacticInfo(
 
 条件名目前有 `has_units`、`has_map`、`has_enemies`、`no_enemies`、`cell_explored`。
 不够用时去 `tactics/conditions.py` 加，不要在技法里偷偷判断。
+
+**每个参数都要挂取值检查**，内置的有 `is_cell`、`is_stance`、`is_non_negative_int`、
+`is_positive_number`。只声明 `Param` 会漏掉形状错误：`cell: null` 会一路走到你的函数里
+才炸，模型拿到的是一句看不懂的 TypeError。
 
 ## 六、等级怎么申报
 

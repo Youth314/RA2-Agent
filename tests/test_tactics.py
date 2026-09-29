@@ -102,6 +102,27 @@ class TestParameters(unittest.TestCase):
             run(self.registry, "p", {"radius": 3})
         self.assertIn("缺少参数", str(ctx.exception))
 
+    def test_bad_value_is_rejected_by_check(self):
+        from ra2agent.tactics import is_cell
+        registry = TacticRegistry()
+        registry.register(Tactic(TacticInfo(
+            name="c", summary="带检查的参数",
+            params=(Param("cell", REQUIRED, "目标格", is_cell),)),
+            lambda ctx: ()))
+        for bad in (None, "5,5", (1,), (1, 2, 3), (1.5, 2)):
+            with self.subTest(bad=bad):
+                with self.assertRaises(TacticError) as ctx:
+                    run(registry, "c", {"cell": bad})
+                self.assertIn("取值不合法", str(ctx.exception))
+        run(registry, "c", {"cell": [1, 2]})          # JSON 往返后是列表
+
+    def test_builtin_rejects_bad_cell(self):
+        registry = TacticRegistry().load_builtin()
+        with self.assertRaises(TacticError) as ctx:
+            run(registry, "advance_to_cell", {"cell": None},
+                subject=FakeSubject(), observation=make_observation(map_data=make_map()))
+        self.assertIn("取值不合法", str(ctx.exception))
+
     def test_unknown_parameter_is_rejected(self):
         with self.assertRaises(TacticError) as ctx:
             run(self.registry, "p", {"cell": (1, 2), "typo": 1})
