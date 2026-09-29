@@ -235,6 +235,23 @@ class TestParseRules(unittest.TestCase):
         derrick = self.rules.building("CAOILD")
         self.assertIsNone(self.rules.damage_per_shot(derrick, derrick))
 
+    def test_countries_carry_their_side(self):
+        # 阵营归属从各国家节的 Side= 读，不写死在代码里
+        countries = parse_rules(COUNTRIES_SAMPLE).countries
+        self.assertEqual(countries["Americans"].side, "GDI")
+        self.assertEqual(countries["Americans"].display, "America")
+        self.assertTrue(countries["Americans"].playable)
+        self.assertFalse(countries["Neutral"].playable)
+        with_placeholder = COUNTRIES_SAMPLE.replace(
+            "3=Neutral", "3=Neutral\n4=GDI") + "\n[GDI]\nName=GDI\nSide=GDI\n"
+        self.assertFalse(parse_rules(with_placeholder).countries["GDI"].playable,
+                         "GDI 是占位，不是可选国家")
+
+    def test_sides_group_the_countries(self):
+        sides = parse_rules(COUNTRIES_SAMPLE).sides()
+        self.assertEqual(sides["GDI"], ("Americans", "British"))
+        self.assertEqual(sides["Nod"], ("Russians",))
+
     def test_empty_rules_is_usable(self):
         empty = Rules()
         self.assertEqual((empty.units, empty.buildings), ((), ()))
@@ -243,3 +260,28 @@ class TestParseRules(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+COUNTRIES_SAMPLE = """
+[Countries]
+0=Americans
+1=British
+2=Russians
+3=Neutral
+
+[Americans]
+Name=America
+Side=GDI
+
+[British]
+Name=Great Britain
+Side=GDI
+
+[Russians]
+Name=Russia
+Side=Nod
+
+[Neutral]
+Name=Civilian
+Side=Civilian
+"""

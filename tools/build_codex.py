@@ -28,24 +28,22 @@ NOTES = REPO / "corpus" / "notes"
 #: 单位与建筑的名字来源是英文，这里只把「类别」说成中文。
 KIND_LABEL = {"infantry": "步兵", "vehicle": "载具", "aircraft": "飞行器"}
 
-#: 阵营 → 属于它的国家。出处：`rulesmd.ini` 里各国家节的 `Side=`。
 #: `GDI`/`Nod` 是西木从泰伯利亚之日留下的名字，实际就是盟军与苏军。
-SIDE_COUNTRIES = {
-    "GDI": ("Americans", "Alliance", "French", "Germans", "British"),
-    "Nod": ("Africans", "Arabs", "Confederation", "Russians"),
-    "ThirdSide": ("YuriCountry",),
-}
+#: 阵营归属不写死在这里——`rulesmd.ini` 各国家节的 `Side=` 就是答案。
 SIDE_LABEL = {"GDI": "盟军（GDI）", "Nod": "苏军（Nod）", "ThirdSide": "尤里（ThirdSide）"}
 #: 单位归不到单一阵营时放这里。
 SHARED_LABEL = "跨阵营"
 #: 建造厂 → 阵营。建筑的阵营靠前提链追到它。
 CONSTRUCTION_YARDS = {"GACNST": "GDI", "NACNST": "Nod", "YACNST": "ThirdSide"}
-COUNTRY_TO_SIDE = {c: s for s, cs in SIDE_COUNTRIES.items() for c in cs}
+def country_side(rules, country):
+    """某个国家属于哪个阵营。"""
+    found = rules.countries.get(country)
+    return found.side if found else None
 
 
-def unit_side(unit):
+def unit_side(unit, sides_of):
     """单位属于哪个阵营；横跨多个阵营返回 `None`。"""
-    sides = {COUNTRY_TO_SIDE[c] for c in unit.owners if c in COUNTRY_TO_SIDE}
+    sides = {sides_of.get(c) for c in unit.owners} - {None}
     return sides.pop() if len(sides) == 1 else None
 
 
@@ -235,9 +233,15 @@ def country_uniques(rules):
     return out
 
 
+def sides_of(rules):
+    """国家 id → 阵营。"""
+    return {c.id: c.side for c in rules.countries.values()}
+
+
 def side_members(rules, side, buildings=False):
     """某个阵营的共用条目；国家特有的不在其中。"""
     index = {b.id: b for b in rules.buildings}
+    country_sides = sides_of(rules)
     pick = (lambda o: True) if buildings else (lambda o: o.tech_level >= 1)
     if buildings:
         pick = lambda o: o.cost > 0 and o.tech_level >= 1        # noqa: E731
@@ -245,7 +249,7 @@ def side_members(rules, side, buildings=False):
     for holder in rules.buildings if buildings else rules.units:
         if is_unused(holder) or is_country_unique(holder) or not pick(holder):
             continue
-        side_of = building_side(holder, index) if buildings else unit_side(holder)
+        side_of = building_side(holder, index) if buildings else unit_side(holder, country_sides)
         if side_of == side:
             out.append(holder)
     return out
@@ -289,6 +293,7 @@ def load_notes(name):
 
 def build_units(rules, names):
     """`codex/units.md`：按阵营分，未使用的排最后。"""
+    country_sides = sides_of(rules)
     buildable = [u for u in rules.units if u.tech_level >= 1 and not is_unused(u)]
     # 国家特有的也在这条线上，但它们归属 countries.md，别在这里重复出现
     other = [u for u in rules.units
@@ -299,7 +304,8 @@ def build_units(rules, names):
         part = side_members(rules, side)
         if part:
             groups.append((SIDE_LABEL[side], part))
-    shared = [u for u in buildable if unit_side(u) is None and not is_country_unique(u)]
+    shared = [u for u in buildable
+              if unit_side(u, country_sides) is None and not is_country_unique(u)]
     if shared:
         groups.append((SHARED_LABEL, shared))
     lines = ["# 单位",
@@ -388,10 +394,16 @@ def build_countries(rules, names):
              "",
              "阵营共用在 [`units.md`](units.md) 与 [`buildings.md`](buildings.md) 的对应章；"
              "各国特有的都在这里。", ""]
-    for country, side in sorted(COUNTRY_TO_SIDE.items(), key=lambda kv: (kv[1], kv[0])):
-        label = names.get(country, country)
-        lines += [f"## {country} {label} — {SIDE_LABEL[side]}", ""]
-        group = uniques.get(country, [])
+    playable = sorted((c for c in rules.countries.values() if c.playable),
+                      key=lambda c: (c.side, c.id))
+    for country in playable:
+        label = names.get(country.id, "")
+        # 观测里给的是显示名（`America`），这里带上，模型才对得上
+        title = f"{country.id} {country.display}"
+        if label and label != country.display:
+            title += f"（{label}）"
+        lines += [f"## {title} — {SIDE_LABEL.get(country.side, country.side)}", ""]
+        group = uniques.get(country.id, [])
         if not group:
             lines += ["特有：（无）", ""]
             continue

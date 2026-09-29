@@ -191,14 +191,16 @@ class TestFaction(unittest.TestCase):
         base.update(kwargs)
         return type("H", (), base)()
 
+    SIDES = {"Americans": "GDI", "French": "GDI", "Russians": "Nod", "YuriCountry": "ThirdSide"}
+
     def test_unit_side_from_owners(self):
-        self.assertEqual(build_codex.unit_side(self._holder(owners=("Americans", "French"))), "GDI")
-        self.assertEqual(build_codex.unit_side(self._holder(owners=("Russians",))), "Nod")
-        self.assertEqual(build_codex.unit_side(self._holder(owners=("YuriCountry",))), "ThirdSide")
+        self.assertEqual(build_codex.unit_side(self._holder(owners=("Americans", "French")), self.SIDES), "GDI")
+        self.assertEqual(build_codex.unit_side(self._holder(owners=("Russians",)), self.SIDES), "Nod")
+        self.assertEqual(build_codex.unit_side(self._holder(owners=("YuriCountry",)), self.SIDES), "ThirdSide")
 
     def test_cross_faction_unit_has_no_side(self):
-        self.assertIsNone(build_codex.unit_side(self._holder(owners=("Americans", "Russians"))))
-        self.assertIsNone(build_codex.unit_side(self._holder(owners=())))
+        self.assertIsNone(build_codex.unit_side(self._holder(owners=("Americans", "Russians")), self.SIDES))
+        self.assertIsNone(build_codex.unit_side(self._holder(owners=()), self.SIDES))
 
     def test_construction_yard_identifies_the_side(self):
         for yard, side in build_codex.CONSTRUCTION_YARDS.items():

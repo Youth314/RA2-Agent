@@ -19,6 +19,9 @@ from dataclasses import dataclass, field
 ARMOR_TYPES = ("none", "flak", "plate", "light", "medium", "heavy",
                "wood", "steel", "concrete", "special_1", "special_2")
 
+#: `[Countries]` 里的引擎占位项，不是可选国家。
+PLACEHOLDER_COUNTRIES = frozenset({"GDI", "Nod", "Neutral", "Special"})
+
 #: 单位的三个来源节，按此顺序读。
 UNIT_SECTIONS = (("infantry", "InfantryTypes"),
                  ("vehicle", "VehicleTypes"),
@@ -102,6 +105,26 @@ def collect_ids(sections, section_name):
             if identifier not in out:
                 out.append(identifier)
     return out
+
+
+@dataclass(frozen=True)
+class Country:
+    """一个可用国家。`side` 是阵营，`display` 是游戏里显示的名字。"""
+
+    id: str
+    side: str
+    display: str
+
+    @property
+    def playable(self):
+        """能选的国家。
+
+        `[Countries]` 列了 14 项，其中 4 项是引擎占位：`GDI` 与 `Nod` 的 `Name`
+        就等于自己的 id（真正的国家另有其名，如 `Americans` 的 `Name=America`），
+        `Neutral` 与 `Special` 是中立与任务方。故选得到的只有 10 个。
+        """
+        return (self.id not in PLACEHOLDER_COUNTRIES
+                and self.side in ("GDI", "Nod", "ThirdSide"))
 
 
 @dataclass(frozen=True)
@@ -196,6 +219,15 @@ class Rules:
     buildings: tuple = ()
     weapons: dict = field(default_factory=dict)
     warheads: dict = field(default_factory=dict)
+    #: 国家 id → `Country`。阵营从各国家节的 `Side=` 读，不写死在代码里。
+    countries: dict = field(default_factory=dict)
+
+    def sides(self):
+        """阵营 → 属于它的国家 id 元组。"""
+        out = {}
+        for country in self.countries.values():
+            out.setdefault(country.side, []).append(country.id)
+        return {side: tuple(sorted(ids)) for side, ids in out.items()}
 
     def unit(self, identifier):
         """按 id 找单位。"""
@@ -301,5 +333,12 @@ def parse_rules(text):
             warheads[weapon.warhead] = Warhead(id=weapon.warhead,
                                                verses=parse_verses(data.get("Verses")))
 
+    countries = {}
+    for identifier in collect_ids(sections, "Countries"):
+        data = sections.get(identifier)
+        if data:
+            countries[identifier] = Country(id=identifier, side=data.get("Side", ""),
+                                            display=data.get("Name", identifier))
+
     return Rules(units=tuple(units), buildings=tuple(buildings),
-                 weapons=weapons, warheads=warheads)
+                 weapons=weapons, warheads=warheads, countries=countries)
