@@ -271,7 +271,7 @@ def build_buildings(rules, names):
               "拿来当掩体的。只给大小与驻军上限。", "",
               "| 建筑 | 名字 | 地基 | 驻军上限 | 装甲 | 血 |", "|---|---|---|---|---|---|"]
     for building in sorted(occupied, key=lambda b: (-b.max_occupants, b.id)):
-        lines.append(f"| {building.id} | {building.name} | {building.foundation or '—'} | "
+        lines.append(f"| {building.id} | {with_name(building, names)} | {building.foundation or '—'} | "
                      f"{building.max_occupants} | {building.armor} | {building.strength} |")
     return "\n".join(lines).rstrip() + "\n"
 

@@ -43,6 +43,19 @@ def trim(candidate, known):
     return None
 
 
+def trim_name(name, known):
+    """切掉粘在中文名尾巴上的下一条注册名。
+
+    页面把相邻两条挤在一行（`CACHIG04 芝加哥协会大楼 CAEURO05 欧洲建筑05`），
+    而中文的正则允许拉丁字母，于是后者的注册名会被吞进前者的名字里。
+    """
+    match = re.search(r"[A-Za-z0-9_]{2,20}$", name)
+    if match and match.start() > 0 and "\u4e00" <= name[match.start() - 1] <= "\u9fff":
+        if match.group(0) in known:
+            return name[: match.start()].strip()
+    return name
+
+
 def extract(markup, units, buildings, weapons):
     """抽 `注册名 → 中文名`。
 
@@ -69,10 +82,12 @@ def extract(markup, units, buildings, weapons):
             if ident:
                 pairs.append((ident, match.group(2).strip()))
         for ident, name in pairs:
+            name = trim_name(name, known)
             rank = 0 if ident in strong else 1
             if ident not in found or rank < found[ident][0]:
                 found[ident] = (rank, name)
-    return {ident: name for ident, (_, name) in sorted(found.items())}
+    # 只留单位与建筑：武器名对 codex 没用，而页面把武器挤在建筑后面，容易带出噪声。
+    return {ident: name for ident, (rank, name) in sorted(found.items()) if rank == 0}
 
 
 def fetch(url=SOURCE):
