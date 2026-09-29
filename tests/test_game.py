@@ -39,6 +39,20 @@ class Runner:
         return [call[0] for call in self.calls]
 
 
+class Clock:
+    """可拨的时钟，用来摆布「本次启动」与「崩溃报告」的先后。"""
+
+    def __init__(self, start=0.0):
+        self.now = start
+
+    def __call__(self):
+        return self.now
+
+    def advance(self, seconds):
+        self.now += seconds
+        return self.now
+
+
 def make_host(stdout="", error=None, **kwargs):
     """一个外部调用全部换掉的宿主。"""
     runner = Runner(stdout, error)
@@ -164,7 +178,56 @@ class TestInspect(unittest.TestCase):
         host, _ = make_host(CSV_ROW)
         text = "\n".join(host.describe(host.inspect()))
         self.assertIn("1234", text)
+        self.assertIn("正在启动", text)
         self.assertIn("还没通", text)
+
+    def test_the_startup_line_says_how_long_it_has_waited(self):
+        # 模型刚 start 完就查，看到「已等 N 秒」才知道该等而不是判崩
+        clock = Clock(1000.0)
+        host, _ = make_host(CSV_ROW, now=clock)
+        host.launched_at = clock.now
+        clock.advance(4)
+        text = "\n".join(host.describe(host.inspect()))
+        self.assertIn("已等 4 秒", text)
+
+    def test_startup_grace_note_only_after_a_minute(self):
+        clock = Clock(1000.0)
+        host, _ = make_host(CSV_ROW, now=clock)
+        host.launched_at = clock.now
+        clock.advance(30)
+        self.assertNotIn("可能卡住", "\n".join(host.describe(host.inspect())))
+        clock.advance(60)
+        self.assertIn("可能卡住", "\n".join(host.describe(host.inspect())))
+
+    def test_crash_report_from_before_this_launch_is_hidden(self):
+        # 刚起游戏那几秒提一份旧报告，模型会把「正在启动」读成「崩过」
+        with tempfile.TemporaryDirectory() as tmp:
+            report = Path(tmp) / "EXCEPT_CNCNET.TXT"
+            report.write_text("boom", encoding="utf-8")
+            clock = Clock(report.stat().st_mtime)
+            host, _ = make_host(crash_report=str(report), now=clock)
+            host.launched_at = clock.advance(3600)          # 一小时之后才启动
+            clock.advance(5)
+            self.assertIsNone(host.inspect().crash_age)
+
+    def test_crash_report_after_this_launch_is_shown(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            report = Path(tmp) / "EXCEPT_CNCNET.TXT"
+            report.write_text("boom", encoding="utf-8")
+            clock = Clock(report.stat().st_mtime)
+            host, _ = make_host(crash_report=str(report), now=clock)
+            host.launched_at = clock.now
+            report.touch()                                  # 启动之后才崩
+            clock.advance(5)
+            self.assertAlmostEqual(host.inspect().crash_age, 5, delta=1)
+
+    def test_crash_report_alone_still_reported_when_we_never_launched(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            report = Path(tmp) / "EXCEPT_CNCNET.TXT"
+            report.write_text("boom", encoding="utf-8")
+            clock = Clock(report.stat().st_mtime + 600)
+            host, _ = make_host(crash_report=str(report), now=clock)
+            self.assertAlmostEqual(host.inspect().crash_age, 600, delta=1)
 
     def test_running_and_focused(self):
         host, _ = make_host(CSV_ROW)

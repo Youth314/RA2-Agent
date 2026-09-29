@@ -32,6 +32,8 @@ TASKKILL = "/mnt/c/Windows/System32/taskkill.exe"
 COMMAND_TIMEOUT = 30.0
 #: 端口探测的上限。服务端在听就是立刻通。
 PROBE_TIMEOUT = 1.0
+#: 起游戏后端口多久还没在听就值得怀疑。实测约 3 秒起来，留足余量。
+STARTUP_GRACE = 60.0
 
 
 @dataclass(frozen=True)
@@ -51,6 +53,8 @@ class HostState:
     crash_age: float | None
     #: 没有进程时为 `None`：没有窗口就无所谓焦点。
     focused: bool | None
+    #: 本进程发起过启动后已过多少秒；没发起过则为 `None`。
+    waited: float | None = None
 
     @property
     def running(self):
@@ -114,6 +118,8 @@ class GameHost:
         self.focus_probe = focus_probe or winfocus.is_game_foreground
         self.focus_reset = focus_reset or winfocus.reset
         self.now = now
+        #: 本进程最近一次 `launch()` 的时刻；用于判断留证是不是这次的事。
+        self.launched_at = None
 
     # ------------------------------------------------------------ 观测
     def processes(self):
@@ -140,12 +146,26 @@ class GameHost:
         except OSError:
             return None
 
+    def crash_evidence(self):
+        """与本次启动有关的崩溃报告距今多少秒；无关或没有则为 `None`。
+
+        刚 `game start` 完那几秒，进程在、端口还没通。此时若报一份两小时前的
+        报告，模型会把「正在启动」读成「崩过」，故报告必须比本次启动新才算数。
+        """
+        age = self.crash_report_age()
+        if age is None or self.launched_at is None:
+            return age
+        if self.now() - age < self.launched_at:
+            return None
+        return age
+
     # ------------------------------------------------------------ 动作
     def launch(self):
         """经 PowerShell 起游戏。
 
         必须给绝对路径：`cmd /c start` 从 WSL 启动会静默失败。
         """
+        self.launched_at = self.now()
         script = (f"Start-Process -FilePath '{self.game_dir}\\{self.exe}' "
                   f"-ArgumentList '{GAME_ARG}' -WorkingDirectory '{self.game_dir}'")
         self._run([POWERSHELL, "-NoProfile", "-NonInteractive", "-Command", script])
@@ -172,8 +192,9 @@ class GameHost:
         return HostState(
             processes=processes,
             listening=self.port_open(),
-            crash_age=self.crash_report_age(),
+            crash_age=self.crash_evidence(),
             focused=self.focus_probe() if processes else None,
+            waited=None if self.launched_at is None else max(0.0, self.now() - self.launched_at),
         )
 
     def describe(self, state):
@@ -186,8 +207,12 @@ class GameHost:
         else:
             pids = "、".join(str(process.pid) for process in state.processes)
             if not state.listening:
-                lines.append(f"游戏：进程在（PID {pids}），端口 {self.port} 还没通——"
-                             f"服务要几秒，用 game status 再看")
+                waited = "" if state.waited is None else f"，已等 {int(state.waited)} 秒"
+                lines.append(f"游戏：正在启动（PID {pids}{waited}），端口 {self.port} 还没通"
+                             f"——服务约 3 秒后开始听，进对局还要更久。用 game status 再看。")
+                if state.waited is not None and state.waited > STARTUP_GRACE:
+                    lines.append(f"注意：已等 {int(state.waited)} 秒还没在听，"
+                                 f"可能卡住或起崩了。")
             else:
                 focus = ("窗口在前台" if state.focused
                          else "窗口失焦，主循环暂停——用 game focus 抢回焦点")
