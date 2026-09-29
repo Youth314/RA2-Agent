@@ -1,6 +1,6 @@
 """内置技法：首批示范。
 
-四条暴露给模型，一条只供组合调用。它们只做「按当前局面产出意图」这一件事：
+五条暴露给模型，一条只供组合调用。它们只做「按当前局面产出意图」这一件事：
 不记状态、不判失败、不重试——那些是运行时的活，见 `ra2agent/micro.py`。
 """
 from ...formation import blocked_cells, formation_cells
@@ -72,6 +72,27 @@ def _nearest(mine, enemies, radius):
     return best
 
 
+def _hold_and_fire(context):
+    """停止这队单位的移动，对半径内最近的可见敌人开火。
+
+    有目标的单位下攻击令、其余下停止令：整队不再推进，武器仍指向开火半径内
+    的敌人。半径是开火的界线，更远的敌人不打，免得为追敌又移动起来。
+    """
+    radius = float(context.params["radius"])
+    enemies = context.observation.visible_enemies
+    out = []
+    for agent in context.subject.agents():
+        mine = context.subject.object_of(agent)
+        target = _nearest(mine, enemies, radius) if mine is not None else None
+        target_agent = (context.subject.agent_id(target.pointer)
+                        if target is not None else None)
+        if target_agent is None:
+            out.append(context.intent(Hold, units=(agent,)))
+        else:
+            out.append(context.intent(Attack, units=(agent,), target=target_agent))
+    return tuple(out)
+
+
 def _advance_covering(context):
     """组合示范：有敌人先接战，没有敌人再推进。
 
@@ -119,6 +140,14 @@ TACTICS = (
         params=(Param("radius", 8, "接战半径（格）", is_positive_number),),
         requires=("has_units", "has_enemies"),
     ), _engage_nearest),
+
+    Tactic(TacticInfo(
+        name="hold_and_fire",
+        summary="停止这队单位的移动，对半径内最近的可见敌人开火",
+        params=(Param("radius", 8, "开火半径（格）；更远的敌人不打，免得追敌移动",
+                      is_positive_number),),
+        requires=("has_units",),
+    ), _hold_and_fire),
 
     Tactic(TacticInfo(
         name="advance_covering",

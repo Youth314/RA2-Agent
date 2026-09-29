@@ -81,8 +81,9 @@ class TestRegistration(unittest.TestCase):
 
     def test_builtin_library_loads(self):
         registry = TacticRegistry().load_builtin()
-        self.assertEqual(len(registry), 5)
+        self.assertEqual(len(registry), 6)
         self.assertIn("advance_covering", registry.names())
+        self.assertIn("hold_and_fire", registry.names())
 
 
 # ---------------------------------------------------------------- 参数
@@ -195,12 +196,13 @@ class TestCards(unittest.TestCase):
         self.assertIn("halt", names)
 
     def test_conditions_filter_by_situation(self):
-        # 没有敌人时，接战技法不该出现在卡片里
+        # 没有敌人时，接战技法不该出现在卡片里；停止移动不依赖敌人，仍在
         observation = make_observation(map_data=self.map)
         subject = FakeSubject()
         names = [c.name for c in self.registry.cards(Mode.MATCH, observation, subject)]
         self.assertNotIn("engage_nearest", names)
         self.assertIn("advance_covering", names)
+        self.assertIn("hold_and_fire", names)
 
     def test_card_text_is_one_line(self):
         card = Card(name="x", summary="说明", level="normal",
@@ -218,6 +220,29 @@ class TestCards(unittest.TestCase):
     def test_required_parameter_shows_in_card(self):
         card = {c.name: c for c in self.registry.cards(Mode.MATCH)}["advance_to_cell"]
         self.assertIn("cell=必填", card.text())
+
+
+# ---------------------------------------------------------------- 停止开火
+class TestHoldAndFire(unittest.TestCase):
+    """停止移动但保持开火：名片与适用条件。行为在 test_micro 与 test_replay。"""
+
+    def setUp(self):
+        self.registry = TacticRegistry().load_builtin()
+
+    def test_card_shows_the_fire_radius(self):
+        card = {c.name: c for c in self.registry.cards(Mode.MATCH)}["hold_and_fire"]
+        self.assertIn("radius=8", card.text())
+        self.assertIn("has_units", card.text())
+
+    def test_denied_without_units(self):
+        with self.assertRaises(TacticDenied) as ctx:
+            run(self.registry, "hold_and_fire", subject=FakeSubject(agents=()))
+        self.assertEqual(ctx.exception.kind, "condition")
+
+    def test_bad_radius_is_rejected(self):
+        with self.assertRaises(TacticError) as ctx:
+            run(self.registry, "hold_and_fire", {"radius": 0})
+        self.assertIn("取值不合法", str(ctx.exception))
 
 
 # ---------------------------------------------------------------- 调用链

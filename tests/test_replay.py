@@ -43,13 +43,16 @@ def tank(pointer, cell, house=PLAYER_HOUSE, **kwargs):
                         mission=Mission.GUARD, x=x, y=y, **kwargs)
 
 
-def frame(frame_number, cell, pointer=TANK):
-    """一帧只有一辆车，位置给定。"""
+def frame(frame_number, cell, pointer=TANK, enemy=None):
+    """一帧有一辆己方车；`enemy` 给定格时再加一辆敌方车。"""
+    objects = [tank(pointer, cell)]
+    if enemy is not None:
+        objects.append(tank(ENEMY, enemy, house=ENEMY_HOUSE))
     return build_game_state(
         frame=frame_number,
         houses=[build_house(PLAYER_HOUSE, current_player=True),
                 build_house(ENEMY_HOUSE)],
-        objects=[tank(pointer, cell)])
+        objects=objects)
 
 
 def scenario_of(cells, start_frame=100):
@@ -57,6 +60,13 @@ def scenario_of(cells, start_frame=100):
     return Scenario(frames=tuple(frame(start_frame + i, cell)
                                  for i, cell in enumerate(cells)),
                     map_soa=MAP.raw, note="测试")
+
+
+def scenario_with_enemy(cells, enemy_cell, start_frame=100):
+    """己方按位置序列移动，敌方车固定在一格，视野内始终可见。"""
+    return Scenario(frames=tuple(frame(start_frame + i, cell, enemy=enemy_cell)
+                                 for i, cell in enumerate(cells)),
+                    map_soa=MAP.raw, note="测试：视野内有敌人")
 
 
 def agent_of(scenario, pointer=TANK):
@@ -117,6 +127,27 @@ class TestReplay(unittest.TestCase):
 
     def test_hold_settles_at_once(self):
         report = replay(self.scenario, "hold_position", (self.agent,), {},
+                        ticks=3, expect=Expectation(settle="satisfied"))
+        self.assertTrue(report.ok, report.failures)
+        self.assertEqual(report.intents[0][1], ("hold",))
+
+    def test_hold_and_fire_attacks_an_enemy_in_range(self):
+        scenario = scenario_with_enemy([(1, 1)] * 3, (3, 3))
+        report = replay(scenario, "hold_and_fire", (agent_of(scenario),),
+                        {"radius": 8}, ticks=3)
+        self.assertEqual(report.intents[0][1], ("attack",))
+        self.assertIn("前置校验：全部通过", report.render())
+
+    def test_hold_and_fire_ignores_an_enemy_out_of_radius(self):
+        scenario = scenario_with_enemy([(1, 1)] * 3, (8, 8))
+        report = replay(scenario, "hold_and_fire", (agent_of(scenario),),
+                        {"radius": 2}, ticks=3,
+                        expect=Expectation(settle="satisfied"))
+        self.assertTrue(report.ok, report.failures)
+        self.assertEqual(report.intents[0][1], ("hold",))
+
+    def test_hold_and_fire_halts_without_enemies(self):
+        report = replay(self.scenario, "hold_and_fire", (self.agent,), {},
                         ticks=3, expect=Expectation(settle="satisfied"))
         self.assertTrue(report.ok, report.failures)
         self.assertEqual(report.intents[0][1], ("hold",))

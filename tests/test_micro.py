@@ -23,6 +23,7 @@ SIDE = 9
 ALLY_A = 0xA1
 ALLY_B = 0xA2
 ENEMY = 0xB1
+ENEMY_B = 0xB2
 
 
 # ---------------------------------------------------------------- 构造
@@ -292,6 +293,68 @@ class TestEngage(Case):
         self.assign(state, "engage_nearest", {"radius": 2})
         self.tick(state, enemies=[enemy])
         self.assertEqual(self.executor.calls, [])
+
+
+# ---------------------------------------------------------------- 停止开火
+class TestHoldAndFire(Case):
+    def test_enemy_in_range_fires_instead_of_halting(self):
+        state = make_state(objects=[tank(ALLY_A, (1, 1)),
+                                    tank(ENEMY, (3, 3), house=ENEMY_HOUSE)])
+        enemy = state.object(ENEMY)
+        self.build(state)
+        squad, _ = self.assign(state, "hold_and_fire", {"radius": 8})
+        self.tick(state, enemies=[enemy])
+        self.assertEqual([i.kind for i in self.executor.calls], ["attack"])
+        self.assertEqual(squad.units[0].mode, UnitMode.ENGAGING)
+
+    def test_nearest_enemy_is_targeted(self):
+        state = make_state(objects=[tank(ALLY_A, (1, 1)),
+                                    tank(ENEMY, (3, 3), house=ENEMY_HOUSE),
+                                    tank(ENEMY_B, (2, 2), house=ENEMY_HOUSE)])
+        far, near = state.object(ENEMY), state.object(ENEMY_B)
+        self.build(state)
+        self.assign(state, "hold_and_fire", {"radius": 8})
+        self.tick(state, enemies=[far, near])
+        self.assertEqual(self.executor.calls[0].kind, "attack")
+        self.assertEqual(self.executor.calls[0].target, self.agent(ENEMY_B))
+
+    def test_only_units_with_a_target_fire(self):
+        state = make_state(objects=[tank(ALLY_A, (1, 1)), tank(ALLY_B, (7, 7)),
+                                    tank(ENEMY, (3, 3), house=ENEMY_HOUSE)])
+        enemy = state.object(ENEMY)
+        self.build(state)
+        first, second = self.agent(ALLY_A), self.agent(ALLY_B)
+        squad, _ = self.assign(state, "hold_and_fire", {"radius": 3},
+                               agents=(first, second))
+        self.tick(state, enemies=[enemy])
+        self.assertEqual([i.kind for i in self.executor.calls], ["attack", "hold"])
+        modes = {unit.agent_id: unit.mode for unit in squad.units}
+        self.assertEqual(modes[first], UnitMode.ENGAGING)
+        self.assertEqual(modes[second], UnitMode.ARRIVED)
+
+    def test_enemy_out_of_radius_halts_and_settles(self):
+        state = make_state(objects=[tank(ALLY_A, (1, 1)),
+                                    tank(ENEMY, (8, 8), house=ENEMY_HOUSE)])
+        enemy = state.object(ENEMY)
+        self.build(state)
+        _, call = self.assign(state, "hold_and_fire", {"radius": 2})
+        self.tick(state, enemies=[enemy])
+        self.assertEqual([i.kind for i in self.executor.calls], ["hold"])
+        self.assertEqual(call.state, IntentState.SATISFIED)
+
+    def test_target_lost_halts_and_settles(self):
+        state = make_state(objects=[tank(ALLY_A, (1, 1)),
+                                    tank(ENEMY, (3, 3), house=ENEMY_HOUSE)])
+        enemy = state.object(ENEMY)
+        self.build(state)
+        squad, call = self.assign(state, "hold_and_fire", {"radius": 8})
+        self.tick(state, enemies=[enemy])
+        self.assertEqual(squad.units[0].mode, UnitMode.ENGAGING)
+        clear = make_state(frame=140, objects=[tank(ALLY_A, (1, 1))])
+        self.tick(clear)
+        self.assertEqual(self.executor.calls[-1].kind, "hold")
+        self.assertEqual(squad.units[0].mode, UnitMode.ARRIVED)
+        self.assertEqual(call.state, IntentState.SATISFIED)
 
 
 # ---------------------------------------------------------------- 损失
