@@ -24,4 +24,6 @@
 PYTHONPATH=src python3 -m unittest discover -s tests -t .
 ```
 
+要开游戏跑真机测试，见 [.agents/notes/真机测试手册.md](.agents/notes/真机测试手册.md)（启动、焦点、跑批、留证与坑清单）。
+
 引擎侧接口的实测结论见 [.agents/notes/命令能力测绘结果.md](.agents/notes/命令能力测绘结果.md)。

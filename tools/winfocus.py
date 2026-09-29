@@ -10,10 +10,12 @@ RA2 单机在窗口失焦时主循环不推进，命令只排队不执行。本�
     python3 winfocus.py focus <标题子串>   # 把匹配窗口置前
     python3 winfocus.py game              # 把游戏窗口置前
     python3 winfocus.py away              # 把焦点移离游戏
+    python3 winfocus.py reset             # 先移开再置前：唯一能让暂停的游戏恢复的做法
 """
 import base64
 import subprocess
 import sys
+import time
 
 PS = "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe"
 GAME_TITLE = "Yuri's Revenge"
@@ -133,6 +135,19 @@ def focus_away():
     return None, None
 
 
+def reset(delay=0.8):
+    """先移开再置前。
+
+    游戏失焦即暂停主循环，而**光把它设成前台不会恢复**：SetForegroundWindow 对
+    已经在前台的窗口不产生切换，主循环因此不醒。移开再置前才造得出真正的切换。
+    返回是否成功置前。
+    """
+    time.sleep(0.2)
+    focus_away()
+    time.sleep(delay)
+    return focus_game()
+
+
 def main():
     if len(sys.argv) < 2:
         print(__doc__)
@@ -150,6 +165,8 @@ def main():
         print("ok" if focus_game() else "not found")
     elif cmd == "away":
         print(focus_away())
+    elif cmd == "reset":
+        print("ok" if reset() else "not found")
     else:
         print(__doc__)
         return 1
