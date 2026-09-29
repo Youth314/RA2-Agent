@@ -107,6 +107,44 @@ def collect_ids(sections, section_name):
     return out
 
 
+def load_ids_by_name(path):
+    """从 `corpus/derived/rules.json` 读「显示名 → 注册名」。
+
+    引擎的类型表只给显示名（`Grizzly Battle Tank`），而技法与文档都按注册名
+    （`MTNK`）说话。文件不存在时返回空——别名只是便利，不是必需。
+    """
+    import json
+    import pathlib
+
+    source = pathlib.Path(path)
+    if not source.exists():
+        return {}
+    data = json.loads(source.read_text(encoding="utf-8"))
+    out = {}
+    for group in ("units", "buildings"):
+        for item in data.get(group, ()):
+            out.setdefault(item.get("name", ""), item.get("id", ""))
+    out.pop("", None)
+    return out
+
+
+def attach_type_aliases(types, path):
+    """把注册名挂到引擎的类型表上。返回挂上了几条。
+
+    靠显示名对上——同一个显示名对应多个注册名时（民用、地图道具那几组），
+    谁先到算谁。可建造的单位与建筑显示名是唯一的，故不影响它们。
+    """
+    ids = load_ids_by_name(path)
+    if not ids:
+        return 0
+    mapping = {}
+    for entry in types.by_pointer.values():
+        identifier = ids.get(entry.name)
+        if identifier:
+            mapping[identifier] = entry.pointer
+    return types.add_aliases(mapping)
+
+
 @dataclass(frozen=True)
 class Country:
     """一个可用国家。`side` 是阵营，`display` 是游戏里显示的名字。"""

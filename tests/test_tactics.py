@@ -13,6 +13,7 @@ from ra2agent.intents import Hold, Layer, MoveTo, Scope
 from ra2agent.observation import Observation
 from ra2agent.tactics import (REQUIRED, Card, Level, Mode, Param, Tactic,
                               TacticInfo, TacticPolicy, TacticRegistry)
+from ra2agent.tactics.core import TacticContext
 
 
 class FakeSubject:
@@ -465,3 +466,43 @@ class TestFingerprint(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestContextTypes(unittest.TestCase):
+    """技法靠 `ctx.types` 把类型名解析成指针——`Produce` 一类意图需要它。"""
+
+    def context(self, types=None):
+        from ra2agent.observation import Observation
+        from ra2agent.state import GameState
+        from tests.fixtures import build_game_state, build_house
+        state = GameState.parse(build_game_state(
+            houses=[build_house(0x1000, current_player=True)]))
+        observation = Observation(frame=state.frame, house=state.player_house(),
+                                  state=state, types=types)
+        return TacticContext(registry=None, tactic=None, observation=observation,
+                             subject=None, params={}, frame=state.frame, memo={},
+                             log=None, chain=(), attempt=0, budget=None)
+
+    def table(self, aliases=None):
+        from ra2agent.state import ObjectType, TypeTable
+        return TypeTable([ObjectType(name="Grizzly Battle Tank", cost=700,
+                                     array_index=1, pointer=0x900, type=1)],
+                         aliases=aliases)
+
+    def test_types_is_reachable(self):
+        self.assertIsNotNone(self.context(self.table()).types)
+
+    def test_no_table_is_tolerated(self):
+        self.assertIsNone(self.context(None).types)
+        self.assertIsNone(self.context(None).type_pointer("MTNK"))
+
+    def test_resolves_by_display_name(self):
+        self.assertEqual(self.context(self.table()).type_pointer("Grizzly Battle Tank"), 0x900)
+
+    def test_resolves_by_registered_name_when_aliased(self):
+        context = self.context(self.table(aliases={"MTNK": 0x900}))
+        self.assertEqual(context.type_pointer("MTNK"), 0x900)
+
+    def test_unknown_name_gives_none(self):
+        # 技法应当据此放弃，而不是拿个假指针去下单
+        self.assertIsNone(self.context(self.table()).type_pointer("Nonexistent"))

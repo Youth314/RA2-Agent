@@ -23,6 +23,7 @@ from .game import GameHost
 from .intents import DecisionLog
 from .micro import MicroLayer
 from .observation import Observer
+from .rules import attach_type_aliases
 from .tactics import TacticPolicy, TacticRegistry
 from .validate import Validator
 
@@ -144,11 +145,22 @@ class GameSession:
     连接由本进程独占；`Client` 非线程安全，故所有访问都在同一把锁下。
     """
 
+DEFAULT_ALIASES_PATH = "corpus/derived/rules.json"
+
+
+class GameSession:
+    """与游戏的一条会话：懒连接，一个后台线程推进技法层。
+
+    连接由本进程独占；`Client` 非线程安全，故所有访问都在同一把锁下。
+    """
+
     def __init__(self, host=None, port=None, log_path=None,
-                 tick_interval=TICK_INTERVAL, on_log=None, game_host=None):
+                 tick_interval=TICK_INTERVAL, on_log=None, game_host=None,
+                 aliases_path=None):
         self.host = host
         self.port = port
         self.log_path = log_path
+        self.aliases_path = aliases_path or DEFAULT_ALIASES_PATH
         self.tick_interval = tick_interval
         self.on_log = on_log
         self.game_host = game_host or GameHost(host=host or DEFAULT_HOST,
@@ -214,6 +226,10 @@ class GameSession:
         client = Client(self.host or DEFAULT_HOST, self.port or DEFAULT_PORT)
         client.connect()
         observer = Observer(client).bootstrap()
+        # 技法与文档按注册名说话，而引擎只给显示名，故补一份别名
+        aliases = attach_type_aliases(observer.types, self.aliases_path)
+        if aliases == 0:
+            self._emit(f"没读到 {self.aliases_path}，技法里只能用显示名指代类型")
         registry = TacticRegistry(TacticPolicy.load("config/tactics.json")).load_builtin()
         log = DecisionLog(self.log_path) if self.log_path else None
         executor = Executor(client, observer.identity, types=observer.types,

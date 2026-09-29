@@ -34,6 +34,8 @@ class Observation:
     neutral: tuple[GameObject, ...] = ()
     state: GameState | None = field(default=None, repr=False)
     map_data: MapData | None = field(default=None, repr=False)
+    #: 对象类型表。不随迷雾变化（类型定义是公开知识），故整局共用一份。
+    types: TypeTable | None = field(default=None, repr=False)
 
     @property
     def units(self) -> tuple[GameObject, ...]:
@@ -123,7 +125,7 @@ class Observer:
                 enemies.append(obj)
         return Observation(frame=state.frame, house=house, own=tuple(own),
                            visible_enemies=tuple(enemies), neutral=tuple(neutral),
-                           state=state, map_data=self.map_data)
+                           state=state, map_data=self.map_data, types=self.types)
 
     # ------------------------------------------------------------ 可见性
     def is_visible(self, obj: GameObject) -> bool:

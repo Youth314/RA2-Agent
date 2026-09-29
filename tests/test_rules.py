@@ -2,11 +2,23 @@
 
 用一小段合成 INI，不依赖 `corpus/raw/`（那份不入库）。
 """
+import pathlib
 import unittest
 
-from ra2agent.rules import (ARMOR_TYPES, Rules, Warhead, as_bool, as_int,
-                            as_list, load_sections, parse_rules, parse_verses,
-                            strip_comment)
+from ra2agent.rules import (
+    ARMOR_TYPES,
+    Rules,
+    Warhead,
+    as_bool,
+    as_int,
+    as_list,
+    attach_type_aliases,
+    load_ids_by_name,
+    load_sections,
+    parse_rules,
+    parse_verses,
+    strip_comment,
+)
 
 SAMPLE = """
 ; 一段合成 rulesmd.ini，形状照抄真实文件
@@ -285,3 +297,47 @@ Side=Nod
 Name=Civilian
 Side=Civilian
 """
+
+
+class TestTypeAliases(unittest.TestCase):
+    """注册名对照表：引擎只给显示名，而技法与文档按注册名说话。"""
+
+    def write(self, payload, name="rules.json"):
+        import json
+        import tempfile
+        directory = tempfile.mkdtemp()
+        path = pathlib.Path(directory) / name
+        path.write_text(json.dumps(payload), encoding="utf-8")
+        return path
+
+    def test_reads_ids_by_display_name(self):
+        path = self.write({"units": [{"id": "MTNK", "name": "Grizzly Battle Tank"}],
+                           "buildings": [{"id": "GAPOWR", "name": "Allied Power Plant"}]})
+        self.assertEqual(load_ids_by_name(path),
+                         {"Grizzly Battle Tank": "MTNK", "Allied Power Plant": "GAPOWR"})
+
+    def test_missing_file_gives_an_empty_map(self):
+        self.assertEqual(load_ids_by_name("/nonexistent/rules.json"), {})
+
+    def test_duplicate_display_names_keep_the_first(self):
+        # 民用与地图道具重名，谁先到算谁；可建造的单位与建筑显示名是唯一的
+        path = self.write({"units": [{"id": "CIV1", "name": "Civilian"},
+                                     {"id": "CIV2", "name": "Civilian"}]})
+        self.assertEqual(load_ids_by_name(path)["Civilian"], "CIV1")
+
+    def test_attach_matches_by_display_name(self):
+        from ra2agent.state import ObjectType, TypeTable
+        path = self.write({"units": [{"id": "MTNK", "name": "Grizzly Battle Tank"}]})
+        table = TypeTable([ObjectType(name="Grizzly Battle Tank", cost=700,
+                                      array_index=1, pointer=0x900, type=0)])
+        self.assertEqual(attach_type_aliases(table, path), 1)
+        self.assertEqual(table.resolve("MTNK").pointer, 0x900)
+
+    def test_types_absent_from_the_table_are_skipped(self):
+        from ra2agent.state import TypeTable
+        path = self.write({"units": [{"id": "MTNK", "name": "Grizzly Battle Tank"}]})
+        self.assertEqual(attach_type_aliases(TypeTable(), path), 0)
+
+    def test_no_file_attaches_nothing(self):
+        from ra2agent.state import TypeTable
+        self.assertEqual(attach_type_aliases(TypeTable(), "/nonexistent/rules.json"), 0)

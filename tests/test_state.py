@@ -278,3 +278,49 @@ class TestHousePowerAndInfiltration(unittest.TestCase):
         house = self.parse(infiltrated=("soviet",))
         self.assertFalse(house.allied_infiltrated)
         self.assertFalse(house.third_infiltrated)
+
+
+class TestTypeTableResolve(unittest.TestCase):
+    """类型解析：技法按注册名说话，而引擎只给显示名。"""
+
+    def table(self, aliases=None):
+        from ra2agent.state import ObjectType, TypeTable
+        return TypeTable([
+            ObjectType(name="Grizzly Battle Tank", cost=700, array_index=1,
+                       pointer=0x900, type=AbstractType.UNIT),
+            ObjectType(name="Allied Power Plant", cost=800, array_index=2,
+                       pointer=0x901, type=AbstractType.BUILDING),
+        ], aliases=aliases)
+
+    def test_display_name_resolves(self):
+        self.assertEqual(self.table().resolve("Grizzly Battle Tank").pointer, 0x900)
+
+    def test_name_is_case_insensitive(self):
+        self.assertEqual(self.table().resolve("grizzly battle tank").pointer, 0x900)
+
+    def test_substring_still_works(self):
+        self.assertEqual(self.table().resolve("grizzly").pointer, 0x900)
+
+    def test_registered_name_needs_an_alias(self):
+        # 引擎的类型表里没有注册名，故没挂别名时认不出
+        self.assertIsNone(self.table().resolve("MTNK"))
+        self.assertEqual(self.table(aliases={"MTNK": 0x900}).resolve("MTNK").pointer, 0x900)
+
+    def test_aliases_are_case_insensitive(self):
+        self.assertEqual(self.table(aliases={"MTNK": 0x900}).resolve("mtnk").pointer, 0x900)
+
+    def test_add_aliases_counts_the_new_ones(self):
+        table = self.table(aliases={"MTNK": 0x900})
+        self.assertEqual(table.add_aliases({"MTNK": 0x900, "GAPOWR": 0x901}), 1)
+
+    def test_rtti_narrows_the_search(self):
+        table = self.table()
+        self.assertIsNone(table.resolve("Allied", rtti=AbstractType.UNIT))
+        self.assertEqual(table.resolve("Allied", rtti=AbstractType.BUILDING).pointer, 0x901)
+
+    def test_empty_needle_resolves_to_nothing(self):
+        self.assertIsNone(self.table().resolve(""))
+        self.assertIsNone(self.table().resolve(None))
+
+    def test_unknown_name_resolves_to_nothing(self):
+        self.assertIsNone(self.table().resolve("Nonexistent Thing"))

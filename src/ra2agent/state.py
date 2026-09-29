@@ -453,12 +453,14 @@ class TypeTable:
     `ReadValue{initial_game_state}` 单独取一次。对象经 `type_pointer` 关联到此表。
     """
 
-    def __init__(self, entries=()):
+    def __init__(self, entries=(), aliases=None):
         self.by_pointer: dict[int, ObjectType] = {}
         self.by_key: dict[tuple[int, int], ObjectType] = {}
         for entry in entries:
             self.by_pointer[entry.pointer] = entry
             self.by_key.setdefault((entry.type, entry.array_index), entry)
+        #: 注册名（`MTNK` 一类）到指针。引擎只给显示名，故这张表由外面填。
+        self.aliases: dict[str, int] = {k.lower(): v for k, v in (aliases or {}).items()}
 
     @classmethod
     def parse(cls, read_value_payload) -> "TypeTable":
@@ -490,6 +492,34 @@ class TypeTable:
         """按对象查显示名。"""
         found = self.info(obj)
         return found.name if found and found.name else default
+
+    def add_aliases(self, mapping) -> int:
+        """补上注册名到指针的对照，返回新增了几条。大小写不敏感。"""
+        before = len(self.aliases)
+        self.aliases.update({str(k).lower(): v for k, v in mapping.items()})
+        return len(self.aliases) - before
+
+    def resolve(self, needle, rtti=None) -> ObjectType | None:
+        """按注册名、显示名或子串解析类型。注册名要有人填过 `aliases` 才认得出。
+
+        顺序是「注册名 → 显示名全等 → 子串」：越精确的越先试，免得 `E1` 这类短名字
+        被别的类型先抢走。
+        """
+        if not needle:
+            return None
+        text = str(needle).strip()
+        by_alias = self.aliases.get(text.lower())
+        if by_alias is not None:
+            found = self.by_pointer.get(by_alias)
+            if found is not None and (rtti is None or found.type == rtti):
+                return found
+        lowered = text.lower()
+        for entry in self.by_pointer.values():
+            if rtti is not None and entry.type != rtti:
+                continue
+            if entry.name.lower() == lowered:
+                return entry
+        return self.find(text, rtti)
 
     def find(self, needle, rtti=None) -> ObjectType | None:
         """按名字子串查找类型。

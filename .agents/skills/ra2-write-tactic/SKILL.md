@@ -43,6 +43,8 @@ def run(ctx) -> tuple[Intent, ...]:
 | `ctx.memo` | 跨帧记事本，按「技法名 + 键」隔离，任务结束清空 |
 | `ctx.call(name, **params, optional=False)` | 调另一条技法 |
 | `ctx.intent(cls, **payload)` | 按信封约定造意图 |
+| `ctx.types` | 对象类型表；没取到时为 `None` |
+| `ctx.type_pointer(name, rtti=None)` | 类型名 → 指针，找不到给 `None` |
 | `ctx.remember(key, value)` / `ctx.recall(key, default)` | 记事本的读写糖 |
 
 ## 四、能返回的意图
@@ -58,6 +60,23 @@ def run(ctx) -> tuple[Intent, ...]:
 
 **对象一律用 Agent 侧 id**，不是引擎指针——指针在单位变身时会变。引擎指针转 id
 用 `ctx.subject.agent_id(pointer)`。
+
+### 造东西：先解析类型指针
+
+`Produce` 要的是 `type_pointer`，用 `ctx.type_pointer(名字)` 解析。名字可以是**注册名**
+（`MTNK`）或**英文显示名**（`Grizzly Battle Tank`），注册名要跑起来的进程挂过别名
+（默认从 `corpus/derived/rules.json` 挂）。
+
+**解析不到就放弃**，不要拿个假指针去下单：
+
+```python
+pointer = ctx.type_pointer("MTNK")
+if pointer is None:
+    return ()          # 类型表里没有，这一拍什么都不做
+return (ctx.intent(Produce, type_pointer=pointer, type_name="MTNK"),)
+```
+
+名字查 `codex/units.md` 与 `codex/buildings.md`。
 
 意图必须用 `ctx.intent` 造，它会自动填 `layer`、`created_frame` 与 `scope`：
 

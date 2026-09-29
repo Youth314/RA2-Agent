@@ -173,6 +173,25 @@ class TacticContext:
         """当前技法的名字。"""
         return self.tactic.info.name
 
+    @property
+    def types(self):
+        """对象类型表。没取到类型表时为 `None`。"""
+        return getattr(self.observation, "types", None)
+
+    def type_pointer(self, name, rtti=None):
+        """按注册名（`MTNK`）或显示名（`Grizzly Battle Tank`）解析类型指针。
+
+        `Produce` 一类意图要的是指针，故这里给个直接的入口。找不到返回 `None`——
+        技法应当据此放弃，而不是拿个假指针去下单。
+
+        注册名要有人往类型表里填过别名才认得出；引擎自己只给显示名。
+        """
+        table = self.types
+        if table is None:
+            return None
+        found = table.resolve(name, rtti)
+        return found.pointer if found is not None else None
+
     def call(self, name, *, optional=False, **params) -> tuple:
         """调用另一条技法并把它的意图原样带回。
 
