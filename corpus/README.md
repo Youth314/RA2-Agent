@@ -36,4 +36,14 @@ Fandom 那 41,783 页里绝大多数与本项目无关（泰伯利亚、将军�
 
 ## 加工产物
 
-暂无。加工结果放哪见 [.agents/notes/](../../.agents/notes/) 的讨论。
+| 路径 | 是什么 | 谁生成 |
+|---|---|---|
+| `derived/rules.json` | 单位/建筑/武器/弹头的结构化表，给技法层（Python）查 | `tools/build_codex.py` |
+| `notes/` | 手写补充，生成时会合并进 codex | 人 |
+| [`../codex/`](../codex/) | 给模型 grep 的资料（markdown） | `tools/build_codex.py` |
+
+```sh
+python3 tools/build_codex.py
+```
+
+生成物不要手改。要改内容改 `notes/` 或改生成器。
