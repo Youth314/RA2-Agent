@@ -159,7 +159,11 @@ class MicroLayer:
         return squad
 
     def tick(self, observation=None) -> list:
-        """走一拍：更新进度、按需调用技法、下发意图。返回本拍的执行结果。"""
+        """走一拍：更新进度、按需调用技法、下发意图。返回本拍的执行结果。
+
+        直接调用不会检查帧是否推进；循环驱动的 `run()` 会，故游戏暂停时不下令。
+        暂停时下的令会留在队列里，等恢复后才执行，那时已脱离本次意图的语境。
+        """
         observation = observation if observation is not None else self.observer.poll()
         outcomes = []
         for squad in list(self._squads):

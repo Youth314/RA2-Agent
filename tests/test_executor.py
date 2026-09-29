@@ -14,7 +14,7 @@ from ra2agent.constants import (AbstractType, LandType, Mission, NetworkEvent,
                                 UnitAction)
 from ra2agent.errors import (CommandFailed, GameNotResponding, InvalidCommand,
                              Timeout)
-from ra2agent.executor import Executor, reason_for
+from ra2agent.executor import DEFAULT_MAX_WAIT_FRAMES, Executor, reason_for
 from ra2agent.identity import IdentityTable
 from ra2agent.intents import (Attack, DecisionLog, Deploy, Hold, Intent, MoveTo,
                               Place, Produce, Sell, Stance)
@@ -530,6 +530,14 @@ class TestExecute(ExecutorCase):
         executor.execute(Deploy(units=(self.agent(MCV),)), state)
         self.assertEqual(self.client.sent[0],
                          ("ClickEvent", (MCV,), NetworkEvent.DEPLOY))
+
+
+class TestWaitBudget(unittest.TestCase):
+    def test_default_budget_tracks_the_measurements(self):
+        # 实测部署 17 帧、生产 14 帧，预算必须留出余量
+        executor = Executor(FakeClient([make_state()]), IdentityTable())
+        self.assertEqual(executor.max_wait_frames, DEFAULT_MAX_WAIT_FRAMES)
+        self.assertGreaterEqual(DEFAULT_MAX_WAIT_FRAMES, 30)
 
 
 class TestReasonFor(unittest.TestCase):

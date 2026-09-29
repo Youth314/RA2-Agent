@@ -16,6 +16,16 @@ class TestScope(unittest.TestCase):
         with self.assertRaises(ValueError):
             Scope()
 
+    def test_empty_is_explicit(self):
+        # 阵营级意图（生产）不涉及对象，故允许显式声明为空，而不是给个假对象
+        scope = Scope.empty()
+        self.assertTrue(scope.is_empty)
+        self.assertEqual(scope.to_dict(), {"objects": [], "region": None})
+        self.assertEqual(Scope.from_dict(scope.to_dict()), scope)
+
+    def test_non_empty_is_not_empty(self):
+        self.assertFalse(Scope(objects=(1,)).is_empty)
+
     def test_objects_only(self):
         scope = Scope(objects=[1, 2])
         self.assertEqual(scope.objects, (1, 2))

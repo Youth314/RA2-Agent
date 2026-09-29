@@ -78,7 +78,24 @@ class Scope:
         self.objects = tuple(objects)
         self.region = tuple(region) if region is not None else None
         if not self.objects and self.region is None:
-            raise ValueError("Scope 至少需要 objects 或 region 之一")
+            raise ValueError("Scope 至少需要 objects 或 region 之一；"
+                             "确实不涉及对象时用 Scope.empty()")
+
+    @classmethod
+    def empty(cls) -> "Scope":
+        """不涉及任何对象的意图，例如阵营级的生产。
+
+        这类意图的归属依据是玩家本身，故显式声明为空，而不是随手给一个假对象。
+        """
+        scope = cls.__new__(cls)
+        scope.objects = ()
+        scope.region = None
+        return scope
+
+    @property
+    def is_empty(self) -> bool:
+        """是否不涉及任何对象与区域。"""
+        return not self.objects and self.region is None
 
     def to_dict(self) -> dict:
         """序列化为可 JSON 编码的字典。"""
@@ -87,9 +104,12 @@ class Scope:
 
     @classmethod
     def from_dict(cls, data) -> "Scope":
-        """从字典还原。"""
-        return cls(objects=data.get("objects") or (),
-                   region=data.get("region"))
+        """从字典还原。两项皆空时还原为 `Scope.empty()`，不报错。"""
+        objects = data.get("objects") or ()
+        region = data.get("region")
+        if not objects and region is None:
+            return cls.empty()
+        return cls(objects=objects, region=region)
 
     def __eq__(self, other):
         return (isinstance(other, Scope) and self.objects == other.objects

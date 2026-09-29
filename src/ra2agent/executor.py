@@ -54,6 +54,9 @@ from .intents import (Attack, Deploy, Hold, Intent, MoveTo, Place, Produce, Sell
 from .state import Coordinates, GameState, ObjectType, cell_center
 from .validate import Validator
 
+#: 命令生效的默认帧数上限。实测移动 4 帧、生产 14 帧、部署 17 帧，故留出余量。
+DEFAULT_MAX_WAIT_FRAMES = 45
+
 #: 服务端 `error_message` 到稳定原因码的映射。
 #: 原文措辞不一，故按子串匹配；未命中的归入 `unknown`，原文随异常保留。
 ERROR_REASONS = (
@@ -225,7 +228,8 @@ class Executor:
     }
 
     def __init__(self, client, identity, types=None, validator=None, log=None, *,
-                 max_wait_frames=20, poll_interval=0.05, timeout_s=10.0,
+                 max_wait_frames=DEFAULT_MAX_WAIT_FRAMES, poll_interval=0.05,
+                 timeout_s=10.0,
                  focus_window=1.5, read_state=None, sleep=time.sleep,
                  clock=time.monotonic):
         """构造执行器。
@@ -233,7 +237,7 @@ class Executor:
         `identity` 把意图里的 Agent 侧 id 解析为引擎指针；`validator` 应带地图，
         否则坐标类意图一律被拒。`read_state` 默认读 `client.get_state`；传入包装
         `Observer.poll` 的读取函数可在等待期间同步维护迷雾与标识。`max_wait_frames`
-        是命令生效的帧数上限，实测约 4 帧生效。
+        是命令生效的帧数上限，取值依据见 `DEFAULT_MAX_WAIT_FRAMES`。
         """
         self.client = client
         self.identity = identity
