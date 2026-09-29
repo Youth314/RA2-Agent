@@ -64,7 +64,7 @@ class TestCollect(unittest.TestCase):
         # 排序按优先级，同为 IMPORTANT 时按名字
         self.assertEqual([e["name"] for e in events],
                          ["EVA_NuclearSiloDetected", "EVA_UnitLost", "EVA_PsychicRevealReady"])
-        self.assertEqual(len(reports), 2)
+        self.assertEqual(len(reports), 1, "两套副官合并成一条")
 
     def test_queue_flag_comes_from_type(self):
         events, _ = self.collect()
@@ -72,12 +72,12 @@ class TestCollect(unittest.TestCase):
         self.assertTrue(by_name["EVA_UnitLost"]["queue"])
         self.assertFalse(by_name["EVA_NuclearSiloDetected"]["queue"])
 
-    def test_reports_carry_the_unit_and_voice(self):
+    def test_the_two_announcers_merge_into_one_row(self):
+        # 两套副官只有语音不同
         _, reports = self.collect()
-        by_name = {r["name"]: r for r in reports}
-        self.assertEqual(by_name["Unit_Eva_Kirov"]["unit"], "Kirov")
-        self.assertEqual(by_name["Unit_Eva_Kirov"]["voice"], "eva")
-        self.assertEqual(by_name["Unit_Sofia_Kirov"]["voice"], "sofia")
+        self.assertEqual(len(reports), 1)
+        self.assertEqual(reports[0]["unit"], "Kirov")
+        self.assertEqual(reports[0]["voices"], ["eva", "sofia"])
 
     def test_unit_reports_get_the_class_default(self):
         # 引擎无条件全图播报出厂，我们按迷雾观测，故合成不了
@@ -87,8 +87,7 @@ class TestCollect(unittest.TestCase):
 
     def test_annotation_overrides_the_default(self):
         _, reports = self.collect({"Unit_Eva_Kirov": {"visibility": "存疑"}})
-        by_name = {r["name"]: r for r in reports}
-        self.assertEqual(by_name["Unit_Eva_Kirov"]["visibility"], "存疑")
+        self.assertEqual(reports[0]["visibility"], "存疑")
 
     def test_events_sort_by_priority(self):
         # 没写 Priority 的排在最后
@@ -111,14 +110,15 @@ class TestAnnotations(unittest.TestCase):
             finally:
                 build_eva.NOTES = original
 
-    def test_reads_three_fields(self):
-        got = self.load("EVA_UnitLost | 己方 | 可 | 状态流就能合成\n")
+    def test_reads_every_field(self):
+        got = self.load("EVA_UnitLost | 损失与受袭 | 单位阵亡 | 己方 | 可\n")
+        self.assertEqual(got["EVA_UnitLost"]["category"], "损失与受袭")
+        self.assertEqual(got["EVA_UnitLost"]["chinese"], "单位阵亡")
         self.assertEqual(got["EVA_UnitLost"]["visibility"], "己方")
         self.assertEqual(got["EVA_UnitLost"]["synthesizable"], "可")
-        self.assertEqual(got["EVA_UnitLost"]["basis"], "状态流就能合成")
 
     def test_missing_trailing_fields_are_empty(self):
-        self.assertEqual(self.load("EVA_UnitLost | 己方\n")["EVA_UnitLost"]["basis"], "")
+        self.assertEqual(self.load("EVA_UnitLost | 损失与受袭\n")["EVA_UnitLost"]["chinese"], "")
 
     def test_prose_is_not_an_annotation(self):
         # 说明文字里的竖线不该被当成标注，否则闸门会报一堆认不出的名字

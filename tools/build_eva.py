@@ -25,6 +25,9 @@ CODEX = REPO / "codex"
 UNIT_PREFIXES = ("Unit_Eva_", "Unit_Sofia_")
 #: `Priority=` 的档位，由重到轻。引擎拿它决定播报的取舍。
 PRIORITY_ORDER = ("CRITICAL", "IMPORTANT", "NORMAL", "LOW")
+#: 出厂报告的两套副官只有语音不同，故合并成一条，`voices` 记有哪几套。
+VOICE_LABELS = {"eva": "Eva", "sofia": "Sofia"}
+
 #: 单位出厂报告的默认标注。引擎无条件全图播报「某单位出厂了」，而我们的观测按
 #: 迷雾过滤、也不读敌方内部状态，故这类事件合成不了。个别可覆盖。
 UNIT_REPORT_DEFAULT = {
@@ -35,7 +38,8 @@ UNIT_REPORT_DEFAULT = {
 #: 标注行的第一条必须是这个名字形状；说明文字据此跳过。
 IDENTIFIER = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 #: 注释里用 `|` 分隔；第一条是事件名。
-ANNOTATION_FIELDS = ("visibility", "synthesizable", "basis")
+#: 后三项由人写，见 `corpus/notes/eva_annotations.md`。
+ANNOTATION_FIELDS = ("category", "chinese", "visibility", "synthesizable")
 
 
 def parse_ini(text):
@@ -73,7 +77,7 @@ def load_annotations():
 
 def collect(sections, annotations):
     """EVA 事件与单位出厂报告，各带引擎原文、优先级、排队语义与人工标注。"""
-    events, reports = [], []
+    events, reports, by_unit = [], [], {}
     for name, data in sections.items():
         entry = {
             "name": name,
@@ -84,18 +88,28 @@ def collect(sections, annotations):
         entry.update({k: "" for k in ANNOTATION_FIELDS})
         entry.update({k: v for k, v in annotations.get(name, {}).items() if v})
         if name.startswith(UNIT_PREFIXES):
-            entry.update(UNIT_REPORT_DEFAULT)
-            entry.update({k: v for k, v in annotations.get(name, {}).items() if v})
             prefix = next(p for p in UNIT_PREFIXES if name.startswith(p))
-            entry["unit"] = name[len(prefix):]
-            entry["voice"] = "sofia" if prefix == "Unit_Sofia_" else "eva"
-            reports.append(entry)
+            key = name[len(prefix):]
+            voice = "sofia" if prefix == "Unit_Sofia_" else "eva"
+            found = by_unit.get(key)
+            if found is None:
+                # 先默认后标注：人工写的要能盖过默认值
+                entry.update(UNIT_REPORT_DEFAULT)
+                entry.update({k: v for k, v in annotations.get(name, {}).items() if v})
+                entry["unit"] = key
+                entry["voices"] = [voice]
+                by_unit[key] = entry
+                reports.append(entry)
+            elif voice not in found["voices"]:
+                found["voices"].append(voice)
         elif name.upper().startswith("EVA_"):
             events.append(entry)
     events.sort(key=lambda e: (PRIORITY_ORDER.index(e["priority"])
                                if e["priority"] in PRIORITY_ORDER else len(PRIORITY_ORDER),
                                e["name"]))
-    reports.sort(key=lambda e: (e["unit"], e["voice"]))
+    for entry in reports:
+        entry["voices"] = sorted(entry["voices"])
+    reports.sort(key=lambda e: e["unit"])
     return events, reports
 
 
@@ -105,37 +119,37 @@ def render(events, reports, annotations):
     lines = [
         "# 副官事件",
         "",
-        "由 `corpus/raw/evamd.ini` 生成，不要手改。**可见性与合成性两列来自人写的 "
+        "由 `corpus/raw/evamd.ini` 生成，不要手改。**中文名、可见性与可合成三列来自人写的 "
         "`corpus/notes/eva_annotations.md`**，其余都是引擎原文。",
         "",
         f"共 {len(events)} 个 `EVA_*` 事件、{len(reports)} 条 `Unit_*_<Type>` 单位出厂报告。",
         "",
         "两套机制：`EVA_*` 是全局警告；`Unit_*_<Type>` 是「某单位出厂了」，单位与建筑都有，"
-        "Eva 与 Sofia 两套副官各一份。这类报告引擎无条件全图播报，"
-        "**我们拿不到**——观测按迷雾过滤。",
+        "两套副官（Eva 与 Sofia）只有语音不同，故合并成一条。"
+        "这类报告引擎无条件全图播报，**我们拿不到**——观测按迷雾过滤。",
         "",
         "`优先级` 与 `排队` 是引擎自己的取值——拿它决定哪些事件值得叫醒模型，"
         "不必另立一套。",
         "",
         "## 事件",
         "",
-        "| 事件 | 引擎原文 | 优先级 | 排队 | 可见性 | 可合成 | 依据 |",
+        "| 中文名 | 事件 | 引擎原文 | 优先级 | 排队 | 可见性 | 可合成 |",
         "|---|---|---|---|---|---|---|",
     ]
     for e in events:
-        lines.append("| `{}` | {} | {} | {} | {} | {} | {} |".format(
-            e["name"], e["text"] or "—", e["priority"] or "—",
+        lines.append("| {} | `{}` | {} | {} | {} | {} | {} |".format(
+            e["chinese"] or "**待定**", e["name"], e["text"] or "—", e["priority"] or "—",
             "是" if e["queue"] else "", e["visibility"] or "**待核**",
-            e["synthesizable"] or "**待核**", e["basis"] or ""))
+            e["synthesizable"] or "**待核**"))
     lines += ["", f"## 单位出厂报告（{len(reports)}）", "",
               "含建筑。名字里的 `<Type>` 与 `rulesmd.ini` 的类型节对应，"
               "但拼写有出入（`YuriEng`、`BatLabYuri`），需要时对照 `codex/units.md`。",
               "",
-              "| 名称 | 单位 | 副官 | 引擎原文 | 优先级 | 可见性 | 可合成 |",
+              "| 单位 | 出现过的名字 | 名称 | 引擎原文 | 优先级 | 可见性 | 可合成 |",
               "|---|---|---|---|---|---|---|"]
     for r in reports:
-        lines.append("| `{}` | {} | {} | {} | {} | {} | {} |".format(
-            r["name"], r["unit"], "Zofia" if r["voice"] == "sofia" else "Eva",
+        lines.append("| {} | {} | `{}` | {} | {} | {} | {} |".format(
+            r["unit"], "/".join(VOICE_LABELS[v] for v in r["voices"]), r["name"],
             r["text"] or "—", r["priority"] or "—", r["visibility"] or "**待核**",
             r["synthesizable"] or "**待核**"))
     unused = sorted(set(annotations) - {e["name"] for e in events + reports})
