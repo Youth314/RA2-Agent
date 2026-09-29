@@ -241,3 +241,40 @@ class TestTypeTable(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestHousePowerAndInfiltration(unittest.TestCase):
+    """电力与渗透。这三方渗透标志只说明「当前」处于被渗透状态。"""
+
+    def parse(self, **kwargs):
+        state = GameState.parse(build_game_state(
+            houses=[build_house(PLAYER_HOUSE, current_player=True, **kwargs)]))
+        return state.player_house()
+
+    def test_power_output_and_drain(self):
+        house = self.parse(power_output=200, power_drain=50)
+        self.assertEqual(house.power_output, 200)
+        self.assertEqual(house.power_drain, 50)
+        self.assertFalse(house.is_low_power)
+
+    def test_short_power_is_flagged(self):
+        self.assertTrue(self.parse(power_output=100, power_drain=150).is_low_power)
+
+    def test_equal_power_is_not_short(self):
+        self.assertFalse(self.parse(power_output=100, power_drain=100).is_low_power)
+
+    def test_starting_credits_are_parsed(self):
+        state = GameState.parse(build_game_state(
+            houses=[build_house(PLAYER_HOUSE, current_player=True)]))
+        self.assertEqual(state.player_house().start_credits, 0, "fixture 没设，故为 0")
+
+    def test_infiltration_flags(self):
+        self.assertFalse(self.parse().is_infiltrated)
+        self.assertTrue(self.parse(infiltrated=("allied",)).allied_infiltrated)
+        self.assertTrue(self.parse(infiltrated=("soviet",)).is_infiltrated)
+        self.assertTrue(self.parse(infiltrated=("third",)).third_infiltrated)
+
+    def test_flags_are_independent(self):
+        house = self.parse(infiltrated=("soviet",))
+        self.assertFalse(house.allied_infiltrated)
+        self.assertFalse(house.third_infiltrated)

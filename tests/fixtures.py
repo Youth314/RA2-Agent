@@ -38,9 +38,10 @@ def build_object(pointer, type_pointer=0x900, house=PLAYER_HOUSE,
 
 
 def build_house(pointer, current_player=False, faction="Alliance",
-                money=10000, defeated=False):
-    """`House`。"""
-    return (
+                money=10000, defeated=False, power_output=0, power_drain=0,
+                infiltrated=()):
+    """`House`。`infiltrated` 取 `allied` / `soviet` / `third` 的任意组合。"""
+    out = (
         pb_uint(1, 0)
         + pb_str(2, "me" if current_player else "other")
         + pb_str(3, faction)
@@ -48,7 +49,13 @@ def build_house(pointer, current_player=False, faction="Alliance",
         + pb_uint(5, 1 if current_player else 0)
         + pb_uint(7, money)
         + pb_uint(8, pointer)
+        + pb_uint(13, power_output)
+        + pb_uint(14, power_drain)
     )
+    for field, name in ((16, "allied"), (17, "soviet"), (18, "third")):
+        if name in infiltrated:
+            out += pb_uint(field, 1)
+    return out
 
 
 def build_factory(owner, obj, timer=0, queued=(), on_hold=False,

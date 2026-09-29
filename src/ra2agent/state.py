@@ -103,6 +103,25 @@ class House:
     defeated: bool
     is_winner: bool
     is_loser: bool
+    is_game_over: bool = False
+    power_output: int = 0
+    power_drain: int = 0
+    start_credits: int = 0
+    #: 三方科技被渗透。引擎只给「当前是否处于被渗透状态」，
+    #: 看不出「刚刚被渗透了一次」，也看不出渗透了什么。
+    allied_infiltrated: bool = False
+    soviet_infiltrated: bool = False
+    third_infiltrated: bool = False
+
+    @property
+    def is_low_power(self) -> bool:
+        """电力是否入不敷出。"""
+        return self.power_drain > self.power_output
+
+    @property
+    def is_infiltrated(self) -> bool:
+        """是否正被任何一方渗透。"""
+        return self.allied_infiltrated or self.soviet_infiltrated or self.third_infiltrated
 
     @property
     def is_neutral(self) -> bool:
@@ -179,6 +198,13 @@ def parse_house(blob) -> House:
         defeated=bool(get(4)),
         is_winner=bool(get(11)),
         is_loser=bool(get(12)),
+        is_game_over=bool(get(10)),
+        power_output=get(13),
+        power_drain=get(14),
+        start_credits=get(6),
+        allied_infiltrated=bool(get(16)),
+        soviet_infiltrated=bool(get(17)),
+        third_infiltrated=bool(get(18)),
     )
 
 
