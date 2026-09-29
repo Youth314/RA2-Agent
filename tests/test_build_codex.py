@@ -228,3 +228,29 @@ class TestFaction(unittest.TestCase):
         b = self._holder(id="B", prerequisite=("A",))
         index.update({"A": a, "B": b})
         self.assertIsNone(build_codex.building_side(a, index))
+
+
+class TestScrappedAndCampaign(unittest.TestCase):
+    def _holder(self, **kwargs):
+        base = {"id": "X", "name": "X", "tech_level": 1, "required_houses": ()}
+        base.update(kwargs)
+        return type("H", (), base)()
+
+    def test_scrapped_needs_both_country_unique_and_negative_level(self):
+        # TechLevel=-1 单独不能判废案：建造厂、围墙、平民也是 -1
+        self.assertTrue(build_codex.is_scrapped(self._holder(required_houses=("Alliance",), tech_level=-1)))
+        self.assertFalse(build_codex.is_scrapped(self._holder(required_houses=("Alliance",), tech_level=2)))
+        self.assertFalse(build_codex.is_scrapped(self._holder(required_houses=(), tech_level=-1)))
+
+    def test_campaign_is_above_the_normal_ceiling(self):
+        self.assertTrue(build_codex.is_campaign(self._holder(tech_level=11)))
+        self.assertFalse(build_codex.is_campaign(self._holder(tech_level=10)))
+        self.assertFalse(build_codex.is_campaign(self._holder(tech_level=11, name="ZZZ X")))
+
+    def test_effect_is_appended(self):
+        holder = self._holder(id="AMRADR")
+        self.assertEqual(build_codex.with_effect("行", {"AMRADR": "有伞兵"}, holder),
+                         "行 · 注：有伞兵")
+
+    def test_no_effect_leaves_the_line_alone(self):
+        self.assertEqual(build_codex.with_effect("行", {}, self._holder()), "行")

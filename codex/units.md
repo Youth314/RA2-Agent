@@ -1,6 +1,6 @@
 # 单位
 
-由 `corpus/raw/rulesmd.ini` 生成，共 155 个：可建造 74：盟军共用 22、苏军共用 19、尤里共用 14、跨阵营 10、国家特有 9；其它（民用、任务用）73，未使用 6。不要手改。
+由 `corpus/raw/rulesmd.ini` 生成，共 155 个：可建造 74：盟军共用 22、苏军共用 18、尤里共用 14、跨阵营 10、国家特有 9；其它（民用、任务用）73，未使用 6。不要手改。
 
 **先看自己是哪个国家**：阵营章只有该阵营的共用单位，各国特有的在 [`countries.md`](countries.md)。
 
@@ -31,13 +31,12 @@
 - **ROBO** Robot Tank（机器人坦克） · 载具 · 造价 600 · 血 180 · heavy · 速 10 · 视野 6 · 前提 GAWEAP,GAROBO · 等级 2 · Robogun(65伤/60帧/射程5 弹头AP) · 每发 → none,flak=16.25 plate=9.75 light=48.75 medium,heavy,special_2=65 wood=42.25 steel=29.25 concrete,special_1=39
 - **ORCA** Intruder（入侵者战机） · 飞行器 · 造价 1200 · 血 150 · light · 速 14 · 视野 8 · 前提 RADAR · 等级 3 · 禁 Alliance · Maverick(150伤/10帧/射程6 弹头ORCAAP) · 每发 → none,flak,plate,light,medium,heavy,wood,steel,special_1,special_2=150 concrete=112.5
 
-## 苏军（Nod）（19）
+## 苏军（Nod）（18）
 
 - **E2** Conscript（动员兵） · 步兵 · 造价 100 · 血 125 · flak · 速 4 · 视野 5 · 前提 NAHAND · 等级 1 · M1Carbine(15伤/25帧/射程4 弹头SA) · 每发 → none,special_1,special_2=15 flak,plate=12 light,steel=7.5 medium,heavy,concrete=3.75 wood=11.25
 - **SHK** Shock Trooper（磁爆步兵） · 步兵 · 造价 500 · 血 130 · Plate · 速 4 · 视野 6 · 前提 NAHAND · 等级 5 · ElectricBolt(50伤/60帧/射程3 弹头Shock) · 每发 → none,flak,plate,medium,heavy,special_2=50 light=42.5 wood,steel,concrete=25 special_1=100
 - **IVAN** Crazy Ivan（疯狂伊文） · 步兵 · 造价 600 · 血 125 · none · 速 4 · 视野 6 · 前提 NAHAND,NARADR · 等级 5 · IvanBomber(400伤/50帧/射程0 弹头IvanBomb) · 每发 → none,flak,plate,light,medium,heavy,wood,steel,concrete,special_1,special_2=400
 - **BORIS** Boris（鲍裏斯） · 步兵 · 造价 1500 · 血 200 · flak · 速 5 · 视野 9 · 前提 NAHAND,NATECH · 等级 9 · AKM(65伤/20帧/射程7 弹头BORISWH) · 每发 → none,flak=130 plate,special_1,special_2=65 light,medium,heavy=32.5 wood,steel,concrete=0.65
-- **LUNR** Lunar Infantry（月球飞行兵） · 步兵 · 造价 600 · 血 125 · none · 速 9 · 视野 8 · 前提 NAPILE,RADAR · 等级 11 · Lunarlaser(25伤/20帧/射程7 弹头LUNARWH) · 每发 → none,flak,light,medium,heavy,special_1,special_2=25 plate=20 wood=7.5 steel,concrete=5
 - **HARV** War Miner（苏军矿车） · 载具 · 造价 1400 · 血 1000 · medium · 速 4 · 视野 4 · 前提 NAWEAP,PROC · 等级 1 · 20mmRapid(30伤/20帧/射程0 弹头HARVWH) · 每发 → none,special_2=30 flak=24 plate=21 light=15 medium,heavy,wood=6 steel=4.5 concrete=3 special_1=120
 - **APOC** Apocalypse（天启坦克） · 载具 · 造价 1750 · 血 800 · heavy · 速 4 · 视野 6 · 前提 NAWEAP,NATECH · 等级 7 · 120mmx(100伤/80帧/射程0 弹头ApocAP) · 每发 → none,flak,plate=25 light=75 medium,heavy,wood,steel,special_2=100 concrete=70 special_1=60
 - **HTNK** Rhino Heavy Tank（犀牛坦克） · 载具 · 造价 900 · 血 400 · heavy · 速 6 · 视野 8 · 前提 NAWEAP · 等级 2 · 120mm(90伤/65帧/射程0 弹头AP) · 每发 → none,flak=22.5 plate=13.5 light=67.5 medium,heavy,special_2=90 wood=58.5 steel=40.5 concrete,special_1=54
@@ -158,6 +157,12 @@
 - **BPLN** Soviet MIG（米格战机） · 飞行器 · 造价 0 · 血 200 · light · 速 16 · 视野 0 · 等级 -1 · Maverick3(750伤/10帧/射程4 弹头MIGWH) · 每发 → none,flak,plate,light,medium,heavy,wood,steel,special_1,special_2=750 concrete=375
 - **SPYP** Soviet Spy Plane（间谍飞机） · 飞行器 · 造价 0 · 血 600 · light · 速 15 · 视野 0 · 等级 -1 · SpyCameraWeapon(6伤/1帧/射程20 弹头DummyWarhead) · 每发 → none,flak,plate,light,medium,heavy,wood,steel,concrete,special_1,special_2=0
 - **CMISL** Cruise Missile（海岸巡逻船） · 飞行器 · 造价 50 · 血 50 · special_2 · 速 20 · 视野 0 · 等级 -1
+
+## 战役特供（1）
+
+科技等级超过 10，正常对战里造不出来。
+
+- **LUNR** Lunar Infantry（月球飞行兵） · 步兵 · 造价 600 · 血 125 · none · 速 9 · 视野 8 · 前提 NAPILE,RADAR · 等级 11 · Lunarlaser(25伤/20帧/射程7 弹头LUNARWH) · 每发 → none,flak,light,medium,heavy,special_1,special_2=25 plate=20 wood=7.5 steel,concrete=5
 
 ## 未使用（6）
 

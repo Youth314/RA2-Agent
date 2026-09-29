@@ -351,6 +351,6 @@ Arabs 伊拉克
 
 Confederation 古巴
 
-Russians 俄罗斯
+Russians 苏俄
 
 YuriCountry 尤里

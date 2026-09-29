@@ -95,8 +95,9 @@ def format_damage(values):
     return " ".join(f"{','.join(armors)}={value:g}" for value, armors in groups.items())
 
 
-def unit_line(rules, unit, names):
+def unit_line(rules, unit, names, effects=None):
     """一个单位一行。"""
+    effects = effects or {}
     fields = [f"**{unit.id}** {with_name(unit, names)}",
               KIND_LABEL.get(unit.kind, unit.kind),
               f"造价 {unit.cost}", f"血 {unit.strength}", unit.armor,
@@ -112,11 +113,12 @@ def unit_line(rules, unit, names):
     if weapon is not None:
         fields.append(f"{weapon.id}({weapon.damage}伤/{weapon.rof}帧/射程{weapon.rng:g} 弹头{weapon.warhead})")
         fields.append("每发 → " + format_damage(values))
-    return " · ".join(fields)
+    return with_effect(" · ".join(fields), effects, unit)
 
 
-def building_line(rules, building, names):
+def building_line(rules, building, names, effects=None):
     """一个可建造建筑一行。"""
+    effects = effects or {}
     fields = [f"**{building.id}** {with_name(building, names)}", f"造价 {building.cost}",
               f"血 {building.strength}", building.armor]
     if building.power:
@@ -132,7 +134,7 @@ def building_line(rules, building, names):
     if weapon is not None:
         fields.append(f"{weapon.id}({weapon.damage}伤/{weapon.rof}帧/射程{weapon.rng:g} 弹头{weapon.warhead})")
         fields.append("每发 → " + format_damage(values))
-    return " · ".join(fields)
+    return with_effect(" · ".join(fields), effects, building)
 
 
 #: `ID 中文名：俗名…`；`❓` 表示中文名是按英文名推的，没经人确认。
@@ -213,6 +215,26 @@ def load_names():
     return names
 
 
+def is_scrapped(holder):
+    """废案：标了国家特有，但科技等级为负。
+
+    单看 `TechLevel=-1` 不能判废案——建造厂、围墙、平民也是 -1。同时要求
+    `RequiredHouses` 非空，正好只命中韩国的榴弹炮与古巴的雌鹿。
+    """
+    return is_country_unique(holder) and holder.tech_level < 1
+
+
+def is_campaign(holder):
+    """战役特供：科技等级超过 10（正常玩法最高 10）。"""
+    return not is_unused(holder) and holder.tech_level > 10
+
+
+def with_effect(line, effects, holder):
+    """条目末尾缀上补充说明；没有就不缀。"""
+    text = effects.get(holder.id)
+    return f"{line} · 注：{text}" if text else line
+
+
 def is_country_unique(holder):
     """只有某个国家能造：`RequiredHouses` 非空。"""
     return bool(getattr(holder, "required_houses", ()))
@@ -226,7 +248,7 @@ def country_uniques(rules):
     """
     out = {}
     for holder in list(rules.units) + list(rules.buildings):
-        if is_unused(holder) or not is_country_unique(holder):
+        if is_unused(holder) or is_scrapped(holder) or not is_country_unique(holder):
             continue
         for country in holder.required_houses:
             out.setdefault(country, []).append(holder)
@@ -247,7 +269,8 @@ def side_members(rules, side, buildings=False):
         pick = lambda o: o.cost > 0 and o.tech_level >= 1        # noqa: E731
     out = []
     for holder in rules.buildings if buildings else rules.units:
-        if is_unused(holder) or is_country_unique(holder) or not pick(holder):
+        if (is_unused(holder) or is_country_unique(holder)
+                or is_campaign(holder) or not pick(holder)):
             continue
         side_of = building_side(holder, index) if buildings else unit_side(holder, country_sides)
         if side_of == side:
@@ -291,13 +314,14 @@ def load_notes(name):
     return out
 
 
-def build_units(rules, names):
+def build_units(rules, names, effects=None):
     """`codex/units.md`：按阵营分，未使用的排最后。"""
     country_sides = sides_of(rules)
     buildable = [u for u in rules.units if u.tech_level >= 1 and not is_unused(u)]
     # 国家特有的也在这条线上，但它们归属 countries.md，别在这里重复出现
     other = [u for u in rules.units
-             if u.tech_level < 1 and not is_unused(u) and not is_country_unique(u)]
+             if u.tech_level < 1 and not is_unused(u)
+             and not is_country_unique(u) and not is_campaign(u)]
     unused = [u for u in rules.units if is_unused(u)]
     groups = []
     for side in ("GDI", "Nod", "ThirdSide"):
@@ -325,11 +349,17 @@ def build_units(rules, names):
              ""]
     for title, group in groups:
         lines += [f"## {title}（{len(group)}）", ""]
-        lines += [f"- {unit_line(rules, unit, names)}" for unit in group]
+        lines += [f"- {unit_line(rules, unit, names, effects)}" for unit in group]
         lines.append("")
     if other:
         lines += [f"## 民用与其它（{len(other)}）", ""]
-        lines += [f"- {unit_line(rules, unit, names)}" for unit in other]
+        lines += [f"- {unit_line(rules, unit, names, effects)}" for unit in other]
+        lines.append("")
+    campaign = [u for u in rules.units if is_campaign(u)]
+    if campaign:
+        lines += [f"## 战役特供（{len(campaign)}）", "",
+                  "科技等级超过 10，正常对战里造不出来。", ""]
+        lines += [f"- {unit_line(rules, unit, names, effects)}" for unit in campaign]
         lines.append("")
     if unused:
         lines += [f"## 未使用（{len(unused)}）", "",
@@ -339,7 +369,7 @@ def build_units(rules, names):
     return "\n".join(lines).rstrip() + "\n"
 
 
-def build_buildings(rules, names):
+def build_buildings(rules, names, effects=None):
     """`codex/buildings.md`。"""
     notes = load_notes("tech_buildings.md")
     buildable = [b for b in rules.buildings if b.cost > 0 and b.tech_level != -1]
@@ -374,7 +404,7 @@ def build_buildings(rules, names):
             continue
         title = SIDE_LABEL[side] if side else "未归类"
         lines += [f"### {title}（{len(group)}）", ""]
-        lines += [f"- {building_line(rules, building, names)}" for building in group]
+        lines += [f"- {building_line(rules, building, names, effects)}" for building in group]
         lines.append("")
     lines += ["", "## 可进驻", "",
               "拿来当掩体的。只给大小与驻军上限。", "",
@@ -385,7 +415,7 @@ def build_buildings(rules, names):
     return "\n".join(lines).rstrip() + "\n"
 
 
-def build_countries(rules, names):
+def build_countries(rules, names, effects=None):
     """`codex/countries.md`：先定位自己是哪个国家，再看能造什么。"""
     uniques = country_uniques(rules)
     lines = ["# 国家", "",
@@ -404,14 +434,19 @@ def build_countries(rules, names):
             title += f"（{label}）"
         lines += [f"## {title} — {SIDE_LABEL.get(country.side, country.side)}", ""]
         group = uniques.get(country.id, [])
-        if not group:
-            lines += ["特有：（无）", ""]
-            continue
-        lines += ["特有：", ""]
+        lines += ["特有：（无）", ""] if not group else ["特有：", ""]
         for holder in group:
-            line = (unit_line(rules, holder, names) if hasattr(holder, "kind")
-                    else building_line(rules, holder, names))
+            line = (unit_line(rules, holder, names, effects) if hasattr(holder, "kind")
+                    else building_line(rules, holder, names, effects))
             lines.append(f"- {line}")
+        scrapped = [o for o in list(rules.units) + list(rules.buildings)
+                    if is_scrapped(o) and country.id in o.required_houses]
+        if scrapped:
+            lines += ["", "废案（游戏里造不出来，科技等级为负）：", ""]
+            for holder in scrapped:
+                line = (unit_line(rules, holder, names, effects) if hasattr(holder, "kind")
+                        else building_line(rules, holder, names, effects))
+                lines.append(f"- {line}")
         lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
@@ -474,6 +509,7 @@ def main(argv=None):
     DERIVED.parent.mkdir(parents=True, exist_ok=True)
     CODEX.mkdir(parents=True, exist_ok=True)
     names = load_names()
+    effects = load_notes("entry_notes.md")
     entities, terms = load_glossary()
     known = ({u.id for u in rules.units} | {b.id for b in rules.buildings}
              | set(rules.weapons))
@@ -485,10 +521,10 @@ def main(argv=None):
     DERIVED.parent.mkdir(parents=True, exist_ok=True)
     CODEX.mkdir(parents=True, exist_ok=True)
     DERIVED.write_text(dump_json(rules), encoding="utf-8")
-    (CODEX / "units.md").write_text(build_units(rules, names), encoding="utf-8")
-    (CODEX / "buildings.md").write_text(build_buildings(rules, names), encoding="utf-8")
+    (CODEX / "units.md").write_text(build_units(rules, names, effects), encoding="utf-8")
+    (CODEX / "buildings.md").write_text(build_buildings(rules, names, effects), encoding="utf-8")
     (CODEX / "glossary.md").write_text(build_glossary(entities, terms), encoding="utf-8")
-    (CODEX / "countries.md").write_text(build_countries(rules, names), encoding="utf-8")
+    (CODEX / "countries.md").write_text(build_countries(rules, names, effects), encoding="utf-8")
     print(f"单位 {len(rules.units)}  建筑 {len(rules.buildings)}  "
           f"武器 {len(rules.weapons)}  弹头 {len(rules.warheads)}")
     print(f"→ {DERIVED.relative_to(REPO)}")
