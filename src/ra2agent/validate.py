@@ -20,12 +20,14 @@ class Validator:
     代价是游戏崩溃。
     """
 
-    def __init__(self, map_data: MapData | None = None):
+    def __init__(self, map_data: MapData | None = None,
+                 allow_foreign: bool = False):
         self.map_data = map_data
+        self.allow_foreign = allow_foreign
 
     def with_map(self, map_data: MapData) -> "Validator":
-        """返回一个带地图的新校验器。"""
-        return Validator(map_data)
+        """返回一个带地图、其余策略相同的新校验器。"""
+        return Validator(map_data, allow_foreign=self.allow_foreign)
 
     # ------------------------------------------------------------ 坐标
     def check_coordinates(self, coordinates: Coordinates) -> None:
@@ -85,6 +87,26 @@ class Validator:
                     f"对象 {obj.pointer} 的 mission={obj.mission} 非法，"
                     f"UnitOrder 会拒绝；对象级网络事件请改用 ClickEvent")
 
+    def check_ownership(self, state: GameState, objects) -> None:
+        """拒绝指挥非己方对象。
+
+        引擎不做这项检查：`UnitOrder` 在全局对象表里按指针查对象，查到即调
+        `ClickMission`，全程不看归属，因此敌方与中立单位同样能下令。生产与建造
+        倒是固定归属当前玩家，因为那条路走 `add_event`。
+
+        「Agent 即玩家」要求适配层自己强制这条约束，否则等于可以操纵全场。需要
+        越权（调试、导演模式、全局观察者）时把 `allow_foreign` 置真，使其显式。
+        """
+        if self.allow_foreign:
+            return
+        house = state.player_house()
+        for obj in objects:
+            if obj.house != house.pointer:
+                raise InvalidCommand(
+                    f"对象 {obj.pointer} 属于阵营 {obj.house}，不是己方 "
+                    f"{house.pointer}；引擎不拦此类越权，故在此拒绝。"
+                    f"确需越权请显式设置 allow_foreign")
+
     def check_action(self, action) -> None:
         """动作必须在服务端已实现。"""
         if action not in UNIT_ACTIONS_IMPLEMENTED:
@@ -102,6 +124,7 @@ class Validator:
             self.check_coordinates(coordinates)
             return
         resolved = self.resolve(state, units)
+        self.check_ownership(state, resolved)
         self.check_mission(resolved)
         if action in UNIT_ACTIONS_NEED_TARGET and not target_object:
             raise InvalidCommand(f"action={int(action)} 需要 target_object")

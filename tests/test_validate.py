@@ -10,13 +10,15 @@ from ra2agent.constants import (LEPTONS_PER_CELL, AbstractType, LandType,
 from ra2agent.errors import InvalidCommand
 from ra2agent.state import GameState, MapData, cell_center
 from ra2agent.validate import Validator
-from tests.fixtures import (ENEMY_HOUSE, PLAYER_HOUSE, build_game_state,
-                            build_house, build_map_soa, build_object)
+from tests.fixtures import (ENEMY_HOUSE, NEUTRAL_HOUSE, PLAYER_HOUSE,
+                            build_game_state, build_house, build_map_soa,
+                            build_object)
 
 CLEAR_OBJECT = 0xA1
 BUILDING_OBJECT = 0xA2
 LIMBO_OBJECT = 0xA3
 ENEMY_OBJECT = 0xB1
+NEUTRAL_OBJECT = 0xC1
 
 MAP_SIDE = 4
 
@@ -169,6 +171,65 @@ class TestActions(unittest.TestCase):
             self.validator.check_unit_order(
                 self.state, [CLEAR_OBJECT], UnitAction.MOVE,
                 coordinates=Coordinates(999_999, 999_999))
+
+
+class TestOwnership(unittest.TestCase):
+    """引擎不拦越权指挥，适配层必须自己拦。
+
+    `UnitOrder` 在全局对象表里按指针查对象，查到即调 `ClickMission`，全程不看
+    归属，故敌方与中立单位同样能下令。生产与建造倒是固定归属当前玩家，因为那条
+    路走 `add_event`。
+    """
+
+    def setUp(self):
+        self.validator = Validator(make_map())
+        self.state = make_state()
+
+    def test_rejects_enemy_object(self):
+        with self.assertRaises(InvalidCommand) as ctx:
+            self.validator.check_unit_order(self.state, [ENEMY_OBJECT],
+                                            UnitAction.STOP)
+        self.assertIn("不是己方", str(ctx.exception))
+
+    def test_rejects_neutral_object(self):
+        neutral_state = GameState.parse(build_game_state(
+            houses=[build_house(PLAYER_HOUSE, current_player=True),
+                    build_house(NEUTRAL_HOUSE, faction="Neutral")],
+            objects=[build_object(NEUTRAL_OBJECT, house=NEUTRAL_HOUSE)]))
+        with self.assertRaises(InvalidCommand):
+            self.validator.check_unit_order(neutral_state, [NEUTRAL_OBJECT],
+                                            UnitAction.STOP)
+
+    def test_accepts_own_object(self):
+        self.validator.check_unit_order(self.state, [CLEAR_OBJECT],
+                                        UnitAction.STOP)
+
+    def test_rejects_mixed_batch(self):
+        # 一条命令带多个对象时，只要有一个非己方就整体拒绝
+        with self.assertRaises(InvalidCommand):
+            self.validator.check_unit_order(
+                self.state, [CLEAR_OBJECT, ENEMY_OBJECT], UnitAction.STOP)
+
+    def test_allow_foreign_opts_out(self):
+        permissive = Validator(make_map(), allow_foreign=True)
+        permissive.check_unit_order(self.state, [ENEMY_OBJECT], UnitAction.STOP)
+
+    def test_with_map_preserves_permissive_policy(self):
+        permissive = Validator(make_map(), allow_foreign=True)
+        rebuilt = permissive.with_map(make_map())
+        self.assertTrue(rebuilt.allow_foreign)
+        rebuilt.check_unit_order(self.state, [ENEMY_OBJECT], UnitAction.STOP)
+
+    def test_with_map_preserves_strict_default(self):
+        strict = Validator(make_map())
+        self.assertFalse(strict.with_map(make_map()).allow_foreign)
+
+    def test_ownership_checked_before_mission(self):
+        # 建造中的建筑属己方，报的应是 mission 而不是归属
+        with self.assertRaises(InvalidCommand) as ctx:
+            self.validator.check_unit_order(self.state, [BUILDING_OBJECT],
+                                            UnitAction.STOP)
+        self.assertIn("mission", str(ctx.exception))
 
 
 class TestSellCell(unittest.TestCase):
