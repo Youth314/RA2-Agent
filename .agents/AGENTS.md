@@ -11,7 +11,7 @@
 | `notes/` | 文档：计划、指南、决策记录。暂不分层，有真实需要再分 |
 | `drafts/` | 草稿：任务交接、备忘等。不必成为正式文档，要求宽松 |
 | `tmp/` | 临时产物：脚本、截图、日志。可随时删除，不入库 |
-| `skills/` | agent skill，格式同 DSH；`ra2-write-tactic/` 是写技法的规范 |
+| `skills/` | agent skill，格式同 DSH；`ra2-play/` 是打局时读的入口，`ra2-write-tactic/` 是写技法的规范 |
 
 ## 写作要求
 

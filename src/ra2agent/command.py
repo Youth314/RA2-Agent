@@ -11,12 +11,40 @@
 """
 from dataclasses import dataclass, field
 
+from .constants import LandType
 from .errors import TacticError
 from .intents import Scope, TacticCall
 from .tactics import Mode
 
 #: 撤销不了的返回文案。
 UNKNOWN_INTENT = "没有这条在管任务：可能已结束或被撤销"
+
+
+def describe_map(map_data):
+    """地图尺寸与水域占比；还没取到地图返回空串。
+
+    水域占比是目前判断海战图的唯一现成线索——`GameSettings`（含 `map_name` 与
+    `game_mode`）在引擎的 proto 里有定义，但上游一处都没实现，取不到。
+    """
+    if map_data is None:
+        return ""
+    lands = map_data.columns.get("land_type") or ()
+    water = sum(1 for value in lands if value == LandType.WATER)
+    ratio = water * 100.0 / len(lands) if lands else 0.0
+    return f"地图 {map_data.width}×{map_data.height}，水域 {ratio:.0f}%"
+
+
+def describe_houses(state):
+    """参战各方：国家名、是不是你、人类还是电脑、出局没有。"""
+    parts = []
+    for house in state.houses:
+        if house.is_neutral:
+            continue
+        who = "你" if house.current_player else ("人类" if house.is_human_player else "电脑")
+        if house.defeated:
+            who += "，已出局"
+        parts.append(f"{house.name}（{who}）")
+    return f"参战 {len(parts)} 方｜" + " · ".join(parts) if parts else ""
 
 
 #: 一次最多列多少个单位，免得文本长到把上下文吃掉。
@@ -101,6 +129,10 @@ class StatusReport:
 
     frame: int
     summary: str
+    #: 每拍都带的极短一行：地图与参战方。
+    match: str = ""
+    #: 首次进入对局时报一次的本局简报；之后为空。
+    brief: str = ""
     units: tuple = ()
     enemies: tuple = ()
     running: tuple = ()
@@ -110,6 +142,10 @@ class StatusReport:
     def render(self) -> str:
         """渲染成模型读的文本，形状稳定、尽量短。"""
         lines = [f"局势｜{self.summary}"]
+        if self.brief:
+            lines.extend(self.brief.splitlines())
+        elif self.match:
+            lines.append(self.match)
         if self.units:
             lines.append(f"己方单位 {len(self.units)}：")
             for unit in self.units[:MAX_LISTED_UNITS]:
@@ -158,6 +194,7 @@ class Commander:
         self.log = log
         self._seen_completed = 0
         self._seen_notices = 0
+        self._briefed = False
 
     # ------------------------------------------------------------ 工具一：局势
     def status(self, observation=None) -> StatusReport:
@@ -170,11 +207,35 @@ class Commander:
         notices = self.layer.notices[self._seen_notices:]
         self._seen_completed = len(self.layer.completed)
         self._seen_notices = len(self.layer.notices)
+        match, brief = self._match_info(observation)
         return StatusReport(frame=observation.frame, summary=observation.summary(),
+                            match=match, brief=brief,
                             units=self._own_units(observation),
                             enemies=self._enemy_units(observation),
                             running=self.layer.progress(), events=tuple(completed),
                             notices=tuple(notices))
+
+    def _match_info(self, observation):
+        """本局信息：`(每拍一行, 首次的详细简报)`。
+
+        简报只报一次，与「新结果只报一次」同理——它是静态的。地图与参战方则每拍
+        都带：模型每次读局势都该看到自己在什么局里，而上下文压缩会把早先那次吃掉。
+        """
+        if observation.state is None:
+            return "", ""
+        houses = describe_houses(observation.state)
+        if not houses:                 # 还没进对局，参战方都数不出来
+            return "", ""
+        map_text = describe_map(self.observer.map_data)
+        body = f"{map_text}｜{houses}" if map_text else houses
+        line = f"本局｜{body}"
+        if self._briefed:
+            return line, ""
+        self._briefed = True
+        lines = [line]
+        if observation.state.tech_level:
+            lines.append(f"你的科技等级 {observation.state.tech_level}")
+        return line, "\n".join(lines)
 
     def _own_units(self, observation) -> tuple:
         """己方单位清单，含它是否已被某条任务占用。"""

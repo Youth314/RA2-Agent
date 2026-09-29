@@ -389,3 +389,66 @@ class TestUnitPool(Case):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestMatchBrief(Case):
+    """本局信息：首次给详细简报，之后每拍只带一行。"""
+
+    def _state(self, houses, frame=1234):
+        return GameState.parse(build_game_state(houses=houses, frame=frame))
+
+    def _both_sides(self):
+        return (build_house(PLAYER_HOUSE, current_player=True, faction="Americans"),
+                build_house(ENEMY_HOUSE, faction="Russians"))
+
+    def test_first_status_carries_the_brief(self):
+        self.build(self._state(self._both_sides()))
+        text = self.commander.status(self.observation).render()
+        self.assertIn("本局｜", text)
+        self.assertIn("地图", text)
+        self.assertIn("水域", text)
+        self.assertIn("参战 2 方", text)
+        self.assertIn("科技等级", text)
+
+    def test_brief_is_reported_only_once(self):
+        self.build(self._state(self._both_sides()))
+        self.commander.status(self.observation)
+        later = self.commander.status(self.observation).render()
+        # 一行还在（模型每拍都该看到自己在什么局里），详细的没了
+        self.assertIn("本局｜", later)
+        self.assertNotIn("科技等级", later)
+
+    def test_neutral_house_is_not_a_combatant(self):
+        self.build(self._state(self._both_sides()
+                               + (build_house(0x3000, faction="Neutral"),)))
+        self.assertIn("参战 2 方", self.commander.status(self.observation).render())
+
+    def test_defeated_house_is_marked(self):
+        self.build(self._state((build_house(PLAYER_HOUSE, current_player=True),
+                                build_house(ENEMY_HOUSE, defeated=True))))
+        self.assertIn("已出局", self.commander.status(self.observation).render())
+
+    def test_no_combatants_means_no_brief(self):
+        # 一个参战方都数不出来时，不报一份空的
+        self.build(self._state((build_house(PLAYER_HOUSE, current_player=True,
+                                            faction="Neutral"),)))
+        text = self.commander.status(self.observation).render()
+        self.assertNotIn("本局｜", text)
+        self.assertFalse(self.commander._briefed)
+
+
+class TestDescribeMap(unittest.TestCase):
+    def test_water_ratio(self):
+        from ra2agent.command import describe_map
+        m = MapData(width=10, height=10, columns={"land_type": [LandType.WATER] * 25
+                                                  + [LandType.CLEAR] * 75})
+        self.assertEqual(describe_map(m), "地图 10×10，水域 25%")
+
+    def test_no_map_yet(self):
+        from ra2agent.command import describe_map
+        self.assertEqual(describe_map(None), "")
+
+    def test_land_only_is_zero_percent(self):
+        from ra2agent.command import describe_map
+        m = MapData(width=2, height=2, columns={"land_type": [LandType.CLEAR] * 4})
+        self.assertEqual(describe_map(m), "地图 2×2，水域 0%")
