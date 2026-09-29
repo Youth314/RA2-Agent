@@ -64,4 +64,6 @@ python3 tools/fetch_names.py     # 从 B 站《红警2单位对照》抽出，�
 
 引擎用名字前缀 `ZZZ` 标注未使用的条目，另有 `Placeholder`、`DeathDummy` 两个占位物——这些不进正文，单列一节。
 
+`notes/eva_needed.md` 是**事件蓝本**：选哪些事件、为什么。`config/events.md` 不存在时用它。
+
 副官事件的**触发条件不在 `evamd.ini` 里**（那是引擎代码），所以「可见性」与「可合成」两列由人写，见 `notes/eva_annotations.md`。生成器会拒绝认不出的名字。
