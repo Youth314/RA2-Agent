@@ -26,21 +26,17 @@ NOMINAL_FPS = 44
 class Layer(IntEnum):
     """决策层。数值越小越接近引擎。"""
 
-    L0_EXECUTION = 0
-    L1_MICRO = 1
-    L2_TACTICAL = 2
-    L3_OPERATIONAL = 3
-    L4_STRATEGIC = 4
+    L0_INFRASTRUCTURE = 0
+    L1_TACTIC = 1
+    L2_COMMAND = 2
 
     @property
     def label(self) -> str:
         """人类可读的层名。"""
         return {
-            Layer.L0_EXECUTION: "L0 执行",
-            Layer.L1_MICRO: "L1 微操",
-            Layer.L2_TACTICAL: "L2 战术",
-            Layer.L3_OPERATIONAL: "L3 战役",
-            Layer.L4_STRATEGIC: "L4 战略",
+            Layer.L0_INFRASTRUCTURE: "基础设施",
+            Layer.L1_TACTIC: "技法",
+            Layer.L2_COMMAND: "指挥",
         }[self]
 
 
@@ -113,7 +109,7 @@ class Intent:
     #: 由注册表填入，子类不应手工设置。
     kind: str = field(default="", init=False)
     id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])
-    layer: Layer = Layer.L2_TACTICAL
+    layer: Layer = Layer.L1_TACTIC
     issuer: str = "agent"
     scope: Scope = field(default_factory=lambda: Scope(objects=(0,)))
     created_frame: int = 0
@@ -155,7 +151,7 @@ class Intent:
         if target is None:
             raise Ra2Error(f"未知的意图类型 {kind!r}")
         payload = dict(data)
-        payload["layer"] = Layer(payload.get("layer", Layer.L2_TACTICAL))
+        payload["layer"] = Layer(payload.get("layer", Layer.L1_TACTIC))
         if "scope" in payload:
             payload["scope"] = Scope.from_dict(payload["scope"])
         # 按具体子类中可经构造函数传入的字段过滤；kind 为 init=False，故被排除
@@ -250,6 +246,20 @@ class Sell(Intent):
     """变卖建筑。对象级网络事件，L0 会走 `ClickEvent`。"""
 
     buildings: tuple[int, ...] = ()
+
+
+@register("call")
+@dataclass
+class TacticCall(Intent):
+    """指挥层意图：调用一条技法，由技法层展开成给基础设施的意图。
+
+    载荷通用（技法名加参数），使模型新增技法不必改 schema；参数按技法声明的
+    `Param` 在调用前校验。
+    """
+
+    tactic: str = ""
+    params: dict = field(default_factory=dict)
+    layer: Layer = Layer.L2_COMMAND
 
 
 # ---------------------------------------------------------------- 决策日志

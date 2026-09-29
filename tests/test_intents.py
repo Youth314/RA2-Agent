@@ -82,14 +82,14 @@ class TestIntentEnvelope(unittest.TestCase):
 
 class TestSerialisation(unittest.TestCase):
     def test_round_trip_preserves_fields(self):
-        original = MoveTo(layer=Layer.L1_MICRO, issuer="human",
+        original = MoveTo(layer=Layer.L1_TACTIC, issuer="human",
                           scope=Scope(objects=(7, 8)),
                           created_frame=42, ttl_frames=120,
                           units=(7, 8), cell=(10, 11),
                           stance=Stance.PASSIVE)
         restored = MoveTo.from_dict(original.to_dict())
         self.assertEqual(restored.id, original.id)
-        self.assertEqual(restored.layer, Layer.L1_MICRO)
+        self.assertEqual(restored.layer, Layer.L1_TACTIC)
         self.assertEqual(restored.issuer, "human")
         self.assertEqual(restored.scope, original.scope)
         self.assertEqual(restored.created_frame, 42)
@@ -157,12 +157,12 @@ class TestDecisionLog(unittest.TestCase):
         self.assertEqual(entries[1]["detail"], {"command": "UnitOrder"})
 
     def test_records_intent_id_and_layer(self):
-        intent = MoveTo(layer=Layer.L2_TACTICAL)
+        intent = MoveTo(layer=Layer.L2_COMMAND)
         with DecisionLog(self.path) as log:
             log.record(7, "intent_issued", intent=intent)
         entry = self.read()[0]
         self.assertEqual(entry["intent_id"], intent.id)
-        self.assertEqual(entry["layer"], int(Layer.L2_TACTICAL))
+        self.assertEqual(entry["layer"], int(Layer.L2_COMMAND))
 
     def test_facts_are_stored(self):
         with DecisionLog(self.path) as log:

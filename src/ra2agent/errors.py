@@ -49,3 +49,23 @@ class CommandFailed(Ra2Error):
         super().__init__(message)
         self.command_type = command_type
         self.reason = reason
+
+
+class TacticError(Ra2Error):
+    """技法调用出错。"""
+
+
+class TacticDenied(TacticError):
+    """技法被拒绝。
+
+    `kind` 区分两种：`policy` 是等级超出门槛或不在启用清单，`condition` 是适用
+    条件不满足。前者任何情况下都不放行，后者允许被组合技法当作「这次不适用」。
+    """
+
+    def __init__(self, message, kind="policy"):
+        super().__init__(message)
+        self.kind = kind
+
+
+class TacticFailed(TacticError):
+    """技法自身抛了异常。异常隔离在此：一次调用作废，运行时继续。"""

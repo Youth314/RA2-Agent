@@ -1,0 +1,11 @@
+{
+  "disabled": [],
+  "enabled": [],
+  "max_calls": 32,
+  "max_depth": 8,
+  "max_intents": 32,
+  "max_level": {
+    "1": "normal"
+  },
+  "timeout_ms": 50
+}

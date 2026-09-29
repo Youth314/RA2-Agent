@@ -13,3 +13,6 @@ __pycache__/
 *.log
 .agents/tmp/*
 !.agents/tmp/.gitkeep
+
+# 模型与人写的技法不入库，验证通过后按记录注册
+src/ra2agent/tactics/local/
