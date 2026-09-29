@@ -329,3 +329,28 @@ CACITY03 未使用建筑
 CACITY04 未使用建筑
 
 CANEWY05 未使用的世贸中心
+
+## 国家
+
+`[国家] Name=` 给的是英文（France、Africans…），这里是玩家认得的叫法。
+Africans / Arabs / Confederation 三个是引擎的内部名，游戏里显示为利比亚 / 伊拉克 / 古巴。
+
+Americans 美国
+
+Alliance 韩国
+
+French 法国
+
+Germans 德国
+
+British 英国
+
+Africans 利比亚
+
+Arabs 伊拉克
+
+Confederation 古巴
+
+Russians 俄罗斯
+
+YuriCountry 尤里

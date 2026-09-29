@@ -28,6 +28,48 @@ NOTES = REPO / "corpus" / "notes"
 #: 单位与建筑的名字来源是英文，这里只把「类别」说成中文。
 KIND_LABEL = {"infantry": "步兵", "vehicle": "载具", "aircraft": "飞行器"}
 
+#: 阵营 → 属于它的国家。出处：`rulesmd.ini` 里各国家节的 `Side=`。
+#: `GDI`/`Nod` 是西木从泰伯利亚之日留下的名字，实际就是盟军与苏军。
+SIDE_COUNTRIES = {
+    "GDI": ("Americans", "Alliance", "French", "Germans", "British"),
+    "Nod": ("Africans", "Arabs", "Confederation", "Russians"),
+    "ThirdSide": ("YuriCountry",),
+}
+SIDE_LABEL = {"GDI": "盟军（GDI）", "Nod": "苏军（Nod）", "ThirdSide": "尤里（ThirdSide）"}
+#: 单位归不到单一阵营时放这里。
+SHARED_LABEL = "跨阵营"
+#: 建造厂 → 阵营。建筑的阵营靠前提链追到它。
+CONSTRUCTION_YARDS = {"GACNST": "GDI", "NACNST": "Nod", "YACNST": "ThirdSide"}
+COUNTRY_TO_SIDE = {c: s for s, cs in SIDE_COUNTRIES.items() for c in cs}
+
+
+def unit_side(unit):
+    """单位属于哪个阵营；横跨多个阵营返回 `None`。"""
+    sides = {COUNTRY_TO_SIDE[c] for c in unit.owners if c in COUNTRY_TO_SIDE}
+    return sides.pop() if len(sides) == 1 else None
+
+
+def building_side(building, index, seen=None):
+    """建筑的阵营：顺着 `Prerequisite` 追到建造厂。
+
+    `Owner` 对建筑不起作用——53 个可建造建筑的 `Owner` 全都列了所有国家。
+    真正限定阵营的是前提链：你只有一种建造厂，链上不通就造不了。通用前提
+    （`RADAR`、`PROC` 之类）本身不含建造厂，跳过即可。
+    """
+    if building.id in CONSTRUCTION_YARDS:
+        return CONSTRUCTION_YARDS[building.id]
+    seen = seen if seen is not None else set()
+    if building.id in seen:
+        return None
+    seen.add(building.id)
+    for identifier in building.prerequisite:
+        parent = index.get(identifier)
+        if parent is not None:
+            side = building_side(parent, index, seen)
+            if side:
+                return side
+    return None
+
 
 def damage_profile(rules, holder):
     """算一个单位/建筑的主武器对每种装甲的每发伤害。
@@ -173,6 +215,42 @@ def load_names():
     return names
 
 
+def is_country_unique(holder):
+    """只有某个国家能造：`RequiredHouses` 非空。"""
+    return bool(getattr(holder, "required_houses", ()))
+
+
+def country_uniques(rules):
+    """按国家收拢国家特有的单位与建筑。
+
+    阵营只管共用部分——法国与英国同属盟军，但法国多一门巨炮；伊拉克与俄罗斯
+    同属苏军，但伊拉克多辐射兵。故国家的特有项单独成册，不混进阵营章。
+    """
+    out = {}
+    for holder in list(rules.units) + list(rules.buildings):
+        if is_unused(holder) or not is_country_unique(holder):
+            continue
+        for country in holder.required_houses:
+            out.setdefault(country, []).append(holder)
+    return out
+
+
+def side_members(rules, side, buildings=False):
+    """某个阵营的共用条目；国家特有的不在其中。"""
+    index = {b.id: b for b in rules.buildings}
+    pick = (lambda o: True) if buildings else (lambda o: o.tech_level >= 1)
+    if buildings:
+        pick = lambda o: o.cost > 0 and o.tech_level >= 1        # noqa: E731
+    out = []
+    for holder in rules.buildings if buildings else rules.units:
+        if is_unused(holder) or is_country_unique(holder) or not pick(holder):
+            continue
+        side_of = building_side(holder, index) if buildings else unit_side(holder)
+        if side_of == side:
+            out.append(holder)
+    return out
+
+
 def is_unused(holder):
     """引擎标注未使用的条目。"""
     return holder.name.startswith(UNUSED_PREFIX) or holder.name in UNUSED_NAMES
@@ -210,30 +288,43 @@ def load_notes(name):
 
 
 def build_units(rules, names):
-    """`codex/units.md`：能造的排前面，未使用的排最后。"""
+    """`codex/units.md`：按阵营分，未使用的排最后。"""
     buildable = [u for u in rules.units if u.tech_level >= 1 and not is_unused(u)]
-    other = [u for u in rules.units if u.tech_level < 1 and not is_unused(u)]
+    # 国家特有的也在这条线上，但它们归属 countries.md，别在这里重复出现
+    other = [u for u in rules.units
+             if u.tech_level < 1 and not is_unused(u) and not is_country_unique(u)]
     unused = [u for u in rules.units if is_unused(u)]
+    groups = []
+    for side in ("GDI", "Nod", "ThirdSide"):
+        part = side_members(rules, side)
+        if part:
+            groups.append((SIDE_LABEL[side], part))
+    shared = [u for u in buildable if unit_side(u) is None and not is_country_unique(u)]
+    if shared:
+        groups.append((SHARED_LABEL, shared))
     lines = ["# 单位",
              "",
              f"由 `corpus/raw/rulesmd.ini` 生成，共 {len(rules.units)} 个："
-             f"可建造 {len(buildable)}，其它（民用、任务用）{len(other)}，"
-             f"未使用 {len(unused)}。不要手改。",
+             f"可建造 {len(buildable)}：盟军共用 {len(side_members(rules, 'GDI'))}、"
+             f"苏军共用 {len(side_members(rules, 'Nod'))}、"
+             f"尤里共用 {len(side_members(rules, 'ThirdSide'))}、"
+             f"跨阵营 {len(shared)}、国家特有 {len([u for u in buildable if is_country_unique(u)])}；"
+             f"其它（民用、任务用）{len(other)}，未使用 {len(unused)}。不要手改。",
+             "",
+             "**先看自己是哪个国家**：阵营章只有该阵营的共用单位，各国特有的在 "
+             "[`countries.md`](countries.md)。",
              "",
              "「每发 →」是主武器对每种装甲的每次开火伤害，同值的并成一档；"
              "装甲代号顺序同 `corpus/derived/rules.json` 的 `armor_types`。",
              ""]
-    for title, group in (("可建造", buildable), ("其它", other)):
-        if not group:
-            continue
+    for title, group in groups:
         lines += [f"## {title}（{len(group)}）", ""]
-        for kind, label in KIND_LABEL.items():
-            part = [u for u in group if u.kind == kind]
-            if not part:
-                continue
-            lines += [f"### {label}（{len(part)}）", ""]
-            lines += [f"- {unit_line(rules, unit, names)}" for unit in part]
-            lines.append("")
+        lines += [f"- {unit_line(rules, unit, names)}" for unit in group]
+        lines.append("")
+    if other:
+        lines += [f"## 民用与其它（{len(other)}）", ""]
+        lines += [f"- {unit_line(rules, unit, names)}" for unit in other]
+        lines.append("")
     if unused:
         lines += [f"## 未使用（{len(unused)}）", "",
                   "引擎用名字前缀 `ZZZ` 标注，留着只为了表里没有悬空引用。", ""]
@@ -256,7 +347,8 @@ def build_buildings(rules, names):
 
     lines = ["# 建筑", "",
              f"由 `corpus/raw/rulesmd.ini` 生成，共 {len(rules.buildings)} 个，不要手改。"
-             f"其中可建造 {len(buildable)}、科技与中立 {len(tech)}、可进驻 {len(occupied)}。",
+             f"其中可建造 {len(buildable)}、科技与中立 {len(tech)}、可进驻 {len(occupied)}。"
+             "带 `仅 X` 的是**国家特有**。",
              "", "## 科技与中立", "",
              "占了有用的那些。效果由人写（`corpus/notes/tech_buildings.md`）。", ""]
     for building in tech:
@@ -265,14 +357,50 @@ def build_buildings(rules, names):
     if neutral:
         lines += ["", "也能占领，但只是地图装饰：",
                   " ".join(f"{b.id}({b.name})" for b in neutral)]
-    lines += ["", "## 可建造", ""]
-    lines += [f"- {building_line(rules, building, names)}" for building in buildable]
+    lines += ["", "## 可建造", "",
+              "阵营由前提链追到建造厂决定——建筑的 `Owner` 全都列了所有国家，"
+              "分不出来；真正限定阵营的是「你只有一种建造厂」。",
+              "各国特有的在 [`countries.md`](countries.md)。", ""]
+    for side in ("GDI", "Nod", "ThirdSide", None):
+        group = side_members(rules, side, buildings=True) if side else [
+            b for b in buildable if building_side(b, {x.id: x for x in rules.buildings}) is None]
+        if not group:
+            continue
+        title = SIDE_LABEL[side] if side else "未归类"
+        lines += [f"### {title}（{len(group)}）", ""]
+        lines += [f"- {building_line(rules, building, names)}" for building in group]
+        lines.append("")
     lines += ["", "## 可进驻", "",
               "拿来当掩体的。只给大小与驻军上限。", "",
               "| 建筑 | 名字 | 地基 | 驻军上限 | 装甲 | 血 |", "|---|---|---|---|---|---|"]
     for building in sorted(occupied, key=lambda b: (-b.max_occupants, b.id)):
         lines.append(f"| {building.id} | {with_name(building, names)} | {building.foundation or '—'} | "
                      f"{building.max_occupants} | {building.armor} | {building.strength} |")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def build_countries(rules, names):
+    """`codex/countries.md`：先定位自己是哪个国家，再看能造什么。"""
+    uniques = country_uniques(rules)
+    lines = ["# 国家", "",
+             "一局的参战方是**国家**，不是阵营。每个国家能造的东西 = "
+             "**本阵营的共用清单** + **自己的特有项**。",
+             "",
+             "阵营共用在 [`units.md`](units.md) 与 [`buildings.md`](buildings.md) 的对应章；"
+             "各国特有的都在这里。", ""]
+    for country, side in sorted(COUNTRY_TO_SIDE.items(), key=lambda kv: (kv[1], kv[0])):
+        label = names.get(country, country)
+        lines += [f"## {country} {label} — {SIDE_LABEL[side]}", ""]
+        group = uniques.get(country, [])
+        if not group:
+            lines += ["特有：（无）", ""]
+            continue
+        lines += ["特有：", ""]
+        for holder in group:
+            line = (unit_line(rules, holder, names) if hasattr(holder, "kind")
+                    else building_line(rules, holder, names))
+            lines.append(f"- {line}")
+        lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
 
@@ -285,6 +413,40 @@ def dump_json(rules):
         "weapons": {k: asdict(v) for k, v in sorted(rules.weapons.items())},
         "warheads": {k: asdict(v) for k, v in sorted(rules.warheads.items())},
     }, ensure_ascii=False, indent=1, sort_keys=False) + "\n"
+
+
+_EMITTED = re.compile(r"^- \*\*([A-Za-z][A-Za-z0-9_]{1,15})\*\*|^\| ([A-Za-z][A-Za-z0-9_]{1,15}) \|",
+                     re.M)
+
+
+def emitted(text):
+    """文档里列出的注册名。"""
+    return [a or b for a, b in _EMITTED.findall(text)]
+
+
+def check_coverage(rules):
+    """每个单位都要出现；国家特有的只能出现在 `countries.md`。
+
+    装饰性建筑（既不可造也不可进驻）本就不列，故只查单位与「该出现的建筑」。
+    """
+    units_text = (CODEX / "units.md").read_text(encoding="utf-8")
+    builds_text = (CODEX / "buildings.md").read_text(encoding="utf-8")
+    country_text = (CODEX / "countries.md").read_text(encoding="utf-8")
+    problems = []
+
+    listed = emitted(units_text) + emitted(country_text)
+    known = {u.id for u in rules.units}
+    for identifier in sorted(known - set(listed)):
+        problems.append(f"单位 {identifier} 没有出现在任何文档里")
+
+    uniques = {o.id for o in list(rules.units) + list(rules.buildings)
+               if is_country_unique(o) and not is_unused(o)}
+    leaked = sorted(uniques & set(emitted(units_text) + emitted(builds_text)))
+    if leaked:
+        problems.append(f"国家特有的条目混进了阵营章：{leaked}")
+    for identifier in sorted(uniques - set(emitted(country_text))):
+        problems.append(f"国家特有的 {identifier} 没有出现在 countries.md 里")
+    return problems
 
 
 def main(argv=None):
@@ -314,13 +476,19 @@ def main(argv=None):
     (CODEX / "units.md").write_text(build_units(rules, names), encoding="utf-8")
     (CODEX / "buildings.md").write_text(build_buildings(rules, names), encoding="utf-8")
     (CODEX / "glossary.md").write_text(build_glossary(entities, terms), encoding="utf-8")
+    (CODEX / "countries.md").write_text(build_countries(rules, names), encoding="utf-8")
     print(f"单位 {len(rules.units)}  建筑 {len(rules.buildings)}  "
           f"武器 {len(rules.weapons)}  弹头 {len(rules.warheads)}")
     print(f"→ {DERIVED.relative_to(REPO)}")
     missing = [u.id for u in rules.units if not is_unused(u) and u.id not in names]
     print(f"中文名 {len(names)} 条；未覆盖的可动单位 {len(missing)}：{missing}")
+    problems = check_coverage(rules)
+    if problems:
+        for problem in problems:
+            print(f"一致性检查未过：{problem}", file=sys.stderr)
+        return 1
     print(f"俗名 {len(entities)} 条，战术黑话 {len(terms)} 条")
-    print("→ codex/units.md  codex/buildings.md  codex/glossary.md")
+    print("→ codex/units.md  codex/buildings.md  codex/glossary.md  codex/countries.md")
     return 0
 
 

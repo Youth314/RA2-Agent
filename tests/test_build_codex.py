@@ -183,3 +183,46 @@ class TestWithName(unittest.TestCase):
     def test_falls_back_to_english(self):
         holder = type("H", (), {"name": "Something", "id": "NOPE"})()
         self.assertEqual(build_codex.with_name(holder, {}), "Something")
+
+
+class TestFaction(unittest.TestCase):
+    def _holder(self, **kwargs):
+        base = {"id": "X", "owners": (), "prerequisite": ()}
+        base.update(kwargs)
+        return type("H", (), base)()
+
+    def test_unit_side_from_owners(self):
+        self.assertEqual(build_codex.unit_side(self._holder(owners=("Americans", "French"))), "GDI")
+        self.assertEqual(build_codex.unit_side(self._holder(owners=("Russians",))), "Nod")
+        self.assertEqual(build_codex.unit_side(self._holder(owners=("YuriCountry",))), "ThirdSide")
+
+    def test_cross_faction_unit_has_no_side(self):
+        self.assertIsNone(build_codex.unit_side(self._holder(owners=("Americans", "Russians"))))
+        self.assertIsNone(build_codex.unit_side(self._holder(owners=())))
+
+    def test_construction_yard_identifies_the_side(self):
+        for yard, side in build_codex.CONSTRUCTION_YARDS.items():
+            with self.subTest(yard=yard):
+                self.assertEqual(build_codex.building_side(self._holder(id=yard), {}), side)
+
+    def test_building_side_walks_prerequisites(self):
+        # 建筑的 Owner 全都列了所有国家，只能顺着前提链追到建造厂
+        index = {"GACNST": self._holder(id="GACNST"),
+                 "GAPILE": self._holder(id="GAPILE", prerequisite=("GACNST",))}
+        lab = self._holder(id="GATECH", prerequisite=("GAWEAP", "RADAR", "GACNST"))
+        index["GATECH"] = lab
+        self.assertEqual(build_codex.building_side(lab, index), "GDI")
+
+    def test_generic_prerequisites_are_skipped(self):
+        # RADAR / PROC 这类通用前提不在表里，跳过即可
+        index = {"NACNST": self._holder(id="NACNST")}
+        lab = self._holder(id="NATECH", prerequisite=("NAWEAP", "RADAR", "NACNST"))
+        index["NATECH"] = lab
+        self.assertEqual(build_codex.building_side(lab, index), "Nod")
+
+    def test_cycles_do_not_hang(self):
+        index = {}
+        a = self._holder(id="A", prerequisite=("B",))
+        b = self._holder(id="B", prerequisite=("A",))
+        index.update({"A": a, "B": b})
+        self.assertIsNone(build_codex.building_side(a, index))
