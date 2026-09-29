@@ -7,7 +7,7 @@
 
 ## 状态
 
-早期阶段。引擎可行性与命令能力均已实测验证，见 [.agents/notes/命令能力测绘结果.md](.agents/notes/命令能力测绘结果.md)。基础设施层（协议、状态、校验、意图、对象标识、观测、执行器）、技法层（技法框架、运行时、6 条示范技法）与指挥层工具面（四个工具）已实现，全部可离线测试；已接入 DSH，真模型跑通过一局。设计见 [.agents/notes/技法框架.md](.agents/notes/技法框架.md) 与 [.agents/notes/指挥层.md](.agents/notes/指挥层.md)。
+早期阶段。引擎可行性与命令能力均已实测验证，见 [.agents/notes/命令能力测绘结果.md](.agents/notes/命令能力测绘结果.md)。基础设施层（协议、状态、校验、意图、对象标识、观测、执行器）、技法层（技法框架、运行时、6 条示范技法）与指挥层工具面（四个工具）已实现，全部可离线测试；DSH 侧以 agent preset `ra2` 挂载，装在 `dsh/`。设计见 [.agents/notes/技法框架.md](.agents/notes/技法框架.md) 与 [.agents/notes/指挥层.md](.agents/notes/指挥层.md)。
 
 ## 目录
 
@@ -15,6 +15,7 @@
 - `src/ra2agent/` — Agent 与引擎适配层的源码
 - `tests/` — 单元测试
 - `tools/` — 探针与运维脚本
+- `dsh/` — DSH 侧的挂载物：声明 agent preset `ra2` 的 bundle
 - `docs/` — 给人看的文档
 - `.agents/` — 给 agent 看的内容，见 [.agents/AGENTS.md](.agents/AGENTS.md)
 
