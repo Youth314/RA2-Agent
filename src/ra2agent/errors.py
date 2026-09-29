@@ -40,8 +40,12 @@ class CommandFailed(Ra2Error):
 
     `error_message` 为服务端原文；引擎拒绝的原因即在此，例如
     `object not found`、`invalid unit action`、`Proximity check failed`。
+
+    `reason` 是归一化后的原因码（见 `executor.ERROR_REASONS`），供上层按稳定
+    分支处理；原文措辞不一，只有 `reason` 适合入判断。
     """
 
-    def __init__(self, message, command_type=None):
+    def __init__(self, message, command_type=None, reason="unknown"):
         super().__init__(message)
         self.command_type = command_type
+        self.reason = reason

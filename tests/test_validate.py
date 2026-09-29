@@ -254,6 +254,39 @@ class TestSellCell(unittest.TestCase):
                                             coordinates=Coordinates(-5, 0))
 
 
+class TestClickEvent(unittest.TestCase):
+    """对象级网络事件：与 UnitOrder 的差别只有一条——不检查 mission。
+
+    它存在的理由正是处理 `Mission_Construction` 的对象（刚放置的建筑要变卖），
+    故存在性与归属照查，mission 不查。
+    """
+
+    def setUp(self):
+        self.validator = Validator(make_map())
+        self.state = make_state()
+
+    def test_accepts_construction_object(self):
+        self.validator.check_click_event(self.state, [BUILDING_OBJECT])
+
+    def test_rejects_foreign_object(self):
+        with self.assertRaises(InvalidCommand) as ctx:
+            self.validator.check_click_event(self.state, [ENEMY_OBJECT])
+        self.assertIn("不是己方", str(ctx.exception))
+
+    def test_rejects_unknown_pointer(self):
+        with self.assertRaises(InvalidCommand):
+            self.validator.check_click_event(self.state, [0xDEADBEEF])
+
+    def test_rejects_limbo(self):
+        with self.assertRaises(InvalidCommand) as ctx:
+            self.validator.check_click_event(self.state, [LIMBO_OBJECT])
+        self.assertIn("limbo", str(ctx.exception))
+
+    def test_allow_foreign_opts_out(self):
+        permissive = Validator(make_map(), allow_foreign=True)
+        permissive.check_click_event(self.state, [ENEMY_OBJECT])
+
+
 class TestPlace(unittest.TestCase):
     def test_rejects_out_of_map(self):
         from ra2agent.state import Coordinates

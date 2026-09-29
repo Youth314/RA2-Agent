@@ -107,6 +107,16 @@ class Validator:
                     f"{house.pointer}；引擎不拦此类越权，故在此拒绝。"
                     f"确需越权请显式设置 allow_foreign")
 
+    def check_click_event(self, state: GameState, units) -> None:
+        """校验一条 `ClickEvent` 的前置条件。
+
+        与 `check_unit_order` 的差别只有一条：**不检查 `current_mission`**。服务端
+        的 `ClickEvent` 不做该检查，而它存在的理由正是处理 `Mission_Construction`
+        的对象——刚放置的建筑（变卖）与变身中的对象。存在性与归属仍照查。
+        """
+        resolved = self.resolve(state, units)
+        self.check_ownership(state, resolved)
+
     def check_action(self, action) -> None:
         """动作必须在服务端已实现。"""
         if action not in UNIT_ACTIONS_IMPLEMENTED:

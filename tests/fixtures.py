@@ -18,8 +18,8 @@ def build_coordinates(x, y, z=0):
 def build_object(pointer, type_pointer=0x900, house=PLAYER_HOUSE,
                  object_type=AbstractType.UNIT, mission=Mission.GUARD,
                  x=1000, y=2000, health=300, in_limbo=False, deployed=False,
-                 selected=False, on_map=True):
-    """`Object`。"""
+                 selected=False, on_map=True, destination=None):
+    """`Object`。`destination` 为 `(x, y)`；不给时服务端字段缺席。"""
     return (
         pb_uint(1, type_pointer)
         + pb_uint(2, health)
@@ -29,6 +29,8 @@ def build_object(pointer, type_pointer=0x900, house=PLAYER_HOUSE,
         + pb_uint(10, pointer)
         + pb_uint(13, 1 if selected else 0)
         + pb_uint(14, 1 if deployed else 0)
+        + (pb_bytes(17, build_coordinates(*destination))
+           if destination is not None else b"")
         + pb_uint(18, int(mission))
         + pb_uint(19, 1 if in_limbo else 0)
         + pb_uint(20, 1 if on_map else 0)
