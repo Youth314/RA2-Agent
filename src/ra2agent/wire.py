@@ -9,7 +9,7 @@ import os
 import socket
 import struct
 
-from .errors import ProtocolError
+from .errors import ConnectionLost, ProtocolError
 
 _GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
@@ -27,7 +27,7 @@ class WebSocket:
         try:
             self.sock = socket.create_connection((host, port), timeout=timeout)
         except OSError as exc:
-            raise ProtocolError(f"无法连接 {host}:{port}：{exc}") from exc
+            raise ConnectionLost(f"无法连接 {host}:{port}：{exc}") from exc
         self.sock.settimeout(timeout)
         self._buf = b""
         self._frag = bytearray()
@@ -56,9 +56,9 @@ class WebSocket:
             try:
                 chunk = self.sock.recv(4096)
             except OSError as exc:
-                raise ProtocolError(f"握手期间连接中断：{exc}") from exc
+                raise ConnectionLost(f"握手期间连接中断：{exc}") from exc
             if not chunk:
-                raise ProtocolError("握手期间连接关闭")
+                raise ConnectionLost("握手期间连接关闭")
             head += chunk
         raw_header, _, rest = head.partition(b"\r\n\r\n")
         self._buf = rest
@@ -83,9 +83,9 @@ class WebSocket:
             try:
                 chunk = self.sock.recv(max(4096, count - len(self._buf)))
             except OSError as exc:
-                raise ProtocolError(f"连接中断：{exc}") from exc
+                raise ConnectionLost(f"连接中断：{exc}") from exc
             if not chunk:
-                raise ProtocolError("连接关闭")
+                raise ConnectionLost("连接关闭")
             self._buf += chunk
         out, self._buf = self._buf[:count], self._buf[count:]
         return out
@@ -134,7 +134,7 @@ class WebSocket:
         while True:
             final, opcode, payload = self._read_frame()
             if opcode == OP_CLOSE:
-                raise ProtocolError("服务端发送关闭帧")
+                raise ConnectionLost("服务端发送关闭帧")
             if opcode == OP_PING:
                 self._send_frame(OP_PONG, payload)
                 continue

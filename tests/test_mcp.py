@@ -6,8 +6,11 @@
 import io
 import json
 import unittest
+from types import SimpleNamespace
 
+from ra2agent.constants import LoadStage
 from ra2agent.errors import Ra2Error
+from ra2agent.game import GameHost, ProcessInfo
 from ra2agent.mcp import (FALLBACK_PROTOCOL, INSTRUCTIONS, LATEST_PROTOCOL,
                           PROTOCOL_VERSIONS, TOOLS, GameSession, McpServer)
 
@@ -85,10 +88,10 @@ class TestInitialize(unittest.TestCase):
 
 # ---------------------------------------------------------------- 工具表
 class TestToolList(unittest.TestCase):
-    def test_lists_four_tools(self):
+    def test_lists_tools(self):
         [response] = serve([request(1, "tools/list")])
         names = [tool["name"] for tool in response["result"]["tools"]]
-        self.assertEqual(names, ["status", "tactics", "call", "cancel"])
+        self.assertEqual(names, ["status", "tactics", "call", "cancel", "game"])
 
     def test_every_tool_has_schema(self):
         [response] = serve([request(1, "tools/list")])
@@ -187,7 +190,7 @@ class TestProtocol(unittest.TestCase):
 class TestGameSession(unittest.TestCase):
     def test_tool_names_match_the_table(self):
         self.assertEqual(GameSession().tool_names(),
-                         ("status", "tactics", "call", "cancel"))
+                         ("status", "tactics", "call", "cancel", "game"))
 
     def test_unknown_tool_raises(self):
         session = GameSession()
@@ -205,6 +208,187 @@ class TestGameSession(unittest.TestCase):
         with self.assertRaises(ValueError) as ctx:
             session._call({"calls": [{"tactic": "a", "typo": 1}]})
         self.assertIn("不认识的字段", str(ctx.exception))
+
+
+# ---------------------------------------------------------------- 门外
+class FakeHost(GameHost):
+    """离线替身：外部调用全换掉，只留 `inspect`/`describe` 的真实拼装。"""
+
+    def __init__(self, processes=(), listening=False, focused=True, crash_age=None):
+        super().__init__(runner=lambda argv, timeout=None: None,
+                         focus_probe=lambda: focused,
+                         focus_reset=lambda: True,
+                         crash_report="/nonexistent")
+        self._processes = processes
+        self._listening = listening
+        self._crash_age = crash_age
+        self.launched = False
+        self.terminated = False
+        self.focus_calls = 0
+
+    def processes(self):
+        return self._processes
+
+    def port_open(self):
+        return self._listening
+
+    def crash_report_age(self):
+        return self._crash_age
+
+    def launch(self):
+        self.launched = True
+
+    def terminate(self):
+        self.terminated = True
+        return tuple(process.pid for process in self._processes)
+
+    def focus_game(self):
+        self.focus_calls += 1
+        return True
+
+
+def game_session(**host_kwargs):
+    """一个不连游戏的会话，宿主侧换成替身。"""
+    host = FakeHost(**host_kwargs)
+    return GameSession(game_host=host), host
+
+
+def in_match(frame=812, stage=LoadStage.INGAME):
+    """一个「已进对局」的假观测。"""
+    state = SimpleNamespace(stage=stage, frame=frame, player_house=lambda: object())
+    return SimpleNamespace(state=state, frame=frame,
+                           house=SimpleNamespace(name="America"))
+
+
+def refuse_connection():
+    raise ConnectionRefusedError("拒绝连接")
+
+
+class TestGameTool(unittest.TestCase):
+    def test_status_reports_no_game_and_how_to_start(self):
+        session, _ = game_session()
+        text = session.call_tool("game", {"action": "status"})
+        self.assertIn("未运行", text)
+        self.assertIn("game start", text)
+
+    def test_status_does_not_connect(self):
+        # 门外动作必须在没有对局时也能用，故不能 ensure()
+        session, _ = game_session()
+        session.ensure = lambda: self.fail("game status 不该连游戏")
+        session.call_tool("game", {"action": "status"})
+
+    def test_status_lists_pids_and_focus_when_running(self):
+        session, _ = game_session(
+            processes=(ProcessInfo("gamemd-spawn-ra2yrcpp.exe", 1234),),
+            listening=True, focused=False)
+        text = session.call_tool("game", {"action": "status"})
+        self.assertIn("1234", text)
+        self.assertIn("失焦", text)
+        self.assertIn("game focus", text)
+
+    def test_status_appends_the_match_line_when_connected(self):
+        session, _ = game_session(listening=True)
+        session._observation = in_match()
+        text = session.call_tool("game", {"action": "status"})
+        self.assertIn("帧 812", text)
+        self.assertIn("阵营 America", text)
+
+    def test_status_hides_a_broken_connection(self):
+        session, _ = game_session(listening=True)
+        session._observation = in_match()
+        session._broken = True
+        self.assertNotIn("帧 812", session.call_tool("game", {"action": "status"}))
+
+    def test_status_reports_crash_evidence(self):
+        session, _ = game_session(crash_age=2820)
+        self.assertIn("崩溃报告 47 分钟前",
+                      session.call_tool("game", {"action": "status"}))
+
+    def test_start_launches_and_drops_a_stale_session(self):
+        session, host = game_session()
+        session._broken = True
+        text = session.call_tool("game", {"action": "start"})
+        self.assertTrue(host.launched)
+        self.assertIn("已发起启动", text)
+        self.assertFalse(session._broken)
+
+    def test_start_is_idempotent(self):
+        session, host = game_session(
+            processes=(ProcessInfo("gamemd-spawn-ra2yrcpp.exe", 7),))
+        text = session.call_tool("game", {"action": "start"})
+        self.assertFalse(host.launched)
+        self.assertIn("已经在跑", text)
+
+    def test_stop_refuses_during_a_match_without_force(self):
+        session, host = game_session(
+            processes=(ProcessInfo("gamemd-spawn-ra2yrcpp.exe", 7),))
+        session._observation = in_match()
+        text = session.call_tool("game", {"action": "stop"})
+        self.assertFalse(host.terminated)
+        self.assertIn("force=true", text)
+
+    def test_stop_with_force_kills_and_resets(self):
+        session, host = game_session(
+            processes=(ProcessInfo("gamemd-spawn-ra2yrcpp.exe", 7),))
+        session._observation = in_match()
+        text = session.call_tool("game", {"action": "stop", "force": True})
+        self.assertTrue(host.terminated)
+        self.assertIn("已停止游戏", text)
+
+    def test_stop_without_a_match_needs_no_force(self):
+        session, host = game_session(
+            processes=(ProcessInfo("gamemd-spawn-ra2yrcpp.exe", 7),))
+        session._observation = in_match(stage=LoadStage.LOADING)
+        self.assertIn("已停止游戏", session.call_tool("game", {"action": "stop"}))
+        self.assertTrue(host.terminated)
+
+    def test_stop_when_not_running_is_a_no_op(self):
+        session, host = game_session()
+        self.assertIn("无需停止", session.call_tool("game", {"action": "stop"}))
+        self.assertFalse(host.terminated)
+
+    def test_focus_requires_a_running_game(self):
+        session, host = game_session()
+        self.assertIn("没在跑", session.call_tool("game", {"action": "focus"}))
+        self.assertEqual(host.focus_calls, 0)
+
+    def test_focus_resets_when_running(self):
+        session, host = game_session(
+            processes=(ProcessInfo("gamemd-spawn-ra2yrcpp.exe", 7),))
+        self.assertIn("已把游戏窗口置前",
+                      session.call_tool("game", {"action": "focus"}))
+        self.assertEqual(host.focus_calls, 1)
+
+    def test_unknown_action_is_a_value_error(self):
+        session, _ = game_session()
+        with self.assertRaises(ValueError):
+            session.call_tool("game", {"action": "restart"})
+
+    def test_bad_action_reaches_the_model_as_plain_text(self):
+        # 参数错误是模型自己造成的，报错不该以 ValueError 开头
+        session, _ = game_session()
+        [response] = serve([request(1, "tools/call",
+                                    {"name": "game",
+                                     "arguments": {"action": "restart"}})],
+                           session)
+        result = response["result"]
+        self.assertTrue(result["isError"])
+        self.assertTrue(result["content"][0]["text"].startswith("没有这个 action"))
+
+    def test_project_errors_are_not_prefixed_with_a_class_name(self):
+        session = FakeSession(error=Ra2Error("游戏没在跑：端口不通"))
+        [response] = serve([request(1, "tools/call",
+                                    {"name": "status", "arguments": {}})], session)
+        self.assertEqual(response["result"]["content"][0]["text"], "游戏没在跑：端口不通")
+
+    def test_in_game_tools_point_at_game_when_disconnected(self):
+        session, _ = game_session()
+        session._connect = refuse_connection
+        with self.assertRaises(Ra2Error) as ctx:
+            session.call_tool("status", {})
+        message = str(ctx.exception)
+        self.assertIn("游戏没在跑", message)
+        self.assertIn("game start", message)
 
 
 if __name__ == "__main__":

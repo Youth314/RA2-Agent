@@ -16,6 +16,14 @@ class ProtocolError(Ra2Error):
     """
 
 
+class ConnectionLost(ProtocolError):
+    """与服务端的连接断了。
+
+    `ProtocolError` 也用于协议内容不合法与状态查找失败，那时连接本身还是好的。
+    只有本类表示这条连接不再可用，上层据此丢弃整条会话再重建。
+    """
+
+
 class InvalidCommand(Ra2Error, ValueError):
     """命令在本地被拒绝。
 
