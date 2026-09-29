@@ -5,7 +5,8 @@
 """
 import unittest
 
-from ra2agent.events import EventKind, Policy, detect
+from ra2agent.events import (MAX_LISTED_PER_KIND, Event, EventKind, EventLog,
+                             Policy, Subject, detect, summarize)
 from ra2agent.observation import Observation
 from ra2agent.state import GameState
 from tests.fixtures import (ENEMY_HOUSE, NEUTRAL_HOUSE, PLAYER_HOUSE,
@@ -158,3 +159,80 @@ class TestFogDiscipline(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestEventLog(unittest.TestCase):
+    def log_with(self, events, capacity=256):
+        log = EventLog(capacity=capacity)
+        log.record(events)
+        return log
+
+    def make(self, kind, frame=1, name="me", **data):
+        return Event(kind=kind, frame=frame, subject=Subject("house", 0, name), data=data)
+
+    def test_feeding_the_same_frame_twice_reports_once(self):
+        # tick() 与 status() 都可能触发读帧，靠这条保证不重复
+        log = EventLog()
+        one = frame([me()])
+        self.assertEqual(log.update(one), ())
+        log.update(one)
+        self.assertEqual(len(log), 0)
+
+    def test_a_new_frame_is_detected(self):
+        log = EventLog()
+        log.update(frame([me(money=500)]))
+        events = log.update(frame([me(money=100)], frame_number=101))
+        self.assertEqual([e.kind for e in events], [EventKind.INSUFFICIENT_FUNDS])
+
+    def test_first_frame_reports_nothing(self):
+        self.assertEqual(EventLog().update(frame([me()])), ())
+
+    def test_cursor_returns_only_what_is_new(self):
+        log = self.log_with([self.make(EventKind.LOW_POWER, frame=i) for i in range(3)])
+        events, cursor = log.new_since(1)
+        self.assertEqual(len(events), 2)
+        self.assertEqual(cursor, 3)
+        self.assertEqual(log.new_since(cursor)[0], ())
+
+    def test_capacity_drops_the_oldest_and_clamps_the_cursor(self):
+        log = self.log_with([self.make(EventKind.LOW_POWER, frame=i) for i in range(3)],
+                            capacity=2)
+        events, cursor = log.new_since(0)
+        self.assertEqual(len(events), 2, "最早的被挤掉了")
+        self.assertEqual(cursor, 3, "游标仍按累计数走，不错位")
+
+    def test_total_survives_the_capacity(self):
+        log = self.log_with([self.make(EventKind.LOW_POWER) for _ in range(10)], capacity=3)
+        self.assertEqual(len(log), 10)
+
+
+class TestSummarize(unittest.TestCase):
+    def make(self, kind, name="me", **data):
+        return Event(kind=kind, frame=1, subject=Subject("house", 0, name), data=data)
+
+    def test_empty_gives_empty_text(self):
+        self.assertEqual(summarize(()), "")
+
+    def test_same_kind_is_grouped_with_a_count(self):
+        events = [self.make(EventKind.PLAYER_DEFEATED, name="A"),
+                  self.make(EventKind.PLAYER_DEFEATED, name="B")]
+        text = summarize(events)
+        self.assertIn("玩家出局 ×2", text)
+        self.assertIn("A", text)
+        self.assertIn("B", text)
+
+    def test_identical_details_are_listed_once(self):
+        # 三个玩家同名时不该列三遍
+        text = summarize([self.make(EventKind.PLAYER_DEFEATED, name="A")] * 3)
+        self.assertEqual(text.count("A（电脑）"), 1)
+        self.assertIn("×3", text)
+
+    def test_long_groups_are_capped(self):
+        events = [self.make(EventKind.PLAYER_DEFEATED, name=f"P{i}") for i in range(9)]
+        text = summarize(events)
+        self.assertIn("另有", text)
+        self.assertEqual(text.count("被击败"), MAX_LISTED_PER_KIND)
+
+    def test_permanent_kinds_keep_their_subject(self):
+        text = summarize([self.make(EventKind.PLAYER_DEFEATED, name="Russia")])
+        self.assertIn("Russia", text)

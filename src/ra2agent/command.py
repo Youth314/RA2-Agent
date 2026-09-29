@@ -12,12 +12,24 @@
 from dataclasses import dataclass, field
 
 from .constants import LandType
+from .events import summarize
 from .errors import TacticError
 from .intents import Scope, TacticCall
 from .tactics import Mode
 
 #: 撤销不了的返回文案。
 UNKNOWN_INTENT = "没有这条在管任务：可能已结束或被撤销"
+
+
+def observation_events(observer, cursor):
+    """`observer` 上自 `cursor` 起的新事件，返回 `(事件, 新游标)`。
+
+    没挂事件队列的观测者给出空——测试里的假件就是如此。
+    """
+    log = getattr(observer, "events", None)
+    if log is None:
+        return (), cursor
+    return log.new_since(cursor)
 
 
 def describe_map(map_data):
@@ -133,6 +145,10 @@ class StatusReport:
     match: str = ""
     #: 首次进入对局时报一次的本局简报；之后为空。
     brief: str = ""
+    #: 上次读走之后新结算的任务。
+    results: tuple = ()
+    #: 上次读走之后的新事件；读走即清空游标。
+    events: tuple = ()
     units: tuple = ()
     enemies: tuple = ()
     running: tuple = ()
@@ -146,6 +162,9 @@ class StatusReport:
             lines.extend(self.brief.splitlines())
         elif self.match:
             lines.append(self.match)
+        if self.events:
+            lines.append(f"新事件 {len(self.events)} 条：")
+            lines.extend(summarize(self.events).splitlines())
         if self.units:
             lines.append(f"己方单位 {len(self.units)}：")
             for unit in self.units[:MAX_LISTED_UNITS]:
@@ -169,9 +188,9 @@ class StatusReport:
                              f"{modes}｜已 {elapsed} 帧")
         else:
             lines.append("在管 0 项")
-        if self.events:
-            lines.append(f"新结果 {len(self.events)} 条：")
-            for event in self.events:
+        if self.results:
+            lines.append(f"新结果 {len(self.results)} 条：")
+            for event in self.results:
                 lines.append(
                     f"- {event['tactic']}#{event['intent_id']}｜{event['state']}｜"
                     f"到位 {len(event['arrived'])} 损失 {len(event['lost'])} "
@@ -195,6 +214,7 @@ class Commander:
         self._seen_completed = 0
         self._seen_notices = 0
         self._briefed = False
+        self._seen_events = 0
 
     # ------------------------------------------------------------ 工具一：局势
     def status(self, observation=None) -> StatusReport:
@@ -208,11 +228,12 @@ class Commander:
         self._seen_completed = len(self.layer.completed)
         self._seen_notices = len(self.layer.notices)
         match, brief = self._match_info(observation)
+        new_events, self._seen_events = observation_events(self.observer, self._seen_events)
         return StatusReport(frame=observation.frame, summary=observation.summary(),
-                            match=match, brief=brief,
+                            match=match, brief=brief, events=new_events,
                             units=self._own_units(observation),
                             enemies=self._enemy_units(observation),
-                            running=self.layer.progress(), events=tuple(completed),
+                            running=self.layer.progress(), results=tuple(completed),
                             notices=tuple(notices))
 
     def _match_info(self, observation):

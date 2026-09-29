@@ -14,6 +14,7 @@
 from dataclasses import dataclass, field
 
 from .constants import AbstractType
+from .events import EventLog
 from .identity import IdentityTable
 from .state import GameObject, GameState, House, MapData, TypeTable
 
@@ -72,6 +73,8 @@ class Observer:
         self.map_data = map_data
         self.types = types
         self.last_state: GameState | None = None
+        #: 事件队列。挂在 `poll()` 上，故 `tick()` 与 `status()` 共享同一份。
+        self.events = EventLog()
 
     # ------------------------------------------------------------ 初始化
     def bootstrap(self) -> "Observer":
@@ -87,7 +90,9 @@ class Observer:
         """读一帧，维护迷雾与标识，返回过滤后的观测。"""
         state = self.client.get_state()
         self.absorb(state)
-        return self.observe(state)
+        observation = self.observe(state)
+        self.events.update(observation)
+        return observation
 
     def absorb(self, state: GameState) -> int:
         """把一帧的增量并入底图并推进标识表，返回回填的格数。"""

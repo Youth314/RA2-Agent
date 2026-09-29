@@ -8,6 +8,7 @@ import unittest
 from ra2agent.command import CallRequest, Commander, UnitPool
 from ra2agent.constants import AbstractType, LandType, Mission
 from ra2agent.errors import TacticError
+from ra2agent.events import EventKind, EventLog
 from ra2agent.executor import CommandPlan, ExecutionOutcome
 from ra2agent.client import CommandResult
 from ra2agent.identity import IdentityTable
@@ -74,6 +75,7 @@ class FakeExecutor:
 
 class FakeObserver:
     def __init__(self, state, map_data=None):
+        self.events = EventLog()
         self.identity = IdentityTable()
         self.identity.update(state)
         self.map_data = map_data if map_data else MAP
@@ -303,10 +305,10 @@ class TestStatus(Case):
                                          units=(self.agent(ALLY_A),))])
         self.tick(self.state)                       # 驻守一拍即到位并结算
         first = self.commander.status()
-        self.assertEqual(len(first.events), 1)
-        self.assertEqual(first.events[0]["state"], "satisfied")
+        self.assertEqual(len(first.results), 1)
+        self.assertEqual(first.results[0]["state"], "satisfied")
         second = self.commander.status()
-        self.assertEqual(second.events, ())
+        self.assertEqual(second.results, ())
 
     def test_render_is_compact_and_stable(self):
         report = self.commander.status()
@@ -371,8 +373,8 @@ class TestFakeModelRound(Case):
 
         report = self.commander.status(self.observer.observation)
         self.assertEqual(report.running, ())
-        self.assertEqual(len(report.events), 1)
-        self.assertEqual(report.events[0]["state"], "satisfied")
+        self.assertEqual(len(report.results), 1)
+        self.assertEqual(report.results[0]["state"], "satisfied")
         self.assertIn("新结果 1 条", report.render())
 
 
@@ -435,6 +437,40 @@ class TestMatchBrief(Case):
         text = self.commander.status(self.observation).render()
         self.assertNotIn("本局｜", text)
         self.assertFalse(self.commander._briefed)
+
+
+class TestStatusEvents(Case):
+    """游戏事件走 `status` 的「读走即清空」——与任务结果同一套语义。"""
+
+    def _event(self):
+        from ra2agent.events import Event, EventKind, Subject
+        return Event(kind=EventKind.LOW_POWER, frame=self.state.frame,
+                     subject=Subject("house", 0, "me"),
+                     data={"drain": 150, "output": 100})
+
+    def test_reported_once(self):
+        self.build(GameState.parse(build_game_state(houses=[
+            build_house(PLAYER_HOUSE, current_player=True)])))
+        self.observer.events.record([self._event()])
+        first = self.commander.status(self.observation)
+        self.assertEqual(len(first.events), 1)
+        self.assertIn("新事件 1 条", first.render())
+        self.assertIn("电力不足", first.render())
+        self.assertEqual(self.commander.status(self.observation).events, ())
+
+    def test_no_events_means_no_section(self):
+        self.build(GameState.parse(build_game_state(houses=[
+            build_house(PLAYER_HOUSE, current_player=True)])))
+        self.assertNotIn("新事件", self.commander.status(self.observation).render())
+
+    def test_task_results_keep_their_own_section(self):
+        # 游戏事件与任务结果是两回事，各有各的段落
+        self.build(GameState.parse(build_game_state(houses=[
+            build_house(PLAYER_HOUSE, current_player=True)])))
+        self.observer.events.record([self._event()])
+        text = self.commander.status(self.observation).render()
+        self.assertIn("新事件 1 条", text)
+        self.assertNotIn("新结果", text)
 
 
 class TestDescribeMap(unittest.TestCase):

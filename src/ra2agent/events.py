@@ -11,7 +11,9 @@
 
 选哪些事件、为什么，见 `corpus/notes/eva_needed.md`。
 """
+import collections
 import dataclasses
+import itertools
 from dataclasses import dataclass
 from enum import Enum
 
@@ -25,6 +27,10 @@ INFILTRATION_SIDES = (("allied", "allied_infiltrated"),
                       ("third", "third_infiltrated"))
 
 
+#: 给模型看的名字。
+KIND_LABEL = {}
+
+
 class EventKind(str, Enum):
     """事件类型。取值即稳定标识，写进日志与配置。"""
 
@@ -32,6 +38,14 @@ class EventKind(str, Enum):
     INSUFFICIENT_FUNDS = "insufficient_funds"
     INFILTRATED = "infiltrated"
     PLAYER_DEFEATED = "player_defeated"
+
+
+KIND_LABEL.update({
+    EventKind.LOW_POWER: "电力不足",
+    EventKind.INSUFFICIENT_FUNDS: "资金不足",
+    EventKind.INFILTRATED: "被渗透",
+    EventKind.PLAYER_DEFEATED: "玩家出局",
+})
 
 
 @dataclass(frozen=True)
@@ -91,6 +105,85 @@ class Policy:
 
     #: 余额跌破它就报「资金不足」。
     funds_threshold: int = DEFAULT_FUNDS_THRESHOLD
+
+
+class EventLog:
+    """事件队列。
+
+    **记录与投递分开**：队列留下全部事件（有上限），而给模型的那一份按窗口聚合。
+    合并只影响投递，不影响留痕——复盘时仍有全量可查。
+
+    喂帧是**幂等**的：同一帧喂两次不会重复报。`tick()` 与 `status()` 都可能触发读帧，
+    都挂在 `Observer.poll()` 后面，靠这条保证不重复。
+    """
+
+    def __init__(self, capacity=256, policy=None):
+        self.capacity = capacity
+        self.policy = policy or Policy()
+        self._events = collections.deque(maxlen=capacity)
+        #: 累计记录过多少条。游标基于它，故被上限挤掉也不会错位。
+        self._total = 0
+        self._last = None
+
+    def update(self, observation) -> tuple:
+        """喂一帧观测，返回这一拍新产出的事件。"""
+        if observation is None:
+            return ()
+        if self._last is not None and observation.frame == self._last.frame:
+            return ()
+        events = detect(self._last, observation, self.policy)
+        self._last = observation
+        self.record(events)
+        return events
+
+    def record(self, events) -> None:
+        """直接记入若干事件，不经检测。"""
+        self._events.extend(events)
+        self._total += len(events)
+
+    def __len__(self):
+        return self._total
+
+    def new_since(self, cursor) -> tuple:
+        """`cursor` 之后的全部事件。
+
+        返回 `(事件, 新游标)`。被上限挤掉的那些取不回来，故游标会被夹到现有的起点。
+        """
+        oldest = self._total - len(self._events)
+        skipped = max(cursor, oldest) - oldest
+        return tuple(itertools.islice(self._events, skipped, None)), self._total
+
+
+#: 投递时每类最多列几条，其余折成计数。
+MAX_LISTED_PER_KIND = 4
+
+
+def summarize(events) -> str:
+    """把一批事件合成给模型看的一段。
+
+    同类合并、同类里再按主语去重。**只影响投递**——队列里仍是全量。
+    """
+    if not events:
+        return ""
+    groups = collections.OrderedDict()
+    for event in events:
+        groups.setdefault(event.kind, []).append(event)
+    lines = []
+    for kind, group in groups.items():
+        lines.append(f"- {KIND_LABEL.get(kind, kind.value)} ×{len(group)}")
+        seen = set()
+        for event in group:
+            detail = event.render()
+            if kind is not EventKind.PLAYER_DEFEATED:
+                detail = detail.split("（")[0]
+            if detail in seen:
+                continue
+            seen.add(detail)
+            if len(seen) > MAX_LISTED_PER_KIND:
+                lines.append(f"  - …另有 {len(group) - MAX_LISTED_PER_KIND} 条")
+                break
+            lines.append(f"  - {detail}")
+    return "\n".join(lines)
 
 
 def subject_of(house, me=None) -> Subject:
