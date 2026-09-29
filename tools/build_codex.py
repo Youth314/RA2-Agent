@@ -66,6 +66,8 @@ def unit_line(rules, unit, names):
     fields.append(f"等级 {unit.tech_level}")
     if unit.passengers:
         fields.append(f"载员 {unit.passengers}")
+    if house_note(unit):
+        fields.append(house_note(unit))
     weapon, values = damage_profile(rules, unit)
     if weapon is not None:
         fields.append(f"{weapon.id}({weapon.damage}伤/{weapon.rof}帧/射程{weapon.rng:g} 弹头{weapon.warhead})")
@@ -84,6 +86,8 @@ def building_line(rules, building, names):
     fields.append(f"等级 {building.tech_level}")
     if building.special:
         fields.append(" ".join(building.special))
+    if house_note(building):
+        fields.append(house_note(building))
     weapon, values = damage_profile(rules, building)
     if weapon is not None:
         fields.append(f"{weapon.id}({weapon.damage}伤/{weapon.rof}帧/射程{weapon.rng:g} 弹头{weapon.warhead})")
@@ -172,6 +176,16 @@ def load_names():
 def is_unused(holder):
     """引擎标注未使用的条目。"""
     return holder.name.startswith(UNUSED_PREFIX) or holder.name in UNUSED_NAMES
+
+
+def house_note(holder):
+    """阵营限制说成人话；没有限制就不占位。"""
+    parts = []
+    if getattr(holder, "required_houses", ()):
+        parts.append("仅 " + ",".join(holder.required_houses))
+    if getattr(holder, "forbidden_houses", ()):
+        parts.append("禁 " + ",".join(holder.forbidden_houses))
+    return " · ".join(parts)
 
 
 def with_name(holder, names):

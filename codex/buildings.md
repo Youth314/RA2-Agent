@@ -47,14 +47,14 @@ CAHOSP(Old Civilian Hospital) CAEAST01(Easter Island Statue)
 - **NAYARD** Soviet Shipyard（苏军造船厂） · 造价 1000 · 血 1500 · concrete · 电力 -20 · 前提 PROC,POWER,NACNST · 等级 2 · repairs_units naval_dock
 - **GASPYSAT** Allied SpySat Uplink（间谍卫星） · 造价 1500 · 血 1000 · wood · 电力 -100 · 前提 GATECH,GACNST · 等级 9 · spy_satellite
 - **GAGAP** Allied Gap Generator（裂缝产生器） · 造价 1000 · 血 600 · wood · 电力 -100 · 前提 GATECH,GACNST · 等级 7 · extra_power
-- **GTGCAN** Allied Grand Cannon（法国巨炮GrandCannonWeapon） · 造价 2000 · 血 900 · steel · 电力 -100 · 前提 RADAR,GACNST · 等级 7 · GrandCannonWeapon(150伤/120帧/射程15 弹头GrandCannonWH) · 每发 → none,flak,plate,light,medium,heavy,steel,special_1,special_2=150 wood,concrete=75
+- **GTGCAN** Allied Grand Cannon（法国巨炮GrandCannonWeapon） · 造价 2000 · 血 900 · steel · 电力 -100 · 前提 RADAR,GACNST · 等级 7 · 仅 French · GrandCannonWeapon(150伤/120帧/射程15 弹头GrandCannonWH) · 每发 → none,flak,plate,light,medium,heavy,steel,special_1,special_2=150 wood,concrete=75
 - **NANRCT** Soviet Nuclear Reactor（核子反应堆） · 造价 1000 · 血 1000 · concrete · 电力 +2000 · 前提 NATECH,NACNST · 等级 9
 - **GAPILL** Allied Pill Box（机枪碉堡） · 造价 500 · 血 400 · steel · 前提 BARRACKS,GACNST · 等级 1 · Vulcan2(50伤/26帧/射程0 弹头SA) · 每发 → none,special_1,special_2=50 flak,plate=40 light,steel=25 medium,heavy,concrete=12.5 wood=37.5
 - **NAFLAK** Soviet Flak Cannon（防空炮） · 造价 1000 · 血 900 · steel · 电力 -50 · 前提 BARRACKS,NACNST · 等级 4 · FlakWeapon(40伤/20帧/射程12 弹头FlakWH) · 每发 → none=60 flak=32 plate=20 light,medium,special_1,special_2=40 heavy=8 wood,steel,concrete=0
 - **NACLON** Yuri Cloning Vats（复制中心） · 造价 2500 · 血 1000 · wood · 电力 -200 · 前提 YATECH,YACNST · 等级 9
 - **GAOREP** Allied Ore Processor（矿石精鍊器） · 造价 2500 · 血 900 · wood · 电力 -200 · 前提 GATECH,PROC,GACNST · 等级 10
-- **GAAIRC** Allied Airforce Command Headquarters（盟军空军指挥部） · 造价 1000 · 血 600 · steel · 电力 -50 · 前提 GAREFN,GACNST · 等级 3 · naval_dock
-- **AMRADR** Allied American Airforce Command Headquarters（美国空军指挥部） · 造价 1000 · 血 600 · steel · 电力 -50 · 前提 GAREFN,GACNST · 等级 3 · naval_dock
+- **GAAIRC** Allied Airforce Command Headquarters（盟军空军指挥部） · 造价 1000 · 血 600 · steel · 电力 -50 · 前提 GAREFN,GACNST · 等级 3 · naval_dock · 禁 Americans
+- **AMRADR** Allied American Airforce Command Headquarters（美国空军指挥部） · 造价 1000 · 血 600 · steel · 电力 -50 · 前提 GAREFN,GACNST · 等级 3 · naval_dock · 仅 Americans
 - **YAPOWR** Yuri Bio Reactor（生化反应炉） · 造价 600 · 血 700 · wood · 电力 +150 · 前提 YACNST · 等级 1 · extra_power
 - **YABRCK** Yuri Barracks（尤里兵营） · 造价 500 · 血 500 · steel · 电力 -10 · 前提 POWER,YACNST · 等级 2
 - **YAWEAP** Yuri War Factory（尤里兵工厂） · 造价 2000 · 血 1000 · wood · 电力 -25 · 前提 PROC,YABRCK,YACNST · 等级 2

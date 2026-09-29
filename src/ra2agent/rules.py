@@ -158,6 +158,10 @@ class UnitType:
     primary: str = ""
     secondary: str = ""
     passengers: int = 0
+    #: 只有这些阵营能造；空表示不设限。
+    required_houses: tuple = ()
+    #: 这些阵营不能造；空表示不设限。
+    forbidden_houses: tuple = ()
 
 
 @dataclass(frozen=True)
@@ -180,6 +184,8 @@ class BuildingType:
     foundation: str = ""
     primary: str = ""
     secondary: str = ""
+    required_houses: tuple = ()
+    forbidden_houses: tuple = ()
 
 
 @dataclass
@@ -243,6 +249,8 @@ def parse_rules(text):
     """把 `rulesmd.ini` 解析成 `Rules`。"""
     sections = load_sections(text)
     owners_of = lambda data: as_list(data.get("Owner") or data.get("Owners"))  # noqa: E731
+    required_of = lambda data: as_list(data.get("RequiredHouses"))             # noqa: E731
+    forbidden_of = lambda data: as_list(data.get("ForbiddenHouses"))           # noqa: E731
 
     units, buildings, holders = [], [], []
     for kind, section_name in UNIT_SECTIONS:
@@ -258,7 +266,8 @@ def parse_rules(text):
                 tech_level=as_int(data.get("TechLevel"), -1),
                 prerequisite=as_list(data.get("Prerequisite")), owners=owners_of(data),
                 primary=data.get("Primary", ""), secondary=data.get("Secondary", ""),
-                passengers=as_int(data.get("Passengers"))))
+                passengers=as_int(data.get("Passengers")),
+                required_houses=required_of(data), forbidden_houses=forbidden_of(data)))
             holders.append((data.get("Primary", ""), data.get("Secondary", "")))
 
     for identifier in collect_ids(sections, "BuildingTypes"):
@@ -275,7 +284,8 @@ def parse_rules(text):
             can_be_occupied=as_bool(data.get("CanBeOccupied")),
             max_occupants=as_int(data.get("MaxNumberOccupants")),
             special=_building_special(data), foundation=data.get("Foundation", ""),
-            primary=data.get("Primary", ""), secondary=data.get("Secondary", "")))
+            primary=data.get("Primary", ""), secondary=data.get("Secondary", ""),
+            required_houses=required_of(data), forbidden_houses=forbidden_of(data)))
         holders.append((data.get("Primary", ""), data.get("Secondary", "")))
 
     weapons, warheads = {}, {}
