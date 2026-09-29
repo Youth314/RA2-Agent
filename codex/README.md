@@ -8,6 +8,7 @@
 | `buildings.md` | 可建造建筑、科技与中立建筑、可进驻建筑 | 同上 |
 | `glossary.md` | 社区俗名与战术黑话，用来听懂玩家怎么说 | 手写于 `corpus/notes/glossary.md` |
 | `countries.md` | **入口**：十个国家各自的阵营、特有项与废案 | 同上 |
+| `eva.md` | 副官事件对照表：136 个事件的引擎原文、优先级、排队语义，以及「我们能不能合成」 | `tools/build_eva.py` |
 | `glossary.md` 之外的注 | 条目末尾的「注：…」来自 `corpus/notes/entry_notes.md` | 人 |
 
 数字全部来自 `corpus/raw/rulesmd.ini`（原版 YR 1.001），效果文字来自 `corpus/notes/`。

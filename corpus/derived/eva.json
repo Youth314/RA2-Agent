@@ -1,0 +1,2837 @@
+{
+ "source": "corpus/raw/evamd.ini",
+ "events": [
+  {
+   "name": "EVA_BattleControlTerminated",
+   "text": "Battle control terminated.",
+   "priority": "CRITICAL",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_BattlefieldControlOnline",
+   "text": "BattlefieldControlOnline",
+   "priority": "CRITICAL",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_ChronosphereActivated",
+   "text": "Warning:  Chronosphere activated.",
+   "priority": "CRITICAL",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎会全图播报，但我们的观测按迷雾过滤，拿不到"
+  },
+  {
+   "name": "EVA_ChronosphereDetected",
+   "text": "Warning:  Chronosphere detected.",
+   "priority": "CRITICAL",
+   "queue": true,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎会全图播报，但我们的观测按迷雾过滤，拿不到"
+  },
+  {
+   "name": "EVA_EstablishBattlefieldControl",
+   "text": "Establishing battlefield control…standby.",
+   "priority": "CRITICAL",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_IronCurtainActivated",
+   "text": "Warning:  Iron Curtain activated.",
+   "priority": "CRITICAL",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎会全图播报，但我们的观测按迷雾过滤，拿不到"
+  },
+  {
+   "name": "EVA_IronCurtainDetected",
+   "text": "Warning:  Iron Curtain detected.",
+   "priority": "CRITICAL",
+   "queue": true,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎会全图播报，但我们的观测按迷雾过滤，拿不到"
+  },
+  {
+   "name": "EVA_LightningStormCreated",
+   "text": "Warning:  Lightning Storm created.",
+   "priority": "CRITICAL",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎会全图播报，但我们的观测按迷雾过滤，拿不到"
+  },
+  {
+   "name": "EVA_NuclearMissileLaunched",
+   "text": "Warning:  Nuclear Missile Launched.",
+   "priority": "CRITICAL",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎会全图播报，但我们的观测按迷雾过滤，拿不到"
+  },
+  {
+   "name": "EVA_AllianceBroken",
+   "text": "Alliance broken.",
+   "priority": "IMPORTANT",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_AllianceFormed",
+   "text": "Alliance formed.",
+   "priority": "IMPORTANT",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_CashStolen",
+   "text": "Cash stolen.",
+   "priority": "IMPORTANT",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_EnemyAllianceFormed",
+   "text": "Enemy alliance formed.",
+   "priority": "IMPORTANT",
+   "queue": true,
+   "visibility": "需渗透",
+   "synthesizable": "推断",
+   "basis": "敌方内部状态；需渗透或盟友视野"
+  },
+  {
+   "name": "EVA_LowPower",
+   "text": "Low power.",
+   "priority": "IMPORTANT",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_NewTerrainDiscovered",
+   "text": "New terrain discovered.",
+   "priority": "IMPORTANT",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_NuclearSiloDetected",
+   "text": "Warning:  Nuclear Silo detected.",
+   "priority": "IMPORTANT",
+   "queue": true,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎会全图播报，但我们的观测按迷雾过滤，拿不到"
+  },
+  {
+   "name": "EVA_PlayerDefeated",
+   "text": "Player defeated.",
+   "priority": "IMPORTANT",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_PlayerResigned",
+   "text": "Player resigned.",
+   "priority": "IMPORTANT",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_PowerSabotaged",
+   "text": "Power sabotaged.",
+   "priority": "IMPORTANT",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_RadarSabotaged",
+   "text": "Radar sabotaged.",
+   "priority": "IMPORTANT",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_ReinforcementsHaveArrived",
+   "text": "Reinforcemenets have arrived.",
+   "priority": "IMPORTANT",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_TechBuildingCaptured",
+   "text": "Tech building captured.",
+   "priority": "IMPORTANT",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_TechBuildingLost",
+   "text": "Tech building lost.",
+   "priority": "IMPORTANT",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_TechnologyStolen",
+   "text": "Technology stolen.",
+   "priority": "IMPORTANT",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_UnitLost",
+   "text": "Unit lost.",
+   "priority": "IMPORTANT",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_AirfieldCaptured",
+   "text": "",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_AirstrikeInitiated",
+   "text": "",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_AllianceRequested",
+   "text": "Alliance requested.",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_BattleControlOnline",
+   "text": "",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_BeaconDetected",
+   "text": "Beacon detected.",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎会全图播报，但我们的观测按迷雾过滤，拿不到"
+  },
+  {
+   "name": "EVA_BuildingCaptured",
+   "text": "Building Captured.",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_BuildingInfiltrated",
+   "text": "Building infiltrated.",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_ChronosphereReady",
+   "text": "Chronosphere ready.",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_ForceShieldActivated",
+   "text": "",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎会全图播报，但我们的观测按迷雾过滤，拿不到"
+  },
+  {
+   "name": "EVA_ForceShieldReady",
+   "text": "",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_GeneticMutatorActivated",
+   "text": "",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎会全图播报，但我们的观测按迷雾过滤，拿不到"
+  },
+  {
+   "name": "EVA_GeneticMutatorDetected",
+   "text": "",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎会全图播报，但我们的观测按迷雾过滤，拿不到"
+  },
+  {
+   "name": "EVA_GeneticMutatorReady",
+   "text": "",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_HospitalCaptured",
+   "text": "",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_InsufficientFunds",
+   "text": "Insufficient funds.",
+   "priority": "NORMAL",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_IronCurtainReady",
+   "text": "Iron Curtain ready.",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_LightningStormReady",
+   "text": "Lightning Storm ready.",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_MachineShopCaptured",
+   "text": "",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_NuclearMissileReady",
+   "text": "Nuclear Missile Ready.",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_ObjectiveComplete",
+   "text": "",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_OilRefineryCaptured",
+   "text": "",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_ParatroopersReady",
+   "text": "",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_PsychicDominatorActivated",
+   "text": "",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎会全图播报，但我们的观测按迷雾过滤，拿不到"
+  },
+  {
+   "name": "EVA_PsychicDominatorDetected",
+   "text": "",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎会全图播报，但我们的观测按迷雾过滤，拿不到"
+  },
+  {
+   "name": "EVA_PsychicDominatorReady",
+   "text": "",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_ReinforcementsReady",
+   "text": "ReinforcementsReady",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_RepairFacilityCaptured",
+   "text": "",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_RobotTanksBackOnline",
+   "text": "",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_RobotTanksOffline",
+   "text": "",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_SecretLabCaptured",
+   "text": "",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_SpyPlaneEnRoute",
+   "text": "",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_SpyPlaneReady",
+   "text": "",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_StructureAbandoned",
+   "text": "Structure abandoned.",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_StructureGarrisoned",
+   "text": "Structure garrisoned.",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_StructureRepaired",
+   "text": "",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_WeatherControlOffline",
+   "text": "WeatherControlDeviceOffline",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_WeatherControlUnavailable",
+   "text": "",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_WeatherDeviceReady",
+   "text": "Warning:  Weather Control Device detected.",
+   "priority": "NORMAL",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_ArmorUpgraded",
+   "text": "Armor upgraded.",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_BaseDefensesOffLine",
+   "text": "Base defenses off-line.",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_BeaconPlaced",
+   "text": "Beacon placed.",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_BridgeRepaired",
+   "text": "Bridge repaired.",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_Building",
+   "text": "Building.",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_BuildingInfCashStolen",
+   "text": "Building infiltrated:  Cash stolen.",
+   "priority": "LOW",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_BuildingInfRadarSabotaged",
+   "text": "Building infiltrated:  Radar sabotaged.",
+   "priority": "LOW",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_BuildingInfTechStolen",
+   "text": "Building infiltrated:  Technology stolen.",
+   "priority": "LOW",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_BuildingInfiltratedPowerSabotaged",
+   "text": "Building infiltrated:  Power sabotaged.",
+   "priority": "LOW",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_BuildingOffLine",
+   "text": "Building off-line.",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_BuildingOnLine",
+   "text": "Building on-line.",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_Canceled",
+   "text": "Canceled.",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_CannotDeployHere",
+   "text": "Cannot deploy here.",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_ConstructionComplete",
+   "text": "Construction Complete.",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_FirepowerUpgraded",
+   "text": "Firepower upgraded.",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_NewConstructionOptions",
+   "text": "New construction options.",
+   "priority": "LOW",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_NewRallyPointEstablished",
+   "text": "New rally point established.",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_OnHold",
+   "text": "On hold.",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_OurAllyIsUnderAttack",
+   "text": "Our ally is under attack.",
+   "priority": "LOW",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_PrimaryBuildingSelected",
+   "text": "Primary building selected.",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_Repairing",
+   "text": "Repairing.",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_RequestingAlliance",
+   "text": "Requesting alliance.",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_SelectTarget",
+   "text": "Select target.",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_SpeedUpgraded",
+   "text": "Speed upgraded.",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_StructureSold",
+   "text": "Structure sold.",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_Training",
+   "text": "Training.",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_UnableToComply",
+   "text": "Unable to comply, building in progress.",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_UnitArmorUpgraded",
+   "text": "Unit Armor Upgraded",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_UnitFirePowerUpgraded",
+   "text": "Unit Fire-Power Upgraded",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_UnitPromoted",
+   "text": "Unit promoted",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_UnitReady",
+   "text": "Unit Ready.",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_UnitRepaired",
+   "text": "Unit repaired.",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_UnitSold",
+   "text": "Unit sold",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_UnitSpeedUpgraded",
+   "text": "Unit Speed Upgraded",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_UnitUpgraded",
+   "text": "Unit upgraded",
+   "priority": "LOW",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_10MinutesRemaining",
+   "text": "10 minutes remaining.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_1MinuteRemaining",
+   "text": "1 minute remaining.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_20MinutesRemaining",
+   "text": "20 minutes remaining.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_2MinutesRemaining",
+   "text": "2 minutes remaining.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_3MinutesRemaining",
+   "text": "3 minutes remaining.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_4MinutesRemaining",
+   "text": "4 minutes remaining.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_5MinutesRemaining",
+   "text": "5 minutes remaining.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_ArmorBattallianDetected",
+   "text": "Warning:  Enemy Armor Battalion detected.",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎会全图播报，但我们的观测按迷雾过滤，拿不到"
+  },
+  {
+   "name": "EVA_ArmorTechStolen",
+   "text": "Armor Technology Stolen:  All units gain armor upgrade.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_ChronoMinerOffline",
+   "text": "Chrono Miner offline.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_CriticalStrucureLost",
+   "text": "Critical structure lost.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_CriticalUnitLost",
+   "text": "Critical unit lost.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_EnemyAirArmadaDetected",
+   "text": "Warning:  Enemy Air Armada detected.",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎会全图播报，但我们的观测按迷雾过滤，拿不到"
+  },
+  {
+   "name": "EVA_EnemyBasePoweredDown",
+   "text": "Enemy Base Powered down.",
+   "priority": "",
+   "queue": true,
+   "visibility": "需渗透",
+   "synthesizable": "推断",
+   "basis": "敌方内部状态；需渗透或盟友视野"
+  },
+  {
+   "name": "EVA_EnemyFleetDetected",
+   "text": "Warning:  Enemy Fleet detected.",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎会全图播报，但我们的观测按迷雾过滤，拿不到"
+  },
+  {
+   "name": "EVA_EnemyInfantryBattalionDetected",
+   "text": "Warning:  Enemy Infantry Battalion detected.",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎会全图播报，但我们的观测按迷雾过滤，拿不到"
+  },
+  {
+   "name": "EVA_EnemyPowerRestored",
+   "text": "Enemy Power Restored",
+   "priority": "",
+   "queue": false,
+   "visibility": "需渗透",
+   "synthesizable": "推断",
+   "basis": "敌方内部状态；需渗透或盟友视野"
+  },
+  {
+   "name": "EVA_FirePowerTechStolen",
+   "text": "Fire Power Technology Stolen:  All units gain firepower upgrade.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_IncomingTransmission",
+   "text": "Incoming transmission.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_MissionAccomplished",
+   "text": "Mission Accomplished",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_MissionFailed",
+   "text": "Mission failed.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_NewMissionObjective",
+   "text": "New mission objective received.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_NewObjectiveReceived",
+   "text": "New objective received.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_NewTechnologyAcquired",
+   "text": "New technology acquired.",
+   "priority": "",
+   "queue": true,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_OreMinerOffLine",
+   "text": "Ore Miner off-line.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_OreMinerUnderAttack",
+   "text": "Ore Miner under attack",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_OurBaseIsUnderAttack",
+   "text": "Our base is under attack.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_PrimaryObjectiveAchieved",
+   "text": "Primary objective achieved.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_PsychicRevealReady",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_SecondaryObjectiveAchieved",
+   "text": "Secondary objective achieved.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_TertiaryObjectiveAchieved",
+   "text": "Tertiary objective achieved.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_TimerStarted",
+   "text": "Timer started.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_TimerStopped",
+   "text": "Timer stopped.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_UpgradeComplete",
+   "text": "Upgrade complete.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_UpgradeInProgress",
+   "text": "Upgrade in progress.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_YouAreVictorious",
+   "text": "You are victorious.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_YouHaveLost",
+   "text": "You have lost.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  },
+  {
+   "name": "EVA_YouHaveResigned",
+   "text": "You have resigned.",
+   "priority": "",
+   "queue": false,
+   "visibility": "己方",
+   "synthesizable": "可",
+   "basis": ""
+  }
+ ],
+ "unit_reports": [
+  {
+   "name": "Unit_Eva_Aegis",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Aegis",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Eva_AircraftCarrier",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "AircraftCarrier",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Eva_Apocalypse",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Apocalypse",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_Apocalypse",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Apocalypse",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_BarracksYuri",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "BarracksYuri",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_BarracksYuri",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "BarracksYuri",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_BatLabYuri",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "BatLabYuri",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_BatLabYuri",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "BatLabYuri",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_BattleBunker",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "BattleBunker",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_BattleBunker",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "BattleBunker",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_BattleFortress",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "BattleFortress",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_BattleFortress",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "BattleFortress",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Sofia_BioReactor",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "BioReactor",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_BioRiactor",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "BioRiactor",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Eva_BlackEagle",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "BlackEagle",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_BlackEagle",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "BlackEagle",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_Boomer",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Boomer",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_Boomer",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Boomer",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_Boris",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Boris",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_Boris",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Boris",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_Brute",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Brute",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_Brute",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Brute",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_Chaos",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Chaos",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_ChaosDrone",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "ChaosDrone",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_ChronoLegion",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "ChronoLegion",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_ChronoLegion",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "ChronoLegion",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Sofia_CloneVat",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "CloneVat",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_CloningVat",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "CloningVat",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_CrazyIvan",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "CrazyIvan",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_DemoTruck",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "DemoTruck",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_DemoTruck",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "DemoTruck",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_Desolator",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Desolator",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_Desolator",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Desolator",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_Destroyer",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Destroyer",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_Dreadnought",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Dreadnought",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_Engineer",
+   "text": "Sir, this is an engineer.  He can repair any Allied building and once inside an enemy building turn it to our side.  He is much smarter than his Soviet counterpart.",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Engineer",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_Engineer",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Engineer",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_FloatDisc",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "FloatDisc",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_FloatDisc",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "FloatDisc",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_ForceShieldAll",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "ForceShieldAll",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_ForceShieldAll",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "ForceShieldAll",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_ForceShieldSov",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "ForceShieldSov",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_ForceShieldSov",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "ForceShieldSov",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_ForceShieldYur",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "ForceShieldYur",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_ForceShieldYuri",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "ForceShieldYuri",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Sofia_GI",
+   "text": "Commander, this Allied GI is a well trained soldier capable of quickly deploying a heavy machine gun when stationed within buildings or deployed with his sandbag nest.",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "GI",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_GatCannon",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "GatCannon",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_GatCannon",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "GatCannon",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_GatTank",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "GatTank",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_GatTank",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "GatTank",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_GeneticMut",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "GeneticMut",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_GeneticMut",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "GeneticMut",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_GrandCannon",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "GrandCannon",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_GrandCannon",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "GrandCannon",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_Grinder",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Grinder",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_Grinder",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Grinder",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_GuardianGI",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "GuardianGI",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_GuardianGi",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "GuardianGi",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_HoverYuri",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "HoverYuri",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_HoverYuri",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "HoverYuri",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_IFV",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "IFV",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Eva_IndustrialPlant",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "IndustrialPlant",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_IndustrialPlant",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "IndustrialPlant",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_Initiate",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Initiate",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_Initiate",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Initiate",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Sofia_Intruder",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Intruder",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_Kirov",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Kirov",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_Kirov",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Kirov",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_LaserCosmo",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "LaserCosmo",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_LaserCosmo",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "LaserCosmo",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_Lasher",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Lasher",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_Lasher",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Lasher",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_MCVYuri",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "MCVYuri",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_MCVYuri",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "MCVYuri",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_Magnetron",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Magnetron",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_Magnetron",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Magnetron",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_MasterMind",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "MasterMind",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_MasterMind",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "MasterMind",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_MirageTank",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "MirageTank",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_MirageTank",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "MirageTank",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_Paratrooper",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Paratrooper",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_Paratrooper",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Paratrooper",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Sofia_PrismTank",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "PrismTank",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_PsiCorpse",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "PsiCorpse",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_PsiCorpse",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "PsiCorpse",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Sofia_PsychSensor",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "PsychSensor",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Sofia_PsychTower",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "PsychTower",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_PsychicDomin",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "PsychicDomin",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_PsychicDomin",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "PsychicDomin",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_PsychicSensor",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "PsychicSensor",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Eva_PsychicTower",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "PsychicTower",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Eva_RobotControl",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "RobotControl",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_RobotControl",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "RobotControl",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_RobotTank",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "RobotTank",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_RobotTank",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "RobotTank",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_Rocketeer",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Rocketeer",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_Rocketeer",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Rocketeer",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_SEAL",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "SEAL",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_SeaScorpion",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "SeaScorpion",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_ShockTrooper",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "ShockTrooper",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_ShockTrooper",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "ShockTrooper",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_SiegeChopper",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "SiegeChopper",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_SiegeChopper",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "SiegeChopper",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_Slave",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Slave",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_Slave",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Slave",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_SlaveMiner",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "SlaveMiner",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_SlaveMiner",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "SlaveMiner",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_Sniper",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Sniper",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_Sniper",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Sniper",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_Spy",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Spy",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_Spy",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Spy",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_SpyPlane",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "SpyPlane",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_SpyPlane",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "SpyPlane",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Sofia_Squid",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Squid",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Sofia_Sub",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Sub",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_SubPen",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "SubPen",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_SubPen",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "SubPen",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_TankBunk",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "TankBunk",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_TankBunk",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "TankBunk",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_TankDestroyer",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "TankDestroyer",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_TankDestroyer",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "TankDestroyer",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_TechHospital",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "TechHospital",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_TechHospital",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "TechHospital",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_TechMachShop",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "TechMachShop",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_TechMachShop",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "TechMachShop",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_TechSecretLab",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "TechSecretLab",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_TechSecretLab",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "TechSecretLab",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Sofia_TerrorDrone",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "TerrorDrone",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_Terrorist",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Terrorist",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_Terrorist",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Terrorist",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_TeslaTank",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "TeslaTank",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_TeslaTank",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "TeslaTank",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_V3",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "V3",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_V3",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "V3",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_Virus",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Virus",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_Virus",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "Virus",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_WallYuri",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "WallYuri",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_WallYuri",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "WallYuri",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_YuriClone",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "YuriClone",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_YuriClone",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "YuriClone",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_YuriEng",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "YuriEng",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_YuriEng",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "YuriEng",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_YuriPrime",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "YuriPrime",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_YuriPrime",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "YuriPrime",
+   "voice": "sofia"
+  },
+  {
+   "name": "Unit_Eva_YuriWar",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "YuriWar",
+   "voice": "eva"
+  },
+  {
+   "name": "Unit_Sofia_YuriWar",
+   "text": "",
+   "priority": "",
+   "queue": false,
+   "visibility": "全图",
+   "synthesizable": "不可",
+   "basis": "引擎全图播报；观测按迷雾过滤",
+   "unit": "YuriWar",
+   "voice": "sofia"
+  }
+ ]
+}
