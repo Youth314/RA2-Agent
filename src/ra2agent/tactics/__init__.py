@@ -15,11 +15,12 @@ for card in registry.cards(Mode.MATCH, observation, squad):
 from .conditions import CONDITIONS, condition
 from .core import (LEVEL_ORDER, REQUIRED, Card, Level, Mode, Param, Tactic,
                    TacticContext, TacticInfo, TacticPolicy, TacticRegistry,
-                   is_cell, is_non_negative_int, is_positive_number, is_stance)
+                   Trigger, is_cell, is_non_negative_int, is_positive_number,
+                   is_stance)
 
 __all__ = [
     "Card", "Level", "LEVEL_ORDER", "Mode", "Param", "REQUIRED", "Tactic",
-    "TacticContext", "TacticInfo", "TacticPolicy", "TacticRegistry",
+    "TacticContext", "TacticInfo", "TacticPolicy", "TacticRegistry", "Trigger",
     "CONDITIONS", "condition", "is_cell", "is_stance",
     "is_non_negative_int", "is_positive_number",
 ]

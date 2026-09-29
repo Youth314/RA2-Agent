@@ -488,3 +488,67 @@ class TestDescribeMap(unittest.TestCase):
         from ra2agent.command import describe_map
         m = MapData(width=2, height=2, columns={"land_type": [LandType.CLEAR] * 4})
         self.assertEqual(describe_map(m), "地图 2×2，水域 0%")
+
+
+class TestAutoTriggeredTactics(Case):
+    """自动触发：技法按名片自己跑，产出脉冲，结果走 `status` 报一次。"""
+
+    def _tactic(self, name, run, trigger):
+        return Tactic(info=TacticInfo(name=name, summary=f"{name} 说明",
+                                      trigger=trigger), run=run)
+
+    def build_with(self, tactics):
+        state = GameState.parse(build_game_state(houses=[
+            build_house(PLAYER_HOUSE, current_player=True)]))
+        self.build(state, registry=TacticRegistry().load(tactics))
+        self.observer.events = EventLog()
+        self.layer.on_tick = self.commander.auto
+        return state
+
+    def test_layer_tick_drives_the_autopilot(self):
+        from ra2agent.intents import Deploy
+        from ra2agent.tactics import Trigger
+        self.build_with([self._tactic("auto", lambda ctx: (ctx.intent(Deploy, units=(1,)),),
+                                      Trigger.every(10))])
+        self.layer.tick(self.observation)
+        self.assertEqual([i.kind for i in self.executor.calls], ["deploy"])
+
+    def test_status_reports_what_the_autopilot_did(self):
+        from ra2agent.intents import Deploy
+        from ra2agent.tactics import Trigger
+        self.build_with([self._tactic("auto", lambda ctx: (ctx.intent(Deploy, units=(1,)),),
+                                      Trigger.every(10))])
+        self.layer.tick(self.observation)
+        text = self.commander.status(self.observation).render()
+        self.assertIn("自动层 1 项", text)
+        self.assertIn("auto", text)
+
+    def test_it_is_reported_only_once(self):
+        from ra2agent.intents import Deploy
+        from ra2agent.tactics import Trigger
+        self.build_with([self._tactic("auto", lambda ctx: (ctx.intent(Deploy, units=(1,)),),
+                                      Trigger.every(10))])
+        self.layer.tick(self.observation)
+        self.commander.status(self.observation)
+        self.assertNotIn("自动层", self.commander.status(self.observation).render())
+
+    def test_idle_pulses_are_not_reported(self):
+        # 技法自己判断此刻无事可做——常见且正常，报出来只会淹掉真有事的那几条
+        from ra2agent.tactics import Trigger
+        self.build_with([self._tactic("idle", lambda ctx: (), Trigger.every(10))])
+        self.layer.tick(self.observation)
+        self.assertNotIn("自动层", self.commander.status(self.observation).render())
+
+    def test_event_triggered_tactic_runs(self):
+        from ra2agent.events import Event, EventKind, Subject
+        from ra2agent.intents import Deploy
+        from ra2agent.tactics import Trigger
+        self.build_with([self._tactic("on_low_power",
+                                      lambda ctx: (ctx.intent(Deploy, units=(1,)),),
+                                      Trigger.on(EventKind.LOW_POWER))])
+        self.layer.tick(self.observation)
+        self.assertEqual(self.executor.calls, [], "没这个事件就不该跑")
+        self.observer.events.record([Event(kind=EventKind.LOW_POWER, frame=1234,
+                                           subject=Subject("house", 0, "me"))])
+        self.layer.tick(self.observation)
+        self.assertEqual([i.kind for i in self.executor.calls], ["deploy"])

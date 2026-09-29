@@ -126,6 +126,8 @@ class MicroLayer:
         #: 值得一提的运行时事件（失焦暂停、条件变化导致空转），供指挥层上报
         self.notices: list = []
         self.last_tick_frame: int | None = None
+        #: 每拍开头的钩子，自动触发挂在这。指挥层建好后设上。
+        self.on_tick = None
         if executor is None:
             executor = Executor(
                 observer.client, observer.identity,
@@ -168,6 +170,9 @@ class MicroLayer:
         暂停时下的令会留在队列里，等恢复后才执行，那时已脱离本次意图的语境。
         """
         observation = observation if observation is not None else self.observer.poll()
+        # 自动触发排在编队循环之前，这样本拍发起的任务同拍就能下令
+        if self.on_tick is not None:
+            self.on_tick(observation)
         outcomes = []
         for squad in list(self._squads):
             self._update(squad, observation)

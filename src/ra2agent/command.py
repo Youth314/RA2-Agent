@@ -11,6 +11,7 @@
 """
 from dataclasses import dataclass, field
 
+from .autopilot import Autopilot
 from .constants import LandType
 from .events import summarize
 from .errors import TacticError
@@ -19,6 +20,27 @@ from .tactics import Mode
 
 #: 撤销不了的返回文案。
 UNKNOWN_INTENT = "没有这条在管任务：可能已结束或被撤销"
+
+
+def is_notable(record) -> bool:
+    """自动执行的记录值不值得报给模型。"""
+    return bool(record.get("outcomes") or record.get("error") or record.get("paused"))
+
+
+def describe_auto(record) -> str:
+    """一行说清自动层干了什么。"""
+    name = record.get("tactic", "?")
+    if record.get("error"):
+        return f"{name}｜失败：{record['error']}"
+    if record.get("paused"):
+        return f"{name}｜挂起：{record['paused']}"
+    parts = []
+    for outcome in record.get("outcomes", ()):
+        if outcome.get("error"):
+            parts.append(f"{outcome['intent']} 失败")
+        else:
+            parts.append(f"{outcome['intent']} {outcome.get('state', '')}".strip())
+    return f"{name}｜" + "、".join(parts)
 
 
 def observation_events(observer, cursor):
@@ -149,6 +171,8 @@ class StatusReport:
     results: tuple = ()
     #: 上次读走之后的新事件；读走即清空游标。
     events: tuple = ()
+    #: 自动触发层做成或失败的事。空转与没触发的不在其中。
+    auto: tuple = ()
     units: tuple = ()
     enemies: tuple = ()
     running: tuple = ()
@@ -165,6 +189,9 @@ class StatusReport:
         if self.events:
             lines.append(f"新事件 {len(self.events)} 条：")
             lines.extend(summarize(self.events).splitlines())
+        if self.auto:
+            lines.append(f"自动层 {len(self.auto)} 项：")
+            lines.extend(f"- {describe_auto(record)}" for record in self.auto)
         if self.units:
             lines.append(f"己方单位 {len(self.units)}：")
             for unit in self.units[:MAX_LISTED_UNITS]:
@@ -215,6 +242,10 @@ class Commander:
         self._seen_notices = 0
         self._briefed = False
         self._seen_events = 0
+        self._auto_cursor = 0
+        self._seen_auto = 0
+        #: 自动触发层。技法按名片里的触发声明自己跑，产出的是脉冲。
+        self.autopilot = Autopilot(layer.registry, layer.executor, log=log)
 
     # ------------------------------------------------------------ 工具一：局势
     def status(self, observation=None) -> StatusReport:
@@ -229,12 +260,33 @@ class Commander:
         self._seen_notices = len(self.layer.notices)
         match, brief = self._match_info(observation)
         new_events, self._seen_events = observation_events(self.observer, self._seen_events)
+        auto, self._seen_auto = self.auto_records(self._seen_auto)
         return StatusReport(frame=observation.frame, summary=observation.summary(),
-                            match=match, brief=brief, events=new_events,
+                            match=match, brief=brief, events=new_events, auto=auto,
                             units=self._own_units(observation),
                             enemies=self._enemy_units(observation),
                             running=self.layer.progress(), results=tuple(completed),
                             notices=tuple(notices))
+
+    # ------------------------------------------------------------ 自动触发
+    def auto(self, observation):
+        """由技法层每拍调用：跑该跑的技法。返回本拍记录。
+
+        事件游标与模型看到的那个分开——自动层读过不代表模型看过了，反过来也一样。
+        """
+        events, self._auto_cursor = observation_events(self.observer, self._auto_cursor)
+        records = self.autopilot.run(observation, events, self._pool(observation))
+        return records
+
+    def auto_records(self, since):
+        """`since` 之后**值得一提**的自动执行记录，返回 `(记录, 新游标)`。
+
+        空转（技法自己判断此刻无事可做）与没触发的不报——自动层多数时候就该是
+        安静的，报出来只会淹掉真有事的那几条。游标仍按全部记录走。
+        """
+        records = self.autopilot.records
+        notable = tuple(r for r in records[since:] if is_notable(r))
+        return notable, len(records)
 
     def _match_info(self, observation):
         """本局信息：`(每拍一行, 首次的详细简报)`。

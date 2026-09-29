@@ -75,6 +75,9 @@ class GameObject:
     on_map: bool
     destination: Coordinates
     initial_owner: int
+    #: 正在展开 / 正在收起。不给这两项，自动层会对正在展开的基地车重复下令。
+    deploying: bool = False
+    undeploying: bool = False
 
     @property
     def is_building(self) -> bool:
@@ -170,6 +173,8 @@ def parse_object(blob) -> GameObject:
         object_type=get(9),
         selected=bool(get(13)),
         deployed=bool(get(14)),
+        deploying=bool(get(15)),
+        undeploying=bool(get(16)),
         mission=signed64(get(18)) if get(18) >= (1 << 63) else get(18),
         in_limbo=bool(get(19)),
         on_map=bool(get(20)),

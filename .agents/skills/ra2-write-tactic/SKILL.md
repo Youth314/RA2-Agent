@@ -23,6 +23,30 @@ def run(ctx) -> tuple[Intent, ...]:
 3. **不碰引擎**：只返回意图，绝不自己发命令。下发统一由运行时过 `Validator` 与
    `Executor`。
 
+## 一之二、让技法自己跑
+
+名片里加 `trigger`，这条技法就不必等模型下令：
+
+```python
+TacticInfo(name="deploy_mcv", summary="把未展开的基地车展开",
+           trigger=Trigger.every(30))          # 每 30 游戏帧看一眼
+TacticInfo(..., trigger=Trigger.on("low_power"))  # 那个事件来了才跑
+TacticInfo(..., trigger=Trigger.automatic("low_power", every_frames=90))
+```
+
+**自动触发产出的是脉冲**：跑一次、下发一次、不建编队。所以它不会长期占着单位的
+租约，也不会有 `Produce` 每拍重发的风险。要持续控制单位的技法（推进、缠斗）仍要
+由模型显式 `call`。
+
+三条规矩：
+
+1. **不能有必填参数**，否则登记时就报错——自动触发时没有人填。
+2. **门槛一样管**：等级、停用名单、适用条件，自动触发与模型调用走同一条受理路径。
+3. **自己判断该不该动**。自动触发命中不等于该做事，`run` 里判完可以返回 `()`：
+   空转是正常的、不报给模型的；只有真下发了意图或出错才会出现在 `status` 里。
+
+实体清单见 `src/ra2agent/tactics/builtin/opening.py`。
+
 ## 二、允许的 import
 
 白名单：`math`、`typing`、`dataclasses`、`enum`，以及本项目的
@@ -45,6 +69,7 @@ def run(ctx) -> tuple[Intent, ...]:
 | `ctx.intent(cls, **payload)` | 按信封约定造意图 |
 | `ctx.types` | 对象类型表；没取到时为 `None` |
 | `ctx.type_pointer(name, rtti=None)` | 类型名 → 指针，找不到给 `None` |
+| `ctx.intent(cls, scope=None, **payload)` | 造意图；没给 `scope` 就用本队单位，一个都没有时用空归属 |
 | `ctx.remember(key, value)` / `ctx.recall(key, default)` | 记事本的读写糖 |
 
 ## 四、能返回的意图

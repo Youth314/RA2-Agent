@@ -238,6 +238,8 @@ class GameSession:
         layer = MicroLayer(observer, registry, executor, log=log)
         self._client, self._observer, self._layer = client, observer, layer
         self._commander = Commander(layer, observer, log=log)
+        # 自动触发挂在技法层的每拍开头：本拍发起的任务同拍就能下令
+        layer.on_tick = self._commander.auto
         self._log = log
         self._observation = observer.poll()
         self._emit("已连接游戏：帧 %d，地图 %dx%d，技法 %d 条，库指纹 %s"

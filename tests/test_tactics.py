@@ -82,9 +82,14 @@ class TestRegistration(unittest.TestCase):
 
     def test_builtin_library_loads(self):
         registry = TacticRegistry().load_builtin()
-        self.assertEqual(len(registry), 6)
+        self.assertEqual(len(registry), 7)
         self.assertIn("advance_covering", registry.names())
         self.assertIn("hold_and_fire", registry.names())
+        self.assertIn("deploy_mcv", registry.names())
+
+    def test_opening_tactic_declares_a_trigger(self):
+        registry = TacticRegistry().load_builtin()
+        self.assertEqual([t.info.name for t in registry.automatic()], ["deploy_mcv"])
 
 
 # ---------------------------------------------------------------- 参数
@@ -506,3 +511,36 @@ class TestContextTypes(unittest.TestCase):
     def test_unknown_name_gives_none(self):
         # 技法应当据此放弃，而不是拿个假指针去下单
         self.assertIsNone(self.context(self.table()).type_pointer("Nonexistent"))
+
+
+class TestIntentScope(unittest.TestCase):
+    """`ctx.intent` 的归属推导。阵营级动作不涉及对象，不该因此报错。"""
+
+    def context(self, agents=()):
+        from ra2agent.observation import Observation
+        from ra2agent.state import GameState
+        from tests.fixtures import build_game_state, build_house
+
+        class Subject:
+            def agents(self):
+                return tuple(agents)
+
+        state = GameState.parse(build_game_state(
+            houses=[build_house(0x1000, current_player=True)]))
+        observation = Observation(frame=state.frame, house=state.player_house(),
+                                  state=state)
+        return TacticContext(registry=None, tactic=None, observation=observation,
+                             subject=Subject(), params={}, frame=state.frame, memo={},
+                             log=None, chain=(), attempt=0, budget=None)
+
+    def test_units_become_the_scope(self):
+        from ra2agent.intents import Hold
+        intent = self.context(agents=(7, 8)).intent(Hold, units=(7, 8))
+        self.assertEqual(intent.scope.objects, (7, 8))
+        self.assertFalse(intent.scope.is_empty)
+
+    def test_no_units_gives_an_empty_scope_not_an_error(self):
+        # 阵营级动作（造东西一类）本来就不涉及对象；自动触发的脉冲尤其如此
+        from ra2agent.intents import Produce
+        intent = self.context().intent(Produce, type_pointer=0x900)
+        self.assertTrue(intent.scope.is_empty)

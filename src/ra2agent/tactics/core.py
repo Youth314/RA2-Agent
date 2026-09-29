@@ -89,6 +89,60 @@ def is_positive_number(value) -> bool:
 
 
 @dataclass(frozen=True)
+class Trigger:
+    """技法何时**自己**跑起来。默认只在模型 `call` 时跑。
+
+    自动触发产出的是**脉冲**：跑一次、下发一次、不建编队。三处理由：
+
+    - 房子级动作（造电厂一类）不需要单位，而任务模型是「一队单位 + 意图」；
+    - 给 `Produce` 绑一队单位会让它每拍重发，重复下单；
+    - 脉冲不会长期占着单位的租约，模型随时还能自己指挥它们。
+
+    要持续控制单位的技法（推进、缠斗）仍由模型显式 `call`。
+    """
+
+    #: 命中任一事件就跑。取值见 `events.EventKind`。
+    events: tuple = ()
+    #: 每这么多游戏帧跑一次。按帧不按秒——失焦时帧不走，恰好符合「游戏时间」。
+    every_frames: int = 0
+    #: 是否仍允许模型显式调用。
+    on_call: bool = True
+
+    @classmethod
+    def on(cls, *kinds) -> "Trigger":
+        """命中这些事件时跑。"""
+        return cls(events=tuple(kinds))
+
+    @classmethod
+    def every(cls, frames) -> "Trigger":
+        """每 `frames` 个游戏帧跑一次。"""
+        return cls(every_frames=frames)
+
+    @classmethod
+    def automatic(cls, *kinds, every_frames=0, on_call=False) -> "Trigger":
+        """既要事件、又要定时；由写技法的人显式声明。"""
+        return cls(events=tuple(kinds), every_frames=every_frames, on_call=on_call)
+
+    @property
+    def automatic_triggered(self) -> bool:
+        """会不会自己跑起来。"""
+        return bool(self.events or self.every_frames)
+
+    def text(self) -> str:
+        """名片里怎么显示。"""
+        parts = []
+        if self.events:
+            parts.append("事件 " + "、".join(str(k) for k in self.events))
+        if self.every_frames:
+            parts.append(f"每 {self.every_frames} 帧")
+        if not parts:
+            return "只由模型调用"
+        if self.on_call:
+            parts.append("也可显式调用")
+        return "；".join(parts)
+
+
+@dataclass(frozen=True)
 class TacticInfo:
     """一张技法的名片。模型只看它，不看代码。"""
 
@@ -101,6 +155,7 @@ class TacticInfo:
     expose: bool = True             # 是否进对战时的卡片
     source: str = "builtin"         # builtin / model / human
     version: int = 1
+    trigger: Trigger = field(default_factory=Trigger)   # 何时自己跑
 
 
 @dataclass(frozen=True)
@@ -120,6 +175,7 @@ class Card:
     level: str
     params: tuple = ()
     requires: tuple = ()
+    trigger: str = ""
 
     def text(self) -> str:
         """卡片文本。"""
@@ -130,6 +186,8 @@ class Card:
             parts.append(f"参数：{shown}")
         if self.requires:
             parts.append("条件：" + "，".join(self.requires))
+        if self.trigger and self.trigger != "只由模型调用":
+            parts.append("自动：" + self.trigger)
         return " ｜ ".join(parts)
 
 
@@ -201,10 +259,15 @@ class TacticContext:
         return self._registry.invoke(name, self, params, optional=optional)
 
     def intent(self, cls, *, scope=None, **payload) -> Intent:
-        """按信封约定造一条给基础设施的意图：层、帧号、涉及对象都自动填好。"""
+        """按信封约定造一条给基础设施的意图：层、帧号、涉及对象都自动填好。
+
+        没给 `scope` 就用本队单位。一个都没有时用 `Scope.empty()` 而不是报错——
+        阵营级动作（造东西一类）本来就不涉及对象，自动触发的脉冲尤其如此。
+        """
         units = tuple(scope) if scope is not None else self.subject.agents()
+        ownership = Scope(objects=units) if units else Scope.empty()
         return cls(layer=Layer.L1_TACTIC, created_frame=self.frame,
-                   scope=Scope(objects=units), **payload)
+                   scope=ownership, **payload)
 
     def remember(self, key, value) -> None:
         """往记事本里写一条，键自动带上技法名。"""
@@ -300,6 +363,18 @@ class TacticRegistry:
             raise TacticError(f"技法名重复：{name}")
         if not name or not tactic.info.summary:
             raise TacticError("技法必须有名字与一句话说明")
+        trigger = tactic.info.trigger
+        if trigger.every_frames < 0:
+            raise TacticError(f"技法 {name} 的触发间隔为负：{trigger.every_frames}")
+        if not trigger.automatic_triggered and not trigger.on_call:
+            raise TacticError(f"技法 {name} 既不能自动触发、也不许显式调用，永远跑不到")
+        if trigger.automatic_triggered:
+            # 自动触发时模型不在场，没人填必填参数
+            needed = [p.name for p in tactic.info.params if p.default is REQUIRED]
+            if needed:
+                raise TacticError(
+                    f"技法 {name} 会自己跑，但有必填参数 {needed}——自动触发时没人填，"
+                    f"请给默认值或改成只由模型调用")
         self._tactics[name] = tactic
         return tactic
 
@@ -347,7 +422,7 @@ class TacticRegistry:
                         continue
             out.append(Card(name=info.name, summary=info.summary,
                             level=str(info.level), params=info.params,
-                            requires=info.requires))
+                            requires=info.requires, trigger=info.trigger.text()))
         return out
 
     def catalog(self) -> str:
@@ -440,6 +515,30 @@ class TacticRegistry:
             raise TacticFailed(f"技法 {info.name} 抛异常：{error!r}") from error
         self._record(context, "tactic_run", f"产出 {len(intents)} 条意图")
         return intents
+
+    def admit(self, name, observation, subject) -> str:
+        """受理前的公共门槛：暴露、等级、适用条件。通过返回空串，否则返回原因。
+
+        模型的 `call` 与自动触发都过这一条——**触发层不是后门**，等级门槛、停用
+        名单、适用条件一项不少。
+        """
+        try:
+            info = self.get(name).info
+        except TacticError as error:
+            return str(error)
+        if not info.expose:
+            return "这是零件，只供组合技法调用"
+        if not self.policy.allows(info):
+            return f"等级 {info.level} 超出门槛，或已被停用"
+        missing = self.missing_conditions(info, observation, subject)
+        if missing:
+            return f"此刻用不上：{'、'.join(missing)}"
+        return ""
+
+    def automatic(self) -> tuple:
+        """会自己跑起来的技法。"""
+        return tuple(self._tactics[name] for name in sorted(self._tactics)
+                     if self._tactics[name].info.trigger.automatic_triggered)
 
     def missing_conditions(self, info, observation, subject) -> tuple:
         """返回此刻不满足的适用条件名。"""
