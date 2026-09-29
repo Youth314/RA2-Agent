@@ -10,6 +10,7 @@
 """
 import argparse
 import json
+import re
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -88,6 +89,61 @@ def building_line(rules, building):
         fields.append(f"{weapon.id}({weapon.damage}伤/{weapon.rof}帧/射程{weapon.rng:g} 弹头{weapon.warhead})")
         fields.append("每发 → " + format_damage(values))
     return " · ".join(fields)
+
+
+#: `ID 中文名：俗名…`；`❓` 表示中文名是按英文名推的，没经人确认。
+_GLOSSARY_ENTITY = re.compile(r"^([A-Z][A-Z0-9_]{1,15})\s+(\S[^：:]*?)\s*[：:](.*)$")
+_GLOSSARY_TERM = re.compile(r"^([^：:]+)[：:](.*)$")
+
+
+def load_glossary():
+    """读 `corpus/notes/glossary.md`。
+
+    返回 `(实体, 战术黑话)`。实体是 `{id, name, nicknames, unconfirmed}`。
+    """
+    path = NOTES / "glossary.md"
+    if not path.exists():
+        return [], []
+    entities, terms, section = [], [], ""
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if line.startswith("## "):
+            section = line[3:].strip()
+            continue
+        if not line or line.startswith("#"):
+            continue
+        unconfirmed = "❓" in line
+        line = line.replace("❓", "").strip()
+        match = _GLOSSARY_ENTITY.match(line)
+        if match and section and section != "战术黑话":
+            nicknames = [n.strip() for n in re.split(r"[、,]", match.group(3))
+                         if n.strip() and n.strip() != "无"]
+            entities.append({"id": match.group(1), "name": match.group(2),
+                             "nicknames": nicknames, "unconfirmed": unconfirmed})
+            continue
+        if section != "战术黑话":
+            continue
+        match = _GLOSSARY_TERM.match(line)
+        if match:
+            terms.append({"term": match.group(1).strip(), "meaning": match.group(2).strip()})
+    return entities, terms
+
+
+def build_glossary(entities, terms):
+    """`codex/glossary.md`：社区叫法，给人认人话用，不作键。"""
+    lines = ["# 俗名对照", "",
+             "**社区叫法，不是权威命名**，同一个东西各地叫法不同。只作**识别人话**用，"
+             "**不作键**——键仍然是 `rulesmd.ini` 的注册名。",
+             "", "一行一条：`注册名 中文标准名：俗名…`。带 ❓ 的中文名是按英文名推的，未经确认。", ""]
+    for entity in entities:
+        mark = " ❓" if entity["unconfirmed"] else ""
+        nick = "、".join(entity["nicknames"]) or "（无）"
+        lines.append(f"- **{entity['id']}** {entity['name']}{mark}：{nick}")
+    if terms:
+        lines += ["", "## 战术黑话", "",
+                  "玩家会直接拿这些下指令，模型听不懂就没法介入。", ""]
+        lines += [f"- **{t['term']}**：{t['meaning']}" for t in terms]
+    return "\n".join(lines).rstrip() + "\n"
 
 
 def load_notes(name):
@@ -188,13 +244,25 @@ def main(argv=None):
 
     DERIVED.parent.mkdir(parents=True, exist_ok=True)
     CODEX.mkdir(parents=True, exist_ok=True)
+    entities, terms = load_glossary()
+    known = ({u.id for u in rules.units} | {b.id for b in rules.buildings}
+             | set(rules.weapons))
+    unknown = sorted({e["id"] for e in entities if e["id"] not in known})
+    if unknown:
+        print(f"俗名表里的注册名在 rulesmd.ini 里不存在：{unknown}", file=sys.stderr)
+        return 1
+
+    DERIVED.parent.mkdir(parents=True, exist_ok=True)
+    CODEX.mkdir(parents=True, exist_ok=True)
     DERIVED.write_text(dump_json(rules), encoding="utf-8")
     (CODEX / "units.md").write_text(build_units(rules), encoding="utf-8")
     (CODEX / "buildings.md").write_text(build_buildings(rules), encoding="utf-8")
+    (CODEX / "glossary.md").write_text(build_glossary(entities, terms), encoding="utf-8")
     print(f"单位 {len(rules.units)}  建筑 {len(rules.buildings)}  "
           f"武器 {len(rules.weapons)}  弹头 {len(rules.warheads)}")
     print(f"→ {DERIVED.relative_to(REPO)}")
-    print(f"→ codex/units.md  codex/buildings.md")
+    print(f"俗名 {len(entities)} 条，战术黑话 {len(terms)} 条")
+    print("→ codex/units.md  codex/buildings.md  codex/glossary.md")
     return 0
 
 

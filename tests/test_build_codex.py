@@ -61,3 +61,65 @@ class TestLoadNotes(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestGlossary(unittest.TestCase):
+    """俗名表的解析。用临时文件替换 NOTES，不依赖仓库里的具体内容。"""
+
+    def _load(self, text):
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "glossary.md").write_text(text, encoding="utf-8")
+            original, build_codex.NOTES = build_codex.NOTES, root
+            try:
+                return build_codex.load_glossary()
+            finally:
+                build_codex.NOTES = original
+
+    def test_reads_entities_with_nicknames(self):
+        entities, _ = self._load("## 载具\n\nMTNK 灰熊坦克：小坦克、瘦坦克、报纸壳壳\n")
+        self.assertEqual(entities, [{"id": "MTNK", "name": "灰熊坦克",
+                                     "nicknames": ["小坦克", "瘦坦克", "报纸壳壳"],
+                                     "unconfirmed": False}])
+
+    def test_accepts_two_letter_ids(self):
+        # E1 / V3 只有两个字符，量词写成 {2,} 会把它们漏掉
+        entities, _ = self._load("## 兵种\n\nE1 美国大兵：机枪兵\n\nV3 V3 导弹车：火箭\n")
+        self.assertEqual([e["id"] for e in entities], ["E1", "V3"])
+        self.assertEqual(entities[1]["name"], "V3 导弹车")
+
+    def test_missing_nickname_reads_as_empty(self):
+        entities, _ = self._load("## 载具\n\nZEP 基洛夫飞艇：无\n")
+        self.assertEqual(entities[0]["nicknames"], [])
+
+    def test_marks_unconfirmed(self):
+        entities, _ = self._load("## 舰船\n\nSAPC 装甲运输船：重船 ❓\n")
+        self.assertTrue(entities[0]["unconfirmed"])
+        self.assertEqual(entities[0]["nicknames"], ["重船"])
+
+    def test_header_prose_is_not_a_term(self):
+        # 文件头有 `来源两份：…` 这种行，不能被当成黑话
+        _, terms = self._load("来源两份：\n\n一行一条：`注册名 中文名：俗名`\n\n## 战术黑话\n\n吃牛肉：打矿车\n")
+        self.assertEqual(terms, [{"term": "吃牛肉", "meaning": "打矿车"}])
+
+    def test_entity_lines_are_not_terms(self):
+        _, terms = self._load("## 兵种\n\nE2 动员兵：炮灰兵\n\n## 战术黑话\n\nTR：塔攻\n")
+        self.assertEqual([t["term"] for t in terms], ["TR"])
+
+
+class TestBuildGlossary(unittest.TestCase):
+    def test_renders_entities_and_terms(self):
+        text = build_codex.build_glossary(
+            [{"id": "MTNK", "name": "灰熊坦克", "nicknames": ["小坦克"],
+              "unconfirmed": False}],
+            [{"term": "吃牛肉", "meaning": "打矿车"}])
+        self.assertIn("**MTNK** 灰熊坦克：小坦克", text)
+        self.assertIn("## 战术黑话", text)
+        self.assertIn("**吃牛肉**：打矿车", text)
+
+    def test_marks_unconfirmed_and_empty(self):
+        text = build_codex.build_glossary(
+            [{"id": "SHAD", "name": "夜莺直升机", "nicknames": [],
+              "unconfirmed": True}], [])
+        self.assertIn("夜莺直升机 ❓：（无）", text)

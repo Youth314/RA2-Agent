@@ -40,6 +40,7 @@ Fandom 那 41,783 页里绝大多数与本项目无关（泰伯利亚、将军�
 |---|---|---|
 | `derived/rules.json` | 单位/建筑/武器/弹头的结构化表，给技法层（Python）查 | `tools/build_codex.py` |
 | `notes/` | 手写补充，生成时会合并进 codex | 人 |
+| `sources/` | 第三方文本快照（含出处）。知乎取不到第二份，别删 | 人 |
 | [`../codex/`](../codex/) | 给模型 grep 的资料（markdown） | `tools/build_codex.py` |
 
 ```sh
