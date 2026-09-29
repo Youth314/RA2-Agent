@@ -19,59 +19,59 @@ CAHOSP(Old Civilian Hospital) CAEAST01(Easter Island Statue)
 
 ## 可建造
 
-- **GAPOWR** Allied Power Plant · 造价 800 · 血 750 · wood · 电力 +200 · 前提 GACNST · 等级 1
-- **GAREFN** Allied Ore Refinery · 造价 2000 · 血 1000 · wood · 电力 -50 · 前提 POWER,GACNST · 等级 1 · refinery naval_dock
-- **GAPILE** Allied Barracks · 造价 500 · 血 500 · steel · 电力 -10 · 前提 POWER,GACNST · 等级 2
-- **GADEPT** Allied Service Depot · 造价 800 · 血 1200 · wood · 电力 -25 · 前提 GAWEAP,GACNST · 等级 6 · repairs_units
-- **GATECH** Allied Battle Lab · 造价 2000 · 血 500 · wood · 电力 -100 · 前提 GAWEAP,RADAR,GACNST · 等级 8
-- **GAWEAP** Allied War Factory · 造价 2000 · 血 1000 · wood · 电力 -25 · 前提 PROC,GAPILE,GACNST · 等级 2
-- **NAPOWR** Soviet Tesla Reactor · 造价 600 · 血 750 · wood · 电力 +150 · 前提 NACNST · 等级 1
-- **NATECH** Soviet Battle Lab · 造价 2000 · 血 500 · wood · 电力 -100 · 前提 NAWEAP,RADAR,NACNST · 等级 7
-- **NAHAND** Soviet Barracks · 造价 500 · 血 500 · steel · 电力 -10 · 前提 POWER,NACNST · 等级 2
-- **GAWALL** Allied Wall · 造价 100 · 血 300 · concrete · 前提 GAPILE · 等级 1
-- **NARADR** Soviet Radar Tower · 造价 1000 · 血 1000 · wood · 电力 -50 · 前提 NAREFN,NACNST · 等级 3
-- **NAWEAP** Soviet War Factory · 造价 2000 · 血 1000 · wood · 电力 -25 · 前提 PROC,NAHAND,NACNST · 等级 2
-- **NAREFN** Soviet Ore Refinery · 造价 2000 · 血 1000 · wood · 电力 -50 · 前提 POWER,NACNST · 等级 1 · refinery naval_dock
-- **NAWALL** Soviet Wall · 造价 100 · 血 300 · concrete · 前提 NAHAND · 等级 1
-- **NAPSIS** Yuri Psychic Sensor · 造价 1000 · 血 750 · wood · 电力 -50 · 前提 YACNST,PROC · 等级 3
-- **NALASR** Soviet Sentry Gun · 造价 500 · 血 400 · steel · 前提 BARRACKS,NACNST · 等级 1 · Vulcan(50伤/26帧/射程0 弹头SA) · 每发 → none,special_1,special_2=50 flak,plate=40 light,steel=25 medium,heavy,concrete=12.5 wood=37.5
-- **NASAM** Allied Patriot Missile · 造价 1000 · 血 900 · steel · 电力 -50 · 前提 BARRACKS,GACNST · 等级 4 · RedEye2(75伤/55帧/射程12 弹头SAMWH) · 每发 → none,flak,plate,light,medium,heavy,special_1,special_2=75 wood,steel,concrete=0
-- **GAYARD** Allied Shipyard · 造价 1000 · 血 1500 · concrete · 电力 -25 · 前提 PROC,POWER,GACNST · 等级 4 · repairs_units naval_dock
-- **NAIRON** Soviet Iron Curtain Device · 造价 2500 · 血 750 · concrete · 电力 -200 · 前提 NATECH,NACNST · 等级 10
-- **NADEPT** Soviet Service Depot · 造价 800 · 血 1200 · wood · 电力 -20 · 前提 NAWEAP,NACNST · 等级 6 · repairs_units naval_dock
-- **GACSPH** Allied Chrono Sphere · 造价 2500 · 血 750 · concrete · 电力 -200 · 前提 GATECH,GACNST · 等级 10
-- **GAWEAT** Allied Weather Controller · 造价 5000 · 血 1000 · concrete · 电力 -200 · 前提 GATECH,GACNST · 等级 10
-- **TESLA** Soviet Tesla Coil · 造价 1500 · 血 600 · steel · 电力 -75 · 前提 POWER,RADAR,NACNST · 等级 5 · CoilBolt(200伤/80帧/射程7 弹头Electric) · 每发 → none,flak,plate,medium,heavy,special_2=200 light=170 wood,steel,concrete=100 special_1=400
-- **NAMISL** Soviet Nuclear Missile Silo · 造价 5000 · 血 1000 · concrete · 电力 -200 · 前提 NATECH,NACNST · 等级 10
-- **ATESLA** Allied Prism Cannon · 造价 1500 · 血 600 · steel · 电力 -75 · 前提 POWER,RADAR,GACNST · 等级 6 · PrismShot(120伤/45帧/射程8 弹头PrismWarhead) · 每发 → none,special_1=240 flak,plate,light,medium,heavy,special_2=120 wood,steel,concrete=60
-- **NAYARD** Soviet Shipyard · 造价 1000 · 血 1500 · concrete · 电力 -20 · 前提 PROC,POWER,NACNST · 等级 2 · repairs_units naval_dock
-- **GASPYSAT** Allied SpySat Uplink · 造价 1500 · 血 1000 · wood · 电力 -100 · 前提 GATECH,GACNST · 等级 9 · spy_satellite
-- **GAGAP** Allied Gap Generator · 造价 1000 · 血 600 · wood · 电力 -100 · 前提 GATECH,GACNST · 等级 7 · extra_power
-- **GTGCAN** Allied Grand Cannon · 造价 2000 · 血 900 · steel · 电力 -100 · 前提 RADAR,GACNST · 等级 7 · GrandCannonWeapon(150伤/120帧/射程15 弹头GrandCannonWH) · 每发 → none,flak,plate,light,medium,heavy,steel,special_1,special_2=150 wood,concrete=75
-- **NANRCT** Soviet Nuclear Reactor · 造价 1000 · 血 1000 · concrete · 电力 +2000 · 前提 NATECH,NACNST · 等级 9
-- **GAPILL** Allied Pill Box · 造价 500 · 血 400 · steel · 前提 BARRACKS,GACNST · 等级 1 · Vulcan2(50伤/26帧/射程0 弹头SA) · 每发 → none,special_1,special_2=50 flak,plate=40 light,steel=25 medium,heavy,concrete=12.5 wood=37.5
-- **NAFLAK** Soviet Flak Cannon · 造价 1000 · 血 900 · steel · 电力 -50 · 前提 BARRACKS,NACNST · 等级 4 · FlakWeapon(40伤/20帧/射程12 弹头FlakWH) · 每发 → none=60 flak=32 plate=20 light,medium,special_1,special_2=40 heavy=8 wood,steel,concrete=0
-- **NACLON** Yuri Cloning Vats · 造价 2500 · 血 1000 · wood · 电力 -200 · 前提 YATECH,YACNST · 等级 9
-- **GAOREP** Allied Ore Processor · 造价 2500 · 血 900 · wood · 电力 -200 · 前提 GATECH,PROC,GACNST · 等级 10
-- **GAAIRC** Allied Airforce Command Headquarters · 造价 1000 · 血 600 · steel · 电力 -50 · 前提 GAREFN,GACNST · 等级 3 · naval_dock
-- **AMRADR** Allied American Airforce Command Headquarters · 造价 1000 · 血 600 · steel · 电力 -50 · 前提 GAREFN,GACNST · 等级 3 · naval_dock
-- **YAPOWR** Yuri Bio Reactor · 造价 600 · 血 700 · wood · 电力 +150 · 前提 YACNST · 等级 1 · extra_power
-- **YABRCK** Yuri Barracks · 造价 500 · 血 500 · steel · 电力 -10 · 前提 POWER,YACNST · 等级 2
-- **YAWEAP** Yuri War Factory · 造价 2000 · 血 1000 · wood · 电力 -25 · 前提 PROC,YABRCK,YACNST · 等级 2
-- **YAYARD** Yuri Submarine Pen · 造价 1000 · 血 1500 · concrete · 电力 -25 · 前提 YACNST,POWER,PROC · 等级 4 · repairs_units naval_dock
+- **GAPOWR** Allied Power Plant（盟军发电厂） · 造价 800 · 血 750 · wood · 电力 +200 · 前提 GACNST · 等级 1
+- **GAREFN** Allied Ore Refinery（盟军矿厂） · 造价 2000 · 血 1000 · wood · 电力 -50 · 前提 POWER,GACNST · 等级 1 · refinery naval_dock
+- **GAPILE** Allied Barracks（盟军兵营） · 造价 500 · 血 500 · steel · 电力 -10 · 前提 POWER,GACNST · 等级 2
+- **GADEPT** Allied Service Depot（盟军维修厂） · 造价 800 · 血 1200 · wood · 电力 -25 · 前提 GAWEAP,GACNST · 等级 6 · repairs_units
+- **GATECH** Allied Battle Lab（盟军实验室） · 造价 2000 · 血 500 · wood · 电力 -100 · 前提 GAWEAP,RADAR,GACNST · 等级 8
+- **GAWEAP** Allied War Factory（盟军兵工厂） · 造价 2000 · 血 1000 · wood · 电力 -25 · 前提 PROC,GAPILE,GACNST · 等级 2
+- **NAPOWR** Soviet Tesla Reactor（磁能反应炉） · 造价 600 · 血 750 · wood · 电力 +150 · 前提 NACNST · 等级 1
+- **NATECH** Soviet Battle Lab（苏军实验室） · 造价 2000 · 血 500 · wood · 电力 -100 · 前提 NAWEAP,RADAR,NACNST · 等级 7
+- **NAHAND** Soviet Barracks（苏军兵营） · 造价 500 · 血 500 · steel · 电力 -10 · 前提 POWER,NACNST · 等级 2
+- **GAWALL** Allied Wall（盟军围墙） · 造价 100 · 血 300 · concrete · 前提 GAPILE · 等级 1
+- **NARADR** Soviet Radar Tower（苏军雷达） · 造价 1000 · 血 1000 · wood · 电力 -50 · 前提 NAREFN,NACNST · 等级 3
+- **NAWEAP** Soviet War Factory（苏军兵工厂） · 造价 2000 · 血 1000 · wood · 电力 -25 · 前提 PROC,NAHAND,NACNST · 等级 2
+- **NAREFN** Soviet Ore Refinery（苏军矿厂） · 造价 2000 · 血 1000 · wood · 电力 -50 · 前提 POWER,NACNST · 等级 1 · refinery naval_dock
+- **NAWALL** Soviet Wall（苏军围墙） · 造价 100 · 血 300 · concrete · 前提 NAHAND · 等级 1
+- **NAPSIS** Yuri Psychic Sensor（心灵感应器） · 造价 1000 · 血 750 · wood · 电力 -50 · 前提 YACNST,PROC · 等级 3
+- **NALASR** Soviet Sentry Gun（哨戒炮） · 造价 500 · 血 400 · steel · 前提 BARRACKS,NACNST · 等级 1 · Vulcan(50伤/26帧/射程0 弹头SA) · 每发 → none,special_1,special_2=50 flak,plate=40 light,steel=25 medium,heavy,concrete=12.5 wood=37.5
+- **NASAM** Allied Patriot Missile（爱国者飞弹） · 造价 1000 · 血 900 · steel · 电力 -50 · 前提 BARRACKS,GACNST · 等级 4 · RedEye2(75伤/55帧/射程12 弹头SAMWH) · 每发 → none,flak,plate,light,medium,heavy,special_1,special_2=75 wood,steel,concrete=0
+- **GAYARD** Allied Shipyard（盟军船厂） · 造价 1000 · 血 1500 · concrete · 电力 -25 · 前提 PROC,POWER,GACNST · 等级 4 · repairs_units naval_dock
+- **NAIRON** Soviet Iron Curtain Device（铁幕） · 造价 2500 · 血 750 · concrete · 电力 -200 · 前提 NATECH,NACNST · 等级 10
+- **NADEPT** Soviet Service Depot（苏军维修厂） · 造价 800 · 血 1200 · wood · 电力 -20 · 前提 NAWEAP,NACNST · 等级 6 · repairs_units naval_dock
+- **GACSPH** Allied Chrono Sphere（超时空传送仪） · 造价 2500 · 血 750 · concrete · 电力 -200 · 前提 GATECH,GACNST · 等级 10
+- **GAWEAT** Allied Weather Controller（天气控制器） · 造价 5000 · 血 1000 · concrete · 电力 -200 · 前提 GATECH,GACNST · 等级 10
+- **TESLA** Soviet Tesla Coil（磁暴线圈） · 造价 1500 · 血 600 · steel · 电力 -75 · 前提 POWER,RADAR,NACNST · 等级 5 · CoilBolt(200伤/80帧/射程7 弹头Electric) · 每发 → none,flak,plate,medium,heavy,special_2=200 light=170 wood,steel,concrete=100 special_1=400
+- **NAMISL** Soviet Nuclear Missile Silo（核弹发射井） · 造价 5000 · 血 1000 · concrete · 电力 -200 · 前提 NATECH,NACNST · 等级 10
+- **ATESLA** Allied Prism Cannon（光棱塔） · 造价 1500 · 血 600 · steel · 电力 -75 · 前提 POWER,RADAR,GACNST · 等级 6 · PrismShot(120伤/45帧/射程8 弹头PrismWarhead) · 每发 → none,special_1=240 flak,plate,light,medium,heavy,special_2=120 wood,steel,concrete=60
+- **NAYARD** Soviet Shipyard（苏军造船厂） · 造价 1000 · 血 1500 · concrete · 电力 -20 · 前提 PROC,POWER,NACNST · 等级 2 · repairs_units naval_dock
+- **GASPYSAT** Allied SpySat Uplink（间谍卫星） · 造价 1500 · 血 1000 · wood · 电力 -100 · 前提 GATECH,GACNST · 等级 9 · spy_satellite
+- **GAGAP** Allied Gap Generator（裂缝产生器） · 造价 1000 · 血 600 · wood · 电力 -100 · 前提 GATECH,GACNST · 等级 7 · extra_power
+- **GTGCAN** Allied Grand Cannon（法国巨炮GrandCannonWeapon） · 造价 2000 · 血 900 · steel · 电力 -100 · 前提 RADAR,GACNST · 等级 7 · GrandCannonWeapon(150伤/120帧/射程15 弹头GrandCannonWH) · 每发 → none,flak,plate,light,medium,heavy,steel,special_1,special_2=150 wood,concrete=75
+- **NANRCT** Soviet Nuclear Reactor（核子反应堆） · 造价 1000 · 血 1000 · concrete · 电力 +2000 · 前提 NATECH,NACNST · 等级 9
+- **GAPILL** Allied Pill Box（机枪碉堡） · 造价 500 · 血 400 · steel · 前提 BARRACKS,GACNST · 等级 1 · Vulcan2(50伤/26帧/射程0 弹头SA) · 每发 → none,special_1,special_2=50 flak,plate=40 light,steel=25 medium,heavy,concrete=12.5 wood=37.5
+- **NAFLAK** Soviet Flak Cannon（防空炮） · 造价 1000 · 血 900 · steel · 电力 -50 · 前提 BARRACKS,NACNST · 等级 4 · FlakWeapon(40伤/20帧/射程12 弹头FlakWH) · 每发 → none=60 flak=32 plate=20 light,medium,special_1,special_2=40 heavy=8 wood,steel,concrete=0
+- **NACLON** Yuri Cloning Vats（复制中心） · 造价 2500 · 血 1000 · wood · 电力 -200 · 前提 YATECH,YACNST · 等级 9
+- **GAOREP** Allied Ore Processor（矿石精鍊器） · 造价 2500 · 血 900 · wood · 电力 -200 · 前提 GATECH,PROC,GACNST · 等级 10
+- **GAAIRC** Allied Airforce Command Headquarters（盟军空军指挥部） · 造价 1000 · 血 600 · steel · 电力 -50 · 前提 GAREFN,GACNST · 等级 3 · naval_dock
+- **AMRADR** Allied American Airforce Command Headquarters（美国空军指挥部） · 造价 1000 · 血 600 · steel · 电力 -50 · 前提 GAREFN,GACNST · 等级 3 · naval_dock
+- **YAPOWR** Yuri Bio Reactor（生化反应炉） · 造价 600 · 血 700 · wood · 电力 +150 · 前提 YACNST · 等级 1 · extra_power
+- **YABRCK** Yuri Barracks（尤里兵营） · 造价 500 · 血 500 · steel · 电力 -10 · 前提 POWER,YACNST · 等级 2
+- **YAWEAP** Yuri War Factory（尤里兵工厂） · 造价 2000 · 血 1000 · wood · 电力 -25 · 前提 PROC,YABRCK,YACNST · 等级 2
+- **YAYARD** Yuri Submarine Pen（尤里船厂） · 造价 1000 · 血 1500 · concrete · 电力 -25 · 前提 YACNST,POWER,PROC · 等级 4 · repairs_units naval_dock
 - **YADEPT** ZZZ Yuri Service Depot · 造价 800 · 血 1200 · wood · 电力 -25 · 前提 YAWEAP,YACNST · 等级 15 · repairs_units
-- **YATECH** Yuri Battle Lab · 造价 2000 · 血 500 · wood · 电力 -100 · 前提 YAWEAP,YACNST,RADAR · 等级 8
-- **GAFWLL** Yuri Citadel Wall · 造价 100 · 血 300 · concrete · 前提 YABRCK · 等级 2
-- **YAGGUN** Yuri Gattling Cannon · 造价 1000 · 血 810 · steel · 电力 -50 · 前提 BARRACKS,YACNST · 等级 4
-- **YAPSYT** Yuri Psychic Tower · 造价 1500 · 血 455 · steel · 电力 -100 · 前提 NAPSIS,YACNST · 等级 7 · MultipleMindControlTower(3伤/100帧/射程7 弹头Controller) · 每发 → none,flak,plate,light,medium,heavy,special_1,special_2=3 wood,steel,concrete=0
-- **NAINDP** Soviet Industrial Plant · 造价 2500 · 血 1000 · wood · 电力 -200 · 前提 NATECH,PROC,NACNST · 等级 10
-- **YAGRND** Yuri Grinder · 造价 600 · 血 900 · wood · 电力 -50 · 前提 YAWEAP,YACNST · 等级 9
-- **YAGNTC** Yuri Genetic Mutator Device · 造价 2500 · 血 1000 · concrete · 电力 -200 · 前提 YATECH,YACNST · 等级 10
-- **YAPPET** Yuri Puppet Master · 造价 5000 · 血 1000 · concrete · 电力 -200 · 前提 YATECH,YACNST · 等级 10
-- **NATBNK** Yuri Tank Bunker · 造价 400 · 血 1000 · steel · 前提 YACNST · 等级 3 · naval_dock
-- **GAROBO** Allied Robot Control Center · 造价 600 · 血 600 · wood · 电力 -100 · 前提 GAWEAP,GACNST · 等级 10
-- **YAREFN** Yuri Ore Refinery · 造价 1750 · 血 2000 · medium · 前提 POWER,YACNST · 等级 1 · harvester cannot_sell · 20mmRapid(30伤/20帧/射程0 弹头HARVWH) · 每发 → none,special_2=30 flak=24 plate=21 light=15 medium,heavy,wood=6 steel=4.5 concrete=3 special_1=120
-- **NABNKR** Soviet Battle Bunker · 造价 500 · 血 600 · steel · 前提 NACNST · 等级 1
+- **YATECH** Yuri Battle Lab（尤里实验室） · 造价 2000 · 血 500 · wood · 电力 -100 · 前提 YAWEAP,YACNST,RADAR · 等级 8
+- **GAFWLL** Yuri Citadel Wall（尤里围墙） · 造价 100 · 血 300 · concrete · 前提 YABRCK · 等级 2
+- **YAGGUN** Yuri Gattling Cannon（盖特机炮） · 造价 1000 · 血 810 · steel · 电力 -50 · 前提 BARRACKS,YACNST · 等级 4
+- **YAPSYT** Yuri Psychic Tower（心灵控制塔） · 造价 1500 · 血 455 · steel · 电力 -100 · 前提 NAPSIS,YACNST · 等级 7 · MultipleMindControlTower(3伤/100帧/射程7 弹头Controller) · 每发 → none,flak,plate,light,medium,heavy,special_1,special_2=3 wood,steel,concrete=0
+- **NAINDP** Soviet Industrial Plant（工业工厂） · 造价 2500 · 血 1000 · wood · 电力 -200 · 前提 NATECH,PROC,NACNST · 等级 10
+- **YAGRND** Yuri Grinder（部队回收厂） · 造价 600 · 血 900 · wood · 电力 -50 · 前提 YAWEAP,YACNST · 等级 9
+- **YAGNTC** Yuri Genetic Mutator Device（基因突变器） · 造价 2500 · 血 1000 · concrete · 电力 -200 · 前提 YATECH,YACNST · 等级 10
+- **YAPPET** Yuri Puppet Master（心灵控制增幅器） · 造价 5000 · 血 1000 · concrete · 电力 -200 · 前提 YATECH,YACNST · 等级 10
+- **NATBNK** Yuri Tank Bunker（坦克碉堡） · 造价 400 · 血 1000 · steel · 前提 YACNST · 等级 3 · naval_dock
+- **GAROBO** Allied Robot Control Center（控制中心） · 造价 600 · 血 600 · wood · 电力 -100 · 前提 GAWEAP,GACNST · 等级 10
+- **YAREFN** Yuri Ore Refinery（奴隶矿厂） · 造价 1750 · 血 2000 · medium · 前提 POWER,YACNST · 等级 1 · harvester cannot_sell · 20mmRapid(30伤/20帧/射程0 弹头HARVWH) · 每发 → none,special_2=30 flak=24 plate=21 light=15 medium,heavy,wood=6 steel=4.5 concrete=3 special_1=120
+- **NABNKR** Soviet Battle Bunker（战斗碉堡） · 造价 500 · 血 600 · steel · 前提 NACNST · 等级 1
 
 ## 可进驻
 

@@ -39,7 +39,8 @@ Fandom 那 41,783 页里绝大多数与本项目无关（泰伯利亚、将军�
 | 路径 | 是什么 | 谁生成 |
 |---|---|---|
 | `derived/rules.json` | 单位/建筑/武器/弹头的结构化表，给技法层（Python）查 | `tools/build_codex.py` |
-| `notes/` | 手写补充，生成时会合并进 codex | 人 |
+| `derived/names.json` | 注册名 → 中文名，由 B 站《红警2单位对照》抽出 | `tools/fetch_names.py` |
+| `notes/` | 手写补充（科技建筑效果、俗名、中文名），生成时合并进 codex | 人 |
 | `sources/` | 第三方文本快照（含出处）。知乎取不到第二份，别删 | 人 |
 | [`../codex/`](../codex/) | 给模型 grep 的资料（markdown） | `tools/build_codex.py` |
 
@@ -48,3 +49,14 @@ python3 tools/build_codex.py
 ```
 
 生成物不要手改。要改内容改 `notes/` 或改生成器。
+
+中文名有两个来源，手写的优先：
+
+```sh
+python3 tools/fetch_names.py     # 从 B 站《红警2单位对照》抽出，写 derived/names.json
+```
+
+抽取那页要当心：建筑段写作 `ID 中文名`，单位段写作 `中文名----ID`，而单位段还会把武器跟在后面
+（`GAPILL 机枪碉堡---Vulcan2`）。故抽取器拿已知的注册名去切词，并让单位与建筑优先于武器。
+
+引擎用名字前缀 `ZZZ` 标注未使用的条目，另有 `Placeholder`、`DeathDummy` 两个占位物——这些不进正文，单列一节。

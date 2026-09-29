@@ -55,9 +55,9 @@ def format_damage(values):
     return " ".join(f"{','.join(armors)}={value:g}" for value, armors in groups.items())
 
 
-def unit_line(rules, unit):
+def unit_line(rules, unit, names):
     """一个单位一行。"""
-    fields = [f"**{unit.id}** {unit.name}",
+    fields = [f"**{unit.id}** {with_name(unit, names)}",
               KIND_LABEL.get(unit.kind, unit.kind),
               f"造价 {unit.cost}", f"血 {unit.strength}", unit.armor,
               f"速 {unit.speed}", f"视野 {unit.sight}"]
@@ -73,9 +73,9 @@ def unit_line(rules, unit):
     return " · ".join(fields)
 
 
-def building_line(rules, building):
+def building_line(rules, building, names):
     """一个可建造建筑一行。"""
-    fields = [f"**{building.id}** {building.name}", f"造价 {building.cost}",
+    fields = [f"**{building.id}** {with_name(building, names)}", f"造价 {building.cost}",
               f"血 {building.strength}", building.armor]
     if building.power:
         fields.append(f"电力 {building.power:+d}")
@@ -146,6 +146,40 @@ def build_glossary(entities, terms):
     return "\n".join(lines).rstrip() + "\n"
 
 
+#: 引擎标注未使用的方式：名字前缀 `ZZZ`，或整名就是占位物。
+UNUSED_PREFIX = "ZZZ"
+UNUSED_NAMES = frozenset({"Placeholder", "DeathDummy"})
+
+
+def load_names():
+    """中文名：`corpus/derived/names.json`（抽取）+ `corpus/notes/names.md`（手写，优先）。"""
+    names = {}
+    derived = REPO / "corpus" / "derived" / "names.json"
+    if derived.exists():
+        names.update(json.loads(derived.read_text(encoding="utf-8"))["names"])
+    path = NOTES / "names.md"
+    if path.exists():
+        for raw in path.read_text(encoding="utf-8").splitlines():
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            identifier, _, name = line.partition(" ")
+            if name.strip():
+                names[identifier.strip()] = name.replace("❓", "").strip()
+    return names
+
+
+def is_unused(holder):
+    """引擎标注未使用的条目。"""
+    return holder.name.startswith(UNUSED_PREFIX) or holder.name in UNUSED_NAMES
+
+
+def with_name(holder, names):
+    """把中文名缀在英文名后面；没有就不缀。"""
+    chinese = names.get(holder.id)
+    return f"{holder.name}（{chinese}）" if chinese else holder.name
+
+
 def load_notes(name):
     """读 `corpus/notes/<name>` 的手写补充：一行一条，`ID 正文`。"""
     path = NOTES / name
@@ -161,14 +195,16 @@ def load_notes(name):
     return out
 
 
-def build_units(rules):
-    """`codex/units.md`：能造的排前面，民用与任务用的排后面。"""
-    buildable = [u for u in rules.units if u.tech_level >= 1]
-    other = [u for u in rules.units if u.tech_level < 1]
+def build_units(rules, names):
+    """`codex/units.md`：能造的排前面，未使用的排最后。"""
+    buildable = [u for u in rules.units if u.tech_level >= 1 and not is_unused(u)]
+    other = [u for u in rules.units if u.tech_level < 1 and not is_unused(u)]
+    unused = [u for u in rules.units if is_unused(u)]
     lines = ["# 单位",
              "",
              f"由 `corpus/raw/rulesmd.ini` 生成，共 {len(rules.units)} 个："
-             f"可建造 {len(buildable)}，其它（民用、任务用）{len(other)}。不要手改。",
+             f"可建造 {len(buildable)}，其它（民用、任务用）{len(other)}，"
+             f"未使用 {len(unused)}。不要手改。",
              "",
              "「每发 →」是主武器对每种装甲的每次开火伤害，同值的并成一档；"
              "装甲代号顺序同 `corpus/derived/rules.json` 的 `armor_types`。",
@@ -182,12 +218,17 @@ def build_units(rules):
             if not part:
                 continue
             lines += [f"### {label}（{len(part)}）", ""]
-            lines += [f"- {unit_line(rules, unit)}" for unit in part]
+            lines += [f"- {unit_line(rules, unit, names)}" for unit in part]
             lines.append("")
+    if unused:
+        lines += [f"## 未使用（{len(unused)}）", "",
+                  "引擎用名字前缀 `ZZZ` 标注，留着只为了表里没有悬空引用。", ""]
+        lines += [f"- **{u.id}** {u.name}" for u in unused]
+        lines.append("")
     return "\n".join(lines).rstrip() + "\n"
 
 
-def build_buildings(rules):
+def build_buildings(rules, names):
     """`codex/buildings.md`。"""
     notes = load_notes("tech_buildings.md")
     buildable = [b for b in rules.buildings if b.cost > 0 and b.tech_level != -1]
@@ -211,7 +252,7 @@ def build_buildings(rules):
         lines += ["", "也能占领，但只是地图装饰：",
                   " ".join(f"{b.id}({b.name})" for b in neutral)]
     lines += ["", "## 可建造", ""]
-    lines += [f"- {building_line(rules, building)}" for building in buildable]
+    lines += [f"- {building_line(rules, building, names)}" for building in buildable]
     lines += ["", "## 可进驻", "",
               "拿来当掩体的。只给大小与驻军上限。", "",
               "| 建筑 | 名字 | 地基 | 驻军上限 | 装甲 | 血 |", "|---|---|---|---|---|---|"]
@@ -244,6 +285,7 @@ def main(argv=None):
 
     DERIVED.parent.mkdir(parents=True, exist_ok=True)
     CODEX.mkdir(parents=True, exist_ok=True)
+    names = load_names()
     entities, terms = load_glossary()
     known = ({u.id for u in rules.units} | {b.id for b in rules.buildings}
              | set(rules.weapons))
@@ -255,12 +297,14 @@ def main(argv=None):
     DERIVED.parent.mkdir(parents=True, exist_ok=True)
     CODEX.mkdir(parents=True, exist_ok=True)
     DERIVED.write_text(dump_json(rules), encoding="utf-8")
-    (CODEX / "units.md").write_text(build_units(rules), encoding="utf-8")
-    (CODEX / "buildings.md").write_text(build_buildings(rules), encoding="utf-8")
+    (CODEX / "units.md").write_text(build_units(rules, names), encoding="utf-8")
+    (CODEX / "buildings.md").write_text(build_buildings(rules, names), encoding="utf-8")
     (CODEX / "glossary.md").write_text(build_glossary(entities, terms), encoding="utf-8")
     print(f"单位 {len(rules.units)}  建筑 {len(rules.buildings)}  "
           f"武器 {len(rules.weapons)}  弹头 {len(rules.warheads)}")
     print(f"→ {DERIVED.relative_to(REPO)}")
+    missing = [u.id for u in rules.units if not is_unused(u) and u.id not in names]
+    print(f"中文名 {len(names)} 条；未覆盖的可动单位 {len(missing)}：{missing}")
     print(f"俗名 {len(entities)} 条，战术黑话 {len(terms)} 条")
     print("→ codex/units.md  codex/buildings.md  codex/glossary.md")
     return 0

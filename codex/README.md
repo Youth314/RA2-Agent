@@ -4,7 +4,7 @@
 
 | 文件 | 内容 | 生成 |
 |---|---|---|
-| `units.md` | 每个单位一行：造价、血、装甲、速度、前提，以及主武器对每种装甲的每发伤害 | `tools/build_codex.py` |
+| `units.md` | 每个单位一行：中文名、造价、血、装甲、速度、前提，以及主武器对每种装甲的每发伤害 | `tools/build_codex.py` |
 | `buildings.md` | 可建造建筑、科技与中立建筑、可进驻建筑 | 同上 |
 | `glossary.md` | 社区俗名与战术黑话，用来听懂玩家怎么说 | 手写于 `corpus/notes/glossary.md` |
 

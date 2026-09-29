@@ -123,3 +123,63 @@ class TestBuildGlossary(unittest.TestCase):
             [{"id": "SHAD", "name": "夜莺直升机", "nicknames": [],
               "unconfirmed": True}], [])
         self.assertIn("夜莺直升机 ❓：（无）", text)
+
+
+class TestNames(unittest.TestCase):
+    def _load(self, derived, notes):
+        import json as _json
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "corpus" / "derived").mkdir(parents=True)
+            (root / "corpus" / "derived" / "names.json").write_text(
+                _json.dumps({"source": "x", "names": derived}), encoding="utf-8")
+            (root / "corpus" / "notes").mkdir(parents=True)
+            if notes is not None:
+                (root / "corpus" / "notes" / "names.md").write_text(notes, encoding="utf-8")
+            original_repo, original_notes = build_codex.REPO, build_codex.NOTES
+            build_codex.REPO, build_codex.NOTES = root, root / "corpus" / "notes"
+            try:
+                return build_codex.load_names()
+            finally:
+                build_codex.REPO, build_codex.NOTES = original_repo, original_notes
+
+    def test_derived_names_are_used(self):
+        self.assertEqual(self._load({"MTNK": "灰熊坦克"}, None), {"MTNK": "灰熊坦克"})
+
+    def test_hand_written_names_win(self):
+        names = self._load({"HIND": "印度"}, "HIND 雌鹿运输直升机\n")
+        self.assertEqual(names["HIND"], "雌鹿运输直升机")
+
+    def test_unconfirmed_marker_is_stripped(self):
+        self.assertEqual(self._load({}, "YDOG 尤里警犬 ❓\n"), {"YDOG": "尤里警犬"})
+
+    def test_missing_files_are_tolerated(self):
+        self.assertEqual(self._load({}, None), {})
+
+
+class TestUnused(unittest.TestCase):
+    def test_zzz_prefix_marks_unused(self):
+        holder = type("H", (), {"name": "ZZZ Not Used", "id": "UTNK"})()
+        self.assertTrue(build_codex.is_unused(holder))
+
+    def test_engine_placeholders_mark_unused(self):
+        for name in ("Placeholder", "DeathDummy"):
+            holder = type("H", (), {"name": name, "id": "X"})()
+            with self.subTest(name=name):
+                self.assertTrue(build_codex.is_unused(holder))
+
+    def test_real_units_are_not_unused(self):
+        holder = type("H", (), {"name": "Grizzly Battle Tank", "id": "MTNK"})()
+        self.assertFalse(build_codex.is_unused(holder))
+
+
+class TestWithName(unittest.TestCase):
+    def test_appends_chinese(self):
+        holder = type("H", (), {"name": "Grizzly Battle Tank", "id": "MTNK"})()
+        self.assertEqual(build_codex.with_name(holder, {"MTNK": "灰熊坦克"}),
+                         "Grizzly Battle Tank（灰熊坦克）")
+
+    def test_falls_back_to_english(self):
+        holder = type("H", (), {"name": "Something", "id": "NOPE"})()
+        self.assertEqual(build_codex.with_name(holder, {}), "Something")
