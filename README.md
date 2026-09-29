@@ -15,6 +15,7 @@
 - `src/ra2agent/` — Agent 与引擎适配层的源码
 - `tests/` — 单元测试
 - `tools/` — 探针与运维脚本
+- `corpus/` — 原始语料与来源记录，见 [corpus/README.md](corpus/README.md)
 - `dsh/` — DSH 侧的挂载物：声明 agent preset `ra2` 的 bundle
 - `docs/` — 给人看的文档
 - `.agents/` — 给 agent 看的内容，见 [.agents/AGENTS.md](.agents/AGENTS.md)
