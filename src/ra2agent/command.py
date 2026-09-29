@@ -19,6 +19,16 @@ from .tactics import Mode
 UNKNOWN_INTENT = "没有这条在管任务：可能已结束或被撤销"
 
 
+#: 一次最多列多少个单位，免得文本长到把上下文吃掉。
+MAX_LISTED_UNITS = 24
+
+
+def _unit_line(item) -> str:
+    """一个单位一行：id、名字、格，以及它是不是已经在某条任务里。"""
+    state = f"在管 {item['tactic']}" if item.get("tactic") else "空闲"
+    return f"- {item['id']}｜{item['name']}｜格 ({item['cell'][0]},{item['cell'][1]})｜{state}"
+
+
 class UnitPool:
     """适用条件用的一队单位视图：此刻己方全部可用单位当成一队。
 
@@ -83,10 +93,16 @@ class CallResult:
 
 @dataclass(frozen=True)
 class StatusReport:
-    """模型每次醒来先看的东西：局势、在管任务、它上次之后发生的事。"""
+    """模型每次醒来先看的东西：局势、单位、在管任务、它上次之后发生的事。
+
+    `units` 与 `enemies` 给的是事实（id、名字、所在格、是否已在任务里），不含建议；
+    模型没有这些就无从指定落点。
+    """
 
     frame: int
     summary: str
+    units: tuple = ()
+    enemies: tuple = ()
     running: tuple = ()
     events: tuple = ()
     notices: tuple = ()
@@ -94,6 +110,18 @@ class StatusReport:
     def render(self) -> str:
         """渲染成模型读的文本，形状稳定、尽量短。"""
         lines = [f"局势｜{self.summary}"]
+        if self.units:
+            lines.append(f"己方单位 {len(self.units)}：")
+            for unit in self.units[:MAX_LISTED_UNITS]:
+                lines.append(_unit_line(unit))
+            if len(self.units) > MAX_LISTED_UNITS:
+                lines.append(f"- …另有 {len(self.units) - MAX_LISTED_UNITS} 个未列出")
+        if self.enemies:
+            lines.append(f"可见敌方 {len(self.enemies)}：")
+            for enemy in self.enemies[:MAX_LISTED_UNITS]:
+                lines.append(_unit_line(enemy))
+        else:
+            lines.append("可见敌方：无")
         if self.running:
             lines.append(f"在管 {len(self.running)} 项：")
             for item in self.running:
@@ -143,8 +171,41 @@ class Commander:
         self._seen_completed = len(self.layer.completed)
         self._seen_notices = len(self.layer.notices)
         return StatusReport(frame=observation.frame, summary=observation.summary(),
+                            units=self._own_units(observation),
+                            enemies=self._enemy_units(observation),
                             running=self.layer.progress(), events=tuple(completed),
                             notices=tuple(notices))
+
+    def _own_units(self, observation) -> tuple:
+        """己方单位清单，含它是否已被某条任务占用。"""
+        return self._listing(observation.own, observation)
+
+    def _enemy_units(self, observation) -> tuple:
+        """可见敌方清单。"""
+        return self._listing(observation.visible_enemies, observation)
+
+    def _listing(self, objects, observation) -> tuple:
+        """把对象列成「id、名字、格、在管」四件事。"""
+        busy = {}
+        for item in self.layer.progress():
+            for agent in item["units"]:
+                busy[agent] = item["tactic"]
+        out = []
+        for obj in objects:
+            if obj.in_limbo:
+                continue
+            agent = self.observer.identity.agent_id(obj.pointer)
+            if agent is None:
+                continue
+            out.append({"id": agent, "name": self._name(obj),
+                        "cell": obj.coordinates.cell,
+                        "tactic": busy.get(agent, "")})
+        return tuple(out)
+
+    def _name(self, obj) -> str:
+        """对象类型名；没有类型表时给问号。"""
+        types = getattr(self.observer, "types", None)
+        return types.name(obj, "?") if types is not None else "?"
 
     # ------------------------------------------------------------ 工具二：卡片
     def tactics(self, query=None, observation=None) -> tuple:
@@ -209,6 +270,10 @@ class Commander:
         units, problem = self._check_units(request.units, observation)
         if problem:
             return CallResult(False, request.tactic, error=problem)
+        taken = self._taken(units)
+        if taken:
+            return CallResult(False, request.tactic,
+                              error=f"这些单位已在其它任务里：{list(taken)}；先撤销再改派")
 
         call = TacticCall(tactic=request.tactic, params=params,
                           scope=Scope(objects=units), issuer="model",
@@ -233,6 +298,13 @@ class Commander:
         if unknown:
             return (), f"这些 id 不是你方可用单位：{unknown}"
         return tuple(units), ""
+
+    def _taken(self, units) -> tuple:
+        """已被别的任务占住的单位。同一时刻一个单位只归一条任务。"""
+        busy = set()
+        for item in self.layer.progress():
+            busy.update(item["units"])
+        return tuple(u for u in units if u in busy)
 
     def _pool(self, observation) -> UnitPool:
         """给适用条件用的临时 subject。"""

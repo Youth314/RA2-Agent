@@ -223,6 +223,24 @@ class TestCall(Case):
         ])
         self.assertEqual([r.accepted for r in results], [True, False, True])
 
+    def test_unit_already_in_a_task_is_rejected(self):
+        first = self.commander.call([CallRequest(
+            tactic="advance_to_cell", units=(self.agent(ALLY_A),),
+            params={"cell": (5, 5)})])
+        self.assertTrue(first[0].accepted)
+        second = self.commander.call([CallRequest(
+            tactic="hold_position", units=(self.agent(ALLY_A),))])
+        self.assertFalse(second[0].accepted)
+        self.assertIn("已在其它任务里", second[0].error)
+
+    def test_unit_is_free_again_after_settling(self):
+        self.commander.call([CallRequest(tactic="hold_position",
+                                         units=(self.agent(ALLY_A),))])
+        self.tick(self.state)                        # 驻守一拍即结算
+        again = self.commander.call([CallRequest(tactic="hold_position",
+                                                 units=(self.agent(ALLY_A),))])
+        self.assertTrue(again[0].accepted)
+
     def test_ttl_is_carried(self):
         self.commander.call([CallRequest(
             tactic="advance_to_cell", units=(self.agent(ALLY_A),),
@@ -250,6 +268,35 @@ class TestStatus(Case):
         self.assertEqual(len(report.running), 1)
         self.assertEqual(report.running[0]["tactic"], "advance_to_cell")
         self.assertIn("在管 1 项", report.render())
+
+    def test_lists_units_with_position(self):
+        # 没有位置，模型无从指定落点
+        report = self.commander.status()
+        self.assertEqual(len(report.units), 1)
+        unit = report.units[0]
+        self.assertEqual(unit["cell"], (1, 1))
+        self.assertEqual(unit["tactic"], "")
+        self.assertIn("格 (1,1)", report.render())
+        self.assertIn("可见敌方：无", report.render())
+
+    def test_marks_units_already_in_a_task(self):
+        self.commander.call([CallRequest(tactic="advance_to_cell",
+                                         units=(self.agent(ALLY_A),),
+                                         params={"cell": (5, 5)})])
+        unit = self.commander.status().units[0]
+        self.assertEqual(unit["tactic"], "advance_to_cell")
+
+    def test_lists_visible_enemies(self):
+        state = make_state(objects=[tank(ALLY_A, (1, 1)),
+                                    tank(ENEMY, (4, 4), house=ENEMY_HOUSE)])
+        self.build(state, observation=Observation(
+            frame=state.frame, house=state.player_house(),
+            own=tuple(o for o in state.objects if o.house == PLAYER_HOUSE),
+            visible_enemies=(state.object(ENEMY),), neutral=(), state=state,
+            map_data=MAP))
+        report = self.commander.status()
+        self.assertEqual(len(report.enemies), 1)
+        self.assertIn("可见敌方 1", report.render())
 
     def test_events_are_reported_once(self):
         self.commander.call([CallRequest(tactic="hold_position",
