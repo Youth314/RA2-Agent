@@ -147,3 +147,54 @@ class TestPolicyConfig(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestRealLoopback(unittest.TestCase):
+    """真起一个本地 HTTP 服务走一遍——假投递绕过了 `urllib` 那一段。"""
+
+    def setUp(self):
+        import http.server
+        import threading
+
+        received = self.received = []
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                length = int(self.headers.get("Content-Length", 0))
+                body = self.rfile.read(length).decode("utf-8")
+                received.append((self.path, json.loads(body)))
+                payload = json.dumps({"ok": True, "session": "s1"}).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def log_message(self, *args):
+                pass
+
+        self.server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+        self.endpoint = f"http://127.0.0.1:{self.server.server_port}/ra2/wake"
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+
+    def test_round_trip(self):
+        bridge = WakeBridge(endpoint=self.endpoint, policy=WakePolicy())
+        record = bridge.request("基地被打", frame=8120, tactic="watch_base")
+        self.assertTrue(record["sent"], record.get("error"))
+        self.assertIn("session", record["reply"])
+        path, payload = self.received[0]
+        self.assertEqual(path, "/ra2/wake")
+        self.assertIn("基地被打", payload["text"])
+        self.assertEqual(payload["frame"], 8120)
+
+    def test_unreachable_endpoint_reports_the_reason(self):
+        bridge = WakeBridge(endpoint="http://127.0.0.1:1/ra2/wake",
+                            policy=WakePolicy(timeout=0.5))
+        record = bridge.request("基地被打", frame=1)
+        self.assertFalse(record["sent"])
+        self.assertTrue(record["error"])
