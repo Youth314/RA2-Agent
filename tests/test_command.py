@@ -97,6 +97,26 @@ def make_types():
          AbstractType.BUILDINGTYPE)]))
 
 
+class TestHouseLine(unittest.TestCase):
+    """一局的终点要读得出来：出局、获胜、判负各有标志。"""
+
+    def _line(self, **house_kwargs):
+        from ra2agent.command import describe_houses
+        state = GameState.parse(build_game_state(
+            houses=[build_house(PLAYER_HOUSE, current_player=True, **house_kwargs),
+                    build_house(ENEMY_HOUSE)]))
+        return describe_houses(state)
+
+    def test_a_defeated_house_is_marked(self):
+        self.assertIn("已出局", self._line(defeated=True))
+
+    def test_a_winner_is_marked(self):
+        self.assertIn("已获胜", self._line(is_winner=True))
+
+    def test_a_loser_is_marked(self):
+        self.assertIn("判负", self._line(is_loser=True))
+
+
 class FakePlaceQueryClient:
     """只实现 `place_query` 的假客户端，返回预置的合法格。"""
 

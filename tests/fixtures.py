@@ -39,7 +39,7 @@ def build_object(pointer, type_pointer=0x900, house=PLAYER_HOUSE,
 
 def build_house(pointer, current_player=False, faction="Alliance",
                 money=10000, defeated=False, power_output=0, power_drain=0,
-                infiltrated=()):
+                infiltrated=(), is_winner=False, is_loser=False):
     """`House`。`infiltrated` 取 `allied` / `soviet` / `third` 的任意组合。"""
     out = (
         pb_uint(1, 0)
@@ -52,6 +52,10 @@ def build_house(pointer, current_player=False, faction="Alliance",
         + pb_uint(13, power_output)
         + pb_uint(14, power_drain)
     )
+    if is_winner:
+        out += pb_uint(11, 1)
+    if is_loser:
+        out += pb_uint(12, 1)
     for field, name in ((16, "allied"), (17, "soviet"), (18, "third")):
         if name in infiltrated:
             out += pb_uint(field, 1)
@@ -90,8 +94,12 @@ def build_game_state(objects=(), houses=(), factories=(), cells=(),
     return out
 
 
-def build_map_soa(width, height, shrouded, land, passability=None):
-    """`ReadValue{data{map_data_soa}}` 的响应，即一张地图。"""
+def build_map_soa(width, height, shrouded, land, passability=None, tiberium=None):
+    """`ReadValue{data{map_data_soa}}` 的响应，即一张地图。
+
+    `tiberium` 是每格的矿石量（0 即无矿）。字段号见 `MapData.FIELDS`；protobuf 与
+    字段顺序无关，故它拼在末尾。
+    """
     if passability is None:
         passability = [1] * (width * height)
     soa = (
@@ -100,6 +108,8 @@ def build_map_soa(width, height, shrouded, land, passability=None):
         + pb_bytes(8, b"".join(bytes([v]) for v in passability))
         + pb_uint(9, width) + pb_uint(10, height)
     )
+    if tiberium is not None:
+        soa += pb_bytes(6, bytes(tiberium))
     return pb_bytes(1, pb_bytes(5, soa))
 
 

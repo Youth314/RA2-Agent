@@ -254,6 +254,10 @@ class UnitType:
     forbidden_houses: tuple = ()
     #: 要偷到哪一方科技才造得了（`RequiresStolen*Tech`）；空表示不需要。
     stolen_tech: str = ""
+    #: `Harvester=yes`：矿车。**认出它才管得住它**——被 `STOP` 过的矿车不会自己
+    #: 恢复采矿（实测整局资金停在 100），而引擎没有采矿动作，只能把它移回矿格让
+    #: 游戏自身的采矿 AI 接管。
+    harvester: bool = False
 
 
 @dataclass(frozen=True)
@@ -371,7 +375,8 @@ def parse_rules(text):
                 primary=data.get("Primary", ""), secondary=data.get("Secondary", ""),
                 passengers=as_int(data.get("Passengers")),
                 required_houses=required_of(data), forbidden_houses=forbidden_of(data),
-                stolen_tech=stolen_tech_of(data)))
+                stolen_tech=stolen_tech_of(data),
+                harvester=as_bool(data.get("Harvester"))))
             holders.append((data.get("Primary", ""), data.get("Secondary", "")))
 
     for identifier in collect_ids(sections, "BuildingTypes"):

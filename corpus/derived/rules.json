@@ -38,7 +38,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "E2",
@@ -64,7 +65,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "SHK",
@@ -90,7 +92,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "ENGINEER",
@@ -128,7 +131,8 @@
     "Arabs",
     "YuriCountry"
    ],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "JUMPJET",
@@ -156,7 +160,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "GHOST",
@@ -184,7 +189,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "YURI",
@@ -217,7 +223,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "IVAN",
@@ -244,7 +251,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "DESO",
@@ -273,7 +281,8 @@
     "Arabs"
    ],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "DOG",
@@ -312,7 +321,8 @@
     "Alliance",
     "YuriCountry"
    ],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CIV1",
@@ -342,7 +352,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CIV2",
@@ -372,7 +383,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CIV3",
@@ -402,7 +414,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CTECH",
@@ -432,7 +445,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "WEEDGUY",
@@ -459,7 +473,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CLEG",
@@ -487,7 +502,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "SPY",
@@ -515,7 +531,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CCOMAND",
@@ -547,7 +564,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": "allied"
+   "stolen_tech": "allied",
+   "harvester": false
   },
   {
    "id": "PTROOP",
@@ -579,7 +597,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": "third"
+   "stolen_tech": "third",
+   "harvester": false
   },
   {
    "id": "CIVAN",
@@ -611,7 +630,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": "soviet"
+   "stolen_tech": "soviet",
+   "harvester": false
   },
   {
    "id": "YURIPR",
@@ -635,7 +655,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "SNIPE",
@@ -665,7 +686,8 @@
     "British"
    ],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "COW",
@@ -695,7 +717,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "ALL",
@@ -725,7 +748,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "TANY",
@@ -753,7 +777,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "FLAKT",
@@ -781,7 +806,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "TERROR",
@@ -810,7 +836,8 @@
     "Confederation"
    ],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "SENGINEER",
@@ -849,7 +876,8 @@
     "Alliance",
     "YuriCountry"
    ],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "ADOG",
@@ -887,7 +915,8 @@
     "Arabs",
     "YuriCountry"
    ],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "VLADIMIR",
@@ -912,7 +941,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "PENTGEN",
@@ -937,7 +967,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "PRES",
@@ -967,7 +998,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "SSRV",
@@ -992,7 +1024,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CIVA",
@@ -1022,7 +1055,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CIVB",
@@ -1052,7 +1086,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CIVC",
@@ -1082,7 +1117,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CIVBBP",
@@ -1112,7 +1148,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CIVBFM",
@@ -1142,7 +1179,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CIVBF",
@@ -1172,7 +1210,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CIVBTM",
@@ -1202,7 +1241,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CIVSFM",
@@ -1232,7 +1272,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CIVSF",
@@ -1262,7 +1303,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CIVSTM",
@@ -1292,7 +1334,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "POLARB",
@@ -1322,7 +1365,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "JOSH",
@@ -1352,7 +1396,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "YENGINEER",
@@ -1394,7 +1439,8 @@
     "Africans",
     "Arabs"
    ],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "GGI",
@@ -1421,7 +1467,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "INIT",
@@ -1444,7 +1491,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "BORIS",
@@ -1471,7 +1519,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "BRUTE",
@@ -1494,7 +1543,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "VIRUS",
@@ -1518,7 +1568,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CLNT",
@@ -1548,7 +1599,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "ARND",
@@ -1578,7 +1630,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "STLN",
@@ -1608,7 +1661,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CAML",
@@ -1638,7 +1692,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "EINS",
@@ -1668,7 +1723,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "MUMY",
@@ -1698,7 +1754,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "RMNV",
@@ -1728,7 +1785,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "LUNR",
@@ -1755,7 +1813,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "DNOA",
@@ -1780,7 +1839,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "DNOB",
@@ -1805,7 +1865,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "SLAV",
@@ -1826,7 +1887,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "WWLF",
@@ -1856,7 +1918,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "YDOG",
@@ -1890,7 +1953,8 @@
     "YuriCountry"
    ],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "YADOG",
@@ -1924,7 +1988,8 @@
     "YuriCountry"
    ],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "AMCV",
@@ -1952,7 +2017,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "HARV",
@@ -1979,7 +2045,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": true
   },
   {
    "id": "APOC",
@@ -2006,7 +2073,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "HTNK",
@@ -2032,7 +2100,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "SAPC",
@@ -2058,7 +2127,8 @@
    "passengers": 12,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CAR",
@@ -2085,7 +2155,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "BUS",
@@ -2112,7 +2183,8 @@
    "passengers": 5,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "WINI",
@@ -2139,7 +2211,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "PICK",
@@ -2166,7 +2239,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "MTNK",
@@ -2193,7 +2267,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "HORV",
@@ -2217,7 +2292,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": true
   },
   {
    "id": "TRUCKA",
@@ -2247,7 +2323,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "TRUCKB",
@@ -2277,7 +2354,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CARRIER",
@@ -2305,7 +2383,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "V3",
@@ -2332,7 +2411,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "ZEP",
@@ -2359,7 +2439,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "DRON",
@@ -2385,7 +2466,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "HTK",
@@ -2411,7 +2493,8 @@
    "passengers": 5,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "DEST",
@@ -2438,7 +2521,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "SUB",
@@ -2464,7 +2548,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "AEGIS",
@@ -2492,7 +2577,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "LCRF",
@@ -2519,7 +2605,8 @@
    "passengers": 12,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "DRED",
@@ -2546,7 +2633,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "SHAD",
@@ -2573,7 +2661,8 @@
    "passengers": 5,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "SQD",
@@ -2600,7 +2689,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "DLPH",
@@ -2628,7 +2718,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "SMCV",
@@ -2655,7 +2746,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "TNKD",
@@ -2685,7 +2777,8 @@
     "Germans"
    ],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "HOWI",
@@ -2714,7 +2807,8 @@
     "Alliance"
    ],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "TTNK",
@@ -2743,7 +2837,8 @@
     "Russians"
    ],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "HIND",
@@ -2771,7 +2866,8 @@
     "Confederation"
    ],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "LTNK",
@@ -2794,7 +2890,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CMON",
@@ -2819,7 +2916,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": true
   },
   {
    "id": "CMIN",
@@ -2847,7 +2945,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": true
   },
   {
    "id": "SREF",
@@ -2875,7 +2974,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "XCOMET",
@@ -2903,7 +3003,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "HYD",
@@ -2930,7 +3031,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "MGTK",
@@ -2958,7 +3060,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "FV",
@@ -2985,7 +3088,8 @@
    "passengers": 1,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "DeathDummy",
@@ -3004,7 +3108,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "VLAD",
@@ -3034,7 +3139,8 @@
    "forbidden_houses": [
     "Russians"
    ],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "DTRUCK",
@@ -3063,7 +3169,8 @@
     "Africans"
    ],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "PROPA",
@@ -3090,7 +3197,8 @@
    "passengers": 5,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CONA",
@@ -3117,7 +3225,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "COP",
@@ -3144,7 +3253,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "EUROC",
@@ -3171,7 +3281,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "LIMO",
@@ -3198,7 +3309,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "STANG",
@@ -3225,7 +3337,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "SUVB",
@@ -3252,7 +3365,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "SUVW",
@@ -3279,7 +3393,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "TAXI",
@@ -3306,7 +3421,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "PTRUCK",
@@ -3333,7 +3449,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CRUISE",
@@ -3360,7 +3477,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "TUG",
@@ -3387,7 +3505,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CDEST",
@@ -3412,7 +3531,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "YHVR",
@@ -3435,7 +3555,8 @@
    "passengers": 12,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "PCV",
@@ -3459,7 +3580,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "SMIN",
@@ -3482,7 +3604,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "SMON",
@@ -3503,7 +3626,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": true
   },
   {
    "id": "YCAB",
@@ -3530,7 +3654,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "YTNK",
@@ -3553,7 +3678,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "BFRT",
@@ -3581,7 +3707,8 @@
    "passengers": 5,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "TELE",
@@ -3605,7 +3732,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CAOS",
@@ -3628,7 +3756,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "DDBX",
@@ -3655,7 +3784,8 @@
    "passengers": 5,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "BCAB",
@@ -3682,7 +3812,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "BSUB",
@@ -3706,7 +3837,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "SCHP",
@@ -3733,7 +3865,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "JEEP",
@@ -3760,7 +3893,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "MIND",
@@ -3784,7 +3918,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "DISK",
@@ -3808,7 +3943,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "UTNK",
@@ -3834,7 +3970,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "ROBO",
@@ -3862,7 +3999,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "SCHD",
@@ -3888,7 +4026,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "DOLY",
@@ -3915,7 +4054,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CBLC",
@@ -3942,7 +4082,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "FTRK",
@@ -3969,7 +4110,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "AMBU",
@@ -3996,7 +4138,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CIVP",
@@ -4023,7 +4166,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "ORCA",
@@ -4051,7 +4195,8 @@
    "forbidden_houses": [
     "Alliance"
    ],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "HORNET",
@@ -4076,7 +4221,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "V3ROCKET",
@@ -4100,7 +4246,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "ASW",
@@ -4125,7 +4272,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "DMISL",
@@ -4149,7 +4297,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "PDPLANE",
@@ -4179,7 +4328,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "BEAG",
@@ -4208,7 +4358,8 @@
     "Alliance"
    ],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CARGOPLANE",
@@ -4238,7 +4389,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "BPLN",
@@ -4268,7 +4420,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "SPYP",
@@ -4298,7 +4451,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   },
   {
    "id": "CMISL",
@@ -4319,7 +4473,8 @@
    "passengers": 0,
    "required_houses": [],
    "forbidden_houses": [],
-   "stolen_tech": ""
+   "stolen_tech": "",
+   "harvester": false
   }
  ],
  "buildings": [

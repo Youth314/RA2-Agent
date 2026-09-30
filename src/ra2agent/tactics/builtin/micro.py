@@ -3,10 +3,12 @@
 五条暴露给模型，一条只供组合调用。它们只做「按当前局面产出意图」这一件事：
 不记状态、不判失败、不重试——那些是运行时的活，见 `ra2agent/micro.py`。
 """
+from ...data.catalogue import own_building_cells
 from ...runtime.formation import blocked_cells, formation_cells
 from ...runtime.intents import Attack, Hold, MoveTo, Stance
 from ..core import (REQUIRED, Param, Tactic, TacticInfo, is_cell,
-                    is_non_negative_int, is_positive_number, is_stance)
+                    is_non_negative_int, is_optional_cell, is_positive_number,
+                    is_stance)
 
 
 def _hold(context):
@@ -107,6 +109,30 @@ def _advance_covering(context):
                         spread=context.params["spread"])
 
 
+def _home_cell(context):
+    """「家」在哪：己方建筑的中心格；一栋都没有就 `None`。"""
+    cells = own_building_cells(context.observation.state)
+    if not cells:
+        return None
+    return (sum(c[0] for c in cells) // len(cells),
+            sum(c[1] for c in cells) // len(cells))
+
+
+def _retreat(context):
+    """脱离接触：退回基地或指定格，路上不恋战。
+
+    默认 `stance=passive`——撤退的意义就是别回头打。不给 `cell` 时退回己方建筑的
+    中心格，这是「回防」最常用的落点。
+    """
+    cell = context.params.get("cell")
+    if cell is None:
+        cell = _home_cell(context)
+        if cell is None:
+            return ()
+    return (context.intent(MoveTo, units=context.subject.agents(),
+                           cell=tuple(cell), stance=context.params["stance"]),)
+
+
 TACTICS = (
     Tactic(TacticInfo(
         name="hold_position",
@@ -148,6 +174,16 @@ TACTICS = (
                       is_positive_number),),
         requires=("has_units",),
     ), _hold_and_fire),
+
+    Tactic(TacticInfo(
+        name="retreat",
+        summary="脱离接触退回基地（或指定格），路上不恋战",
+        params=(Param("cell", None, "退到哪一格；不给就退回己方建筑的中心",
+                      is_optional_cell),
+                Param("stance", Stance.PASSIVE, "撤退路上的姿态，默认不接战",
+                      is_stance)),
+        requires=("has_units", "has_map"),
+    ), _retreat),
 
     Tactic(TacticInfo(
         name="advance_covering",

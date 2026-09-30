@@ -110,6 +110,8 @@ class Entry:
     stolen_tech: str = ""
     #: `WaterBound=yes`：只能建在水边。
     water_bound: bool = False
+    #: `Harvester=yes`：矿车。经济管理的靶子——引擎没有采矿动作，只能把它移到矿格。
+    harvester: bool = False
 
     @property
     def is_building(self) -> bool:
@@ -295,6 +297,33 @@ def owned_building_ids(state, types, catalogue) -> frozenset:
     return frozenset(out)
 
 
+def pending_building_ids(state, types, catalogue) -> frozenset:
+    """正在生产或已完工待放置的建筑注册名。
+
+    与 `owned_building_ids` 的区别是这些**不在地图上**：一栋在建造厂的生产队列里，
+    另一栋在 limbo 里等放置。开局阶梯据此判断「上一件还没落地，先别下新单」——建造厂
+    一次只生产一栋。
+    """
+    if catalogue is None or state is None or types is None:
+        return frozenset()
+    out = set()
+
+    def add(obj):
+        entry = catalogue.by_name.get(types.name(obj, ""))
+        if entry is not None:
+            out.add(entry.id)
+
+    for obj in state.own_objects():
+        if obj.is_building and obj.in_limbo:
+            add(obj)
+    for factory in state.own_factories():
+        for pointer in factory.queued_objects:
+            found = state.object(pointer)
+            if found is not None:
+                add(found)
+    return frozenset(out)
+
+
 def _entry(item, kind) -> Entry:
     """把一条 rules.json 记录转成 `Entry`。"""
     return Entry(
@@ -310,4 +339,5 @@ def _entry(item, kind) -> Entry:
         forbidden_houses=tuple(item.get("forbidden_houses") or ()),
         stolen_tech=str(item.get("stolen_tech") or ""),
         water_bound=bool(item.get("water_bound")),
+        harvester=bool(item.get("harvester")),
     )

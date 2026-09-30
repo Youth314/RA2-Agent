@@ -97,6 +97,11 @@ def is_non_negative_int(value) -> bool:
     return (isinstance(value, int) and not isinstance(value, bool) and value >= 0)
 
 
+def is_positive_int(value) -> bool:
+    """是否是正整数。用于「数量」「半径」这类参数：0 没有意义。"""
+    return (isinstance(value, int) and not isinstance(value, bool) and value > 0)
+
+
 def is_positive_number(value) -> bool:
     """是否是正数。"""
     return (isinstance(value, (int, float)) and not isinstance(value, bool)

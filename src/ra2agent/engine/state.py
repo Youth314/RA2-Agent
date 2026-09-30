@@ -396,6 +396,18 @@ class MapData:
         """该格通行标志位。"""
         return self._column("passability", cell_x, cell_y)
 
+    def tiberium_value(self, cell_x, cell_y) -> int:
+        """该格的矿石量（0 即无矿）。
+
+        「派矿车去最近的矿」只能靠它——引擎没有采矿动作，唯一的路是把矿车移到矿格
+        上让游戏自身的采矿 AI 接管。
+        """
+        return self._column("tiberium_value", cell_x, cell_y)
+
+    def is_explored(self, cell_x, cell_y) -> bool:
+        """这一格探过了没有。侦察的目标就是**没探过**的那些格。"""
+        return not self.shrouded(cell_x, cell_y)
+
     def is_clear(self, cell_x, cell_y) -> bool:
         """已探索且地形为 `Clear`，可作为候选移动目标。"""
         from ..constants import LandType

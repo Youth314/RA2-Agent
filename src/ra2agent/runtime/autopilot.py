@@ -33,6 +33,10 @@ class Autopilot:
         self.max_records = max_records
         #: 技法名 → 上次跑的帧。`every` 靠它计时。
         self._last_run: dict = {}
+        #: 自动脉冲共用的记事本。脉冲每拍新建上下文，故**跨帧记忆只能放这里**：
+        #: `economy.auto_harvest` 用它记住「刚把哪台矿车派去了哪片矿」，免得每拍重发
+        #: 同一条移动令把它钉在原地。
+        self.memo: dict = {}
         self.records: list = []
 
     # ------------------------------------------------------------ 判断
@@ -85,7 +89,7 @@ class Autopilot:
         try:
             intents = self.registry.run(name, observation=observation,
                                         subject=subject, frame=observation.frame,
-                                        events=events)
+                                        memo=self.memo, events=events)
         except Ra2Error as error:
             record["error"] = str(error)
             self._log(observation, "auto_failed", record)

@@ -111,10 +111,13 @@ def describe_map(map_data):
 
 
 def describe_houses(state):
-    """参战各方：名字、是不是你、**国家**、出局没有。
+    """参战各方：名字、是不是你、**国家**、出局没有、**赢了没有**。
 
     国家取 `House.faction`（探针给的是引擎的 HouseType ID，如 `Americans`）——
     它决定特有兵种与建筑，此前只是没渲染出来，模型只能从 `side` 猜。
+
+    胜负要能读出来：**一局的终点就是这里**，模型得知道自己该继续还是收工。引擎在
+    出局与获胜时各置一个标志，单看哪个都不够（残局里对手可能还在），故原样报出来。
     """
     parts = []
     for house in state.houses:
@@ -123,6 +126,10 @@ def describe_houses(state):
         who = "你" if house.current_player else ("人类" if house.is_human_player else "电脑")
         if house.defeated:
             who += "，已出局"
+        if house.is_winner:
+            who += "，已获胜"
+        if house.is_loser:
+            who += "，判负"
         country = f"，{house.faction}" if house.faction else ""
         parts.append(f"{house.name}（{who}{country}）")
     return f"参战 {len(parts)} 方｜" + " · ".join(parts) if parts else ""

@@ -82,7 +82,7 @@ class TestRegistration(unittest.TestCase):
 
     def test_builtin_library_loads(self):
         registry = TacticRegistry().load_builtin()
-        self.assertEqual(len(registry), 13)
+        self.assertEqual(len(registry), 20)
         self.assertIn("advance_covering", registry.names())
         self.assertIn("hold_and_fire", registry.names())
         self.assertIn("deploy_mcv", registry.names())
@@ -95,9 +95,10 @@ class TestRegistration(unittest.TestCase):
 
     def test_opening_tactic_declares_a_trigger(self):
         registry = TacticRegistry().load_builtin()
-        # `deploy_mcv` 按帧跑；`report_trouble` 按事件跑（出事才叫模型回来）
+        # 开局与发展那几条按帧跑（眼睛一闭也该发生）；`report_trouble` 按事件跑
         self.assertEqual([t.info.name for t in registry.automatic()],
-                         ["deploy_mcv", "report_trouble"])
+                         ["auto_harvest", "auto_opening", "deploy_mcv",
+                          "keep_harvesters", "keep_power", "report_trouble"])
 
     def test_param_conditions_do_not_hide_cards(self):
         """读参数的条件在「没有参数」时跳过，不判否。
