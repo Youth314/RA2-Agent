@@ -274,3 +274,33 @@ class TestCombat(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestGuardExpiry(unittest.TestCase):
+    """`guard_area` 靠"不下令"活着，故必须自带边界。"""
+
+    def run_(self, memo, frame, params=None):
+        enemy = parse_object(unit(ENEMY_UNIT, (10, 10), house=ENEMY))
+        subject = FakeSubject(agents=(1,),
+                              objects={1: parse_object(unit(0x801, (12, 10)))},
+                              pointers={ENEMY_UNIT: 501})
+        return registry(combat).run(
+            "guard_area",
+            observation=observation(state_=state(), enemies=(enemy,)),
+            subject=subject, params=params or {"radius": 8, "max_frames": 100},
+            frame=frame, memo=memo)
+
+    def test_keeps_firing_before_the_deadline(self):
+        memo = {}
+        self.assertEqual([i.kind for i in self.run_(memo, 100)], ["attack"])
+        self.assertEqual([i.kind for i in self.run_(memo, 150)], ["attack"])
+
+    def test_falls_back_to_holding_at_the_deadline(self):
+        memo = {}
+        self.run_(memo, 100)
+        # 到点后转驻守：单位 `ARRIVED`，任务结算、单位交还
+        self.assertEqual([i.kind for i in self.run_(memo, 200)], ["hold"])
+
+    def test_bad_max_frames_is_rejected(self):
+        with self.assertRaises(TacticError):
+            self.run_({}, 100, {"radius": 8, "max_frames": 0})

@@ -63,7 +63,18 @@ def _focus_fire(context):
 
 
 def _guard_area(context):
-    """半径内有敌人就打；没有就不下令，让任务留在在管里等下一拍。"""
+    """半径内有敌人就打；没有就不下令，让任务留在在管里等下一拍。
+
+    到期（`max_frames`）就转成驻守，任务随之结算、单位交还：这条任务靠"不下令"
+    活着，没有边界就会一直占着这些单位。到期由运行时记成 `EXPIRED` 并说明原因。
+    """
+    limit = context.params["max_frames"]
+    since = context.recall("since")
+    if since is None:
+        context.remember("since", context.frame)
+    elif context.frame - since >= limit:
+        return tuple(context.intent(Hold, units=(agent,))
+                     for agent in context.subject.agents())
     radius = float(context.params["radius"])
     enemies = context.observation.visible_enemies
     out = []
@@ -93,8 +104,13 @@ TACTICS = (
 
     Tactic(TacticInfo(
         name="guard_area",
-        summary="持续守住原地：半径内出现敌人就开火，没有目标时不下令、等下一拍",
-        params=(Param("radius", 8, "开火半径（格）", is_positive_number),),
+        summary="持续守住原地：半径内出现敌人就开火，没有目标时不下令、等下一拍；"
+                "到期自动转为驻守收工",
+        params=(
+            Param("radius", 8, "开火半径（格）", is_positive_number),
+            Param("max_frames", 3600, "最多守多少游戏帧（60 帧≈1 秒），到点收工驻守",
+                  is_positive_number),
+        ),
         requires=("has_units",),
     ), _guard_area),
 )
