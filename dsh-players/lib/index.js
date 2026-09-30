@@ -192,7 +192,11 @@ function clientPlanFor(player, resolved, deny) {
             cwd: resolved.mcpCwd,
             toolCallTimeoutMs: resolved.toolCallTimeoutMs,
             failOnStartupError: true,
-            reconnect: { enabled: false },
+            // 让它自动重连（DSH 的默认就是重连，此前这里显式关掉了）。玩家的 MCP 进程
+            // **就是那一侧的自动层与事件侦测**：进程一死，那一侧既没人指挥、开局/矿车/电力
+            // 也全停（实测 Beta 侧因进程消失整侧瘫痪，重派 agent 后工具面仍是 Not connected）。
+            // 开着重连，DSH 会按退避把服务再拉起来。
+            reconnect: { enabled: true },
         }),
     };
 }

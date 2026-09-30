@@ -903,6 +903,21 @@ class Commander:
                                     "params": params})
         return CallResult(True, request.tactic, intent_id=squad.intent.id)
 
+    def _unknown_units(self, unknown, observation):
+        """点到的 id 不是自己人：说清**它是什么**，以及该放哪个参数。
+
+        实测一个玩家想把敌方建筑当目标，却把它的 id 放进了 `units`，只收到一句
+        「这些 id 不是你方可用单位」——那句话没错，但没告诉他目标该放哪儿。
+        """
+        enemy = {obj.pointer for obj in observation.visible_enemies}
+        theirs = [u for u in unknown
+                  if self.observer.identity.pointer_of(u) in enemy]
+        if theirs:
+            return (f"{theirs} 是**敌方目标**，不能放进 units——units 只能点自己人；"
+                    f"要指定打谁用 target 参数（`focus_fire` 的 target 吃敌方 id，"
+                    f"可以先 cancel 再集火）")
+        return f"这些 id 不是你方可用单位：{unknown}"
+
     def _check_units(self, units, observation, tactic=""):
         """单位必须存在、且属于己方，否则当场拒绝。
 
@@ -920,7 +935,7 @@ class Commander:
         own = self._pool(observation)
         unknown = [u for u in units if own.object_of(u) is None]
         if unknown:
-            return (), f"这些 id 不是你方可用单位：{unknown}"
+            return (), self._unknown_units(unknown, observation)
         return tuple(units), ""
 
     def _taken(self, units) -> tuple:

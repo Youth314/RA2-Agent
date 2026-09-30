@@ -97,6 +97,43 @@ def make_types():
          AbstractType.BUILDINGTYPE)]))
 
 
+class TestUnknownUnitsHint(unittest.TestCase):
+    """把敌方 id 放进 units 是常见误解，拒因要说清「目标该放 target」。"""
+
+    def test_an_enemy_id_is_called_out_as_a_target(self):
+        from ra2agent.command import Commander
+        commander = Commander.__new__(Commander)
+
+        class Identity:
+            def pointer_of(self, agent):
+                return 0x500
+
+        class Enemy:
+            pointer = 0x500
+
+        class Observation:
+            visible_enemies = (Enemy(),)
+
+        commander.observer = type("O", (), {"identity": Identity()})()
+        text = commander._unknown_units([77], Observation())
+        self.assertIn("敌方目标", text)
+        self.assertIn("target", text)
+
+    def test_an_unknown_id_keeps_the_plain_message(self):
+        from ra2agent.command import Commander
+        commander = Commander.__new__(Commander)
+
+        class Identity:
+            def pointer_of(self, agent):
+                return None
+
+        class Observation:
+            visible_enemies = ()
+
+        commander.observer = type("O", (), {"identity": Identity()})()
+        self.assertIn("不是你方可用单位", commander._unknown_units([77], Observation()))
+
+
 class TestHouseLine(unittest.TestCase):
     """一局的终点要读得出来：出局、获胜、判负各有标志。"""
 
