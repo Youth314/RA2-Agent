@@ -28,12 +28,24 @@ description: 打《红色警戒2：尤里的复仇》时使用。查单位、建
 起局用仓库里的启动器，它按 `config/match.json` 的名册一次起全，并且**等到每一方都进对局才返回**：
 
 ```sh
-python3 tools/start_match.py up        # 起全并等就绪
+python3 tools/start_match.py up        # 先渲染配置，再起全并等就绪
 python3 tools/start_match.py status    # 逐参与者看进程、端口、阶段、帧
 python3 tools/start_match.py down      # 按 PID 停（不会误伤另一方）
 ```
 
-**只有名册里的人才能参战**，所以想加人要先改 `config/match.json`（每方一行：名字、游戏目录、探针端口、`Side`、`Color`）。地图也有席位上限——`spawnmap.ini` 的 `[Basic]` 里 `MaxPlayer` 是多少就最多几个人，超了会崩，要更多人得换地图。
+**别手改 `spawn.ini`。** 每方目录里那份是**渲染出来的**：`up` 会按名册与规则重新生成两份（原文件留成 `.render-bak`），镜像字段（名字、阵营、颜色、对局端口）全部从名册推导——手改迟早让两边漂。要改就改 `config/match.json`：
+
+- **`players`** = 部署事实：名字、游戏目录、探针端口、对局端口、`Side`、`Color`。**只有名册里的人才能参战**，加人要加在这里。
+- **`rules`** = 每局的选择：地图、资金、`TechLevel`、迷雾、箱子、`UnitCount`、AI 席位…… 也可以临时覆盖：
+
+```sh
+python3 tools/start_match.py up --rule credits=20000 --rule fog_of_war=Yes
+python3 tools/start_match.py render --dry-run     # 只看会写成什么，不落盘
+```
+
+**换地图还没打通**：`rules.scenario` 只是个文件名，游戏读的是它指向的那份文件的内容；目录里的 `.mmx` 是二进制容器，得先把图解出来备好。**现在换 `scenario` 而没有对应文件，两边都会起不来。**
+
+地图还有席位上限——`spawnmap.ini` 的 `[Basic]` 里 `MaxPlayer` 是多少就最多几个人，超了会崩。
 
 **玩家的工具面是分开的**：每个玩家由另一个 agent 扮演，它只拿得到自己那一方的工具——这是**构造上**的隔离，不是口头约定。所以不要自己 `subagent` 建一个再叫它「当 Beta」。派玩家的具体工具见 [双实例联机](../../notes/双实例联机.md)。
 
