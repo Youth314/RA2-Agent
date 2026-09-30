@@ -12,10 +12,11 @@
 from dataclasses import dataclass, field
 
 from .autopilot import Autopilot
-from .constants import LandType
+from .constants import LandType, PLACE_QUERY_MAX_LENGTH
+from .errors import Ra2Error, TacticError
 from .events import summarize
-from .errors import TacticError
 from .intents import Scope, TacticCall
+from .state import cell_center
 from .tactics import Mode
 
 #: 撤销不了的返回文案。
@@ -91,6 +92,50 @@ def describe_houses(state):
 #: 一次最多列多少个单位，免得文本长到把上下文吃掉。
 MAX_LISTED_UNITS = 24
 
+#: 电厂一类建筑的生产步数：`progress_timer` 走到这里即完工（实测 Allied Power Plant）。
+PRODUCTION_STEPS = 54
+
+#: 一个落点集最多给模型看几个。查出来的合法格可达几十个，全给只会淹掉上下文。
+MAX_LISTED_SITES = 12
+
+#: 落点集缓存多少帧。`PlaceQuery` 是一次真机往返，不该每次读局势都查。
+PLACE_SITES_TTL_FRAMES = 22
+
+#: 候选落点相对基地中心向外的搜索半径（格）。
+PLACE_SITE_RADIUS = 10
+
+
+def describe_production(factory, state, types) -> str:
+    """一条生产记录：在造什么、进度、是否完工待放、是否暂停。
+
+    **在造的类型引擎确实给了**：`Factory.queued_objects` 是对象指针元组，而同一个
+    对象就在这一帧的 `state.objects` 里（测绘结果：工厂内的对象即落成后的对象，
+    指针从生产到放置不变）。故拿指针回查类型即可，不必给 `Factory` 新增字段。
+    """
+    names = []
+    for pointer in factory.queued_objects:
+        queued = state.object(pointer) if state is not None else None
+        names.append(types.name(queued, "?") if types is not None and queued
+                     else "?")
+    what = "、".join(names) if names else "队列为空"
+    progress = f"{factory.progress_timer}/{PRODUCTION_STEPS}"
+    marks = []
+    if factory.completed:
+        marks.append("完工待放置")
+    if factory.on_hold:
+        marks.append("已暂停")
+    mark = f"（{'，'.join(marks)}）" if marks else ""
+    return f"- {what}｜进度 {progress}{mark}"
+
+
+def describe_placement(agent_id, factory, state, types) -> str:
+    """一行说清「手上有一栋待放置的建筑」。"""
+    building = state.object(factory.object) if state is not None else None
+    name = types.name(building, "?") if types is not None and building else "?"
+    where = building.coordinates.cell if building is not None else None
+    at = f"（格 {where[0]},{where[1]}）" if where else ""
+    return f"- #{agent_id}｜{name}{at}｜等待放置"
+
 
 def _unit_line(item) -> str:
     """一个单位一行：id、名字、格，以及它是不是已经在某条任务里。"""
@@ -102,30 +147,47 @@ class UnitPool:
     """适用条件用的一队单位视图：此刻己方全部可用单位当成一队。
 
     `tactics` 与 `call` 在还没建编队时也要评适用条件，故给它一个临时 subject。
+
+    **完工待放置的建筑在 `observation.own` 里不存在**——观测把 `in_limbo` 的己方
+    对象整个丢掉了（[observation.py:116](observation.py)）。但技法需要能拿它的
+    agent id 才能发 `Place`，故这里额外收一份 `_pending`：可寻址，但**不算可用
+    单位**，`agents()` 不报它，它也不会被塞进意图的默认 scope。
     """
 
     def __init__(self, observation, identity):
         self.observation = observation
         self.identity = identity
         self._own = {}
-        for obj in observation.own:
-            if obj.in_limbo:
-                continue
+        self._pending = {}
+        state = observation.state
+        # 从 state 取而不是从 observation.own 取：后者已经滤掉 limbo 对象
+        for obj in (state.own_objects() if state is not None else ()):
             agent = identity.agent_id(obj.pointer)
-            if agent is not None:
-                self._own[agent] = obj
-        self._pointers = {obj.pointer: agent for agent, obj in self._own.items()}
+            if agent is None:
+                continue
+            (self._pending if obj.in_limbo else self._own)[agent] = obj
+        # 待放置的先建，在地图上的后建——同指针时以「在地图上」为准
+        self._pointers = {obj.pointer: agent for agent, obj in self._pending.items()}
+        self._pointers.update({obj.pointer: agent for agent, obj in self._own.items()})
 
     def agents(self) -> tuple:
-        """己方全部可用单位的 agent id。"""
+        """己方全部可用单位的 agent id。不含待放置的建筑。"""
         return tuple(self._own)
 
     def object_of(self, agent_id):
         """按 agent id 取对象。"""
         return self._own.get(agent_id)
 
+    def pending(self) -> tuple:
+        """己方待放置（`in_limbo`）对象的 agent id。"""
+        return tuple(self._pending)
+
+    def buildings(self) -> tuple:
+        """己方在地图上的建筑。落点查询拿它们当候选中心。"""
+        return tuple(obj for obj in self._own.values() if obj.is_building)
+
     def agent_id(self, pointer):
-        """引擎指针转 agent id。"""
+        """引擎指针转 agent id。含待放置的建筑——`Place` 只收 agent id。"""
         return self._pointers.get(pointer)
 
     def cell_of(self, agent_id):
@@ -185,7 +247,16 @@ class StatusReport:
     units: tuple = ()
     enemies: tuple = ()
     running: tuple = ()
-    events: tuple = ()
+    #: 电力一行；还没进对局时为空。
+    power: str = ""
+    #: 生产队列，每个工厂一行；无工厂时为空。
+    production: tuple = ()
+    #: 完工待放置的建筑，每栋一行。
+    placement: tuple = ()
+    #: 建筑待放置但拿不到落点集时的说明；拿到了则为空。
+    placement_note: str = ""
+    #: 当前可选落点（格坐标）。由模型挑一个，作为 `place_ready_building` 的参数。
+    sites: tuple = ()
     notices: tuple = ()
 
     def render(self) -> str:
@@ -204,6 +275,21 @@ class StatusReport:
         if self.wakes:
             lines.append(f"唤醒未送达 {len(self.wakes)} 条：")
             lines.extend(f"- {describe_wake(record)}" for record in self.wakes)
+        if self.power:
+            lines.append(f"电力｜{self.power}")
+        if self.production:
+            lines.append(f"生产 {len(self.production)} 线：")
+            lines.extend(self.production)
+        if self.placement:
+            lines.append(f"待放置 {len(self.placement)} 栋：")
+            lines.extend(self.placement)
+            if self.sites:
+                shown = "、".join(f"({x},{y})" for x, y in self.sites)
+                lines.append(f"- 可选落点：{shown}")
+                lines.append("- 用 call place_ready_building 指定其中一格"
+                             "（参数 cell，形如 [x,y]）")
+            elif self.placement_note:
+                lines.append(f"- 落点未知：{self.placement_note}")
         if self.units:
             lines.append(f"己方单位 {len(self.units)}：")
             for unit in self.units[:MAX_LISTED_UNITS]:
@@ -257,6 +343,11 @@ class Commander:
         self._auto_cursor = 0
         self._seen_auto = 0
         self._seen_wakes = 0
+        #: 落点集缓存。`PlaceQuery` 是一次真机往返，不该每次读局势都查。
+        self._sites: tuple = ()
+        self._sites_signature = None
+        self._sites_frame: int | None = None
+        self._sites_note = ""
         #: 自动触发层。技法按名片里的触发声明自己跑，产出的是脉冲。
         # 唤醒桥挂在技法层上：一个会话一份额度，自动层与模型调用的路径共用
         self.autopilot = Autopilot(layer.registry, layer.executor, log=log,
@@ -277,13 +368,135 @@ class Commander:
         new_events, self._seen_events = observation_events(self.observer, self._seen_events)
         auto, self._seen_auto = self.auto_records(self._seen_auto)
         wakes, self._seen_wakes = self.wake_records(self._seen_wakes)
+        pool = self._pool(observation)
+        placement, placement_note, sites = self._placement(observation, pool)
         return StatusReport(frame=observation.frame, summary=observation.summary(),
                             match=match, brief=brief, events=new_events, auto=auto,
                             wakes=wakes,
+                            power=self._power(observation),
+                            production=self._production(observation),
+                            placement=placement, placement_note=placement_note,
+                            sites=sites,
                             units=self._own_units(observation),
                             enemies=self._enemy_units(observation),
                             running=self.layer.progress(), results=tuple(completed),
                             notices=tuple(notices))
+
+    # ------------------------------------------------------------ 电力与生产
+    @staticmethod
+    def _power(observation) -> str:
+        """电力一行。`power_output/power_drain` 早已解析，此前没有任何地方报它。"""
+        house = observation.house
+        if house is None:
+            return ""
+        text = f"{house.power_drain}/{house.power_output}"
+        return f"{text}｜电力不足" if house.is_low_power else text
+
+    def _production(self, observation) -> tuple:
+        """生产队列，每个己方工厂一行：在造什么、进度、是否待放置。"""
+        state = observation.state
+        if state is None:
+            return ()
+        types = getattr(self.observer, "types", None)
+        return tuple(describe_production(factory, state, types)
+                     for factory in state.own_factories())
+
+    # ------------------------------------------------------------ 待放置与落点
+    def _placement(self, observation, pool) -> tuple:
+        """完工待放置的建筑，以及它当前的可选落点。
+
+        返回 `(建筑各行, 拿不到落点时的说明, 落点元组)`。合法格只有引擎说了算，
+        故这里替模型问一次 `PlaceQuery`——**结果按帧缓存**，不然每次读局势都要
+        一次真机往返。模型从 `sites` 里挑一格回传，L0 照旧只负责执行。
+        """
+        state = observation.state
+        factories = self._completed_factories(state)
+        if not factories:
+            self._forget_sites()
+            return (), "", ()
+        types = getattr(self.observer, "types", None)
+        rows = []
+        for factory in factories:
+            agent = pool.agent_id(factory.object)
+            rows.append(describe_placement(agent if agent is not None else "?",
+                                           factory, state, types))
+        sites, note = self._sites_for(observation, factories, pool)
+        return tuple(rows), note, sites
+
+    @staticmethod
+    def _completed_factories(state):
+        """已完工、等玩家放置的那些工厂条目。"""
+        if state is None:
+            return ()
+        return tuple(factory for factory in state.own_factories() if factory.completed)
+
+    def _sites_for(self, observation, factories, pool) -> tuple:
+        """取（或复用缓存的）合法落点集。"""
+        signature = tuple(factory.object for factory in factories)
+        frame = observation.frame
+        fresh = (self._sites_signature == signature and self._sites_frame is not None
+                 and frame - self._sites_frame < PLACE_SITES_TTL_FRAMES)
+        if fresh:
+            return self._sites, self._sites_note
+        try:
+            self._sites = self._query_sites(observation, factories[0], pool)
+            self._sites_note = "" if self._sites else "引擎未返回任何合法格"
+        except Ra2Error as error:
+            # 查不到不是读局势的失败：报一句说明，任务照旧跑。
+            # 失败同样被缓存一个 TTL——否则引擎持续出错时会每拍重试一次
+            self._sites = ()
+            self._sites_note = f"查询失败（{error}）"
+        self._sites_signature = signature
+        self._sites_frame = frame
+        return self._sites, self._sites_note
+
+    def _forget_sites(self) -> None:
+        """手上没有待放置建筑时丢掉缓存。"""
+        self._sites = ()
+        self._sites_signature = None
+        self._sites_frame = None
+        self._sites_note = ""
+
+    def _query_sites(self, observation, factory, pool) -> tuple:
+        """问引擎：基地周围哪些格可以放下这栋建筑。
+
+        候选格由己方建筑的中心向外铺开——`PlaceQuery` 收的是候选**输入**，只
+        返回其中合法的子集，故候选给得越密越好，上限由常量兜住。
+        """
+        state = observation.state
+        types = getattr(self.observer, "types", None)
+        client = getattr(self.observer, "client", None)
+        building = state.object(factory.object)
+        if types is None or building is None or client is None:
+            # 没有连接或类型表时问不了引擎；报一句说明，读局势本身不失败
+            return ()
+        entry = types.info(building)
+        if entry is None:
+            return ()
+        centers = [obj.coordinates.cell for obj in pool.buildings()] \
+            or [building.coordinates.cell]
+        map_data = getattr(self.observer, "map_data", None)
+        candidates = []
+        seen = set()
+        for base_x, base_y in centers:
+            # 由近及远铺开：先给引擎的候选先被返回，故最靠基地的合法格排在最前
+            for radius in range(PLACE_SITE_RADIUS + 1):
+                for dy in range(-radius, radius + 1):
+                    for dx in range(-radius, radius + 1):
+                        if max(abs(dx), abs(dy)) != radius:
+                            continue
+                        x, y = base_x + dx, base_y + dy
+                        if (x, y) in seen:
+                            continue
+                        if map_data is not None and not map_data.in_bounds(x, y):
+                            # 坐标越界会崩游戏，故在地图外的候选一律不发出去
+                            continue
+                        seen.add((x, y))
+                        candidates.append(cell_center(x, y))
+        found = client.place_query(
+            entry, state.player_house(),
+            candidates[:PLACE_QUERY_MAX_LENGTH])
+        return tuple(coord.cell for coord in found[:MAX_LISTED_SITES])
 
     # ------------------------------------------------------------ 自动触发
     def auto(self, observation):

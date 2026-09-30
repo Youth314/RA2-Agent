@@ -55,6 +55,16 @@ def no_enemies(context) -> bool:
     return not context.observation.visible_enemies
 
 
+@condition("has_pending_building")
+def has_pending_building(context) -> bool:
+    """手上有完工待放置的建筑（停在 limbo 里那栋）。
+
+    `subject` 是 `UnitPool` 或 `Squad`；只有前者能报待放置对象，故用 `getattr` 取。
+    """
+    pending = getattr(context.subject, "pending", None)
+    return bool(pending()) if callable(pending) else False
+
+
 @condition("cell_explored")
 def cell_explored(context) -> bool:
     """参数里的目标格已探索。只用于确实需要已知地形的技法。"""

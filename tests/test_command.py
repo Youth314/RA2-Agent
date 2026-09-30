@@ -7,7 +7,7 @@ import unittest
 
 from ra2agent.command import CallRequest, Commander, UnitPool
 from ra2agent.constants import AbstractType, LandType, Mission
-from ra2agent.errors import TacticError
+from ra2agent.errors import CommandFailed, TacticError
 from ra2agent.events import EventKind, EventLog
 from ra2agent.executor import CommandPlan, ExecutionOutcome
 from ra2agent.client import CommandResult
@@ -15,15 +15,22 @@ from ra2agent.identity import IdentityTable
 from ra2agent.intents import IntentState, Scope, TacticCall
 from ra2agent.micro import MicroLayer, UnitMode
 from ra2agent.observation import Observation
-from ra2agent.state import GameState, MapData
+from ra2agent.state import GameState, MapData, TypeTable, cell_center
 from ra2agent.tactics import Level, Tactic, TacticInfo, TacticPolicy, TacticRegistry
-from tests.fixtures import (ENEMY_HOUSE, PLAYER_HOUSE, build_game_state,
-                            build_house, build_map_soa, build_object)
+from tests.fixtures import (ENEMY_HOUSE, PLAYER_HOUSE, build_factory,
+                            build_game_state, build_house, build_map_soa,
+                            build_object, build_type_table)
 
 SIDE = 9
 ALLY_A = 0xA1
 ALLY_B = 0xA2
 ENEMY = 0xB1
+#: 己方建筑：`YARD` 在地图上，`PENDING` 完工待放置（in_limbo）。
+YARD = 0xC1
+PENDING = 0xC2
+#: 类型表里那个建筑条目的 `(指针, 名字)`。
+BUILDING_TYPE = 0xC1
+BUILDING_TYPE_NAME = "Allied Power Plant"
 
 
 def make_map():
@@ -40,11 +47,12 @@ def at(cell):
     return cell[0] * 256 + 128, cell[1] * 256 + 128
 
 
-def make_state(frame=100, objects=()):
+def make_state(frame=100, objects=(), factories=()):
     return GameState.parse(build_game_state(
         frame=frame,
         houses=[build_house(PLAYER_HOUSE, current_player=True),
                 build_house(ENEMY_HOUSE)],
+        factories=list(factories),
         objects=list(objects)))
 
 
@@ -52,6 +60,47 @@ def tank(pointer, cell, house=PLAYER_HOUSE, mission=Mission.GUARD, **kwargs):
     x, y = at(cell)
     return build_object(pointer, house=house, object_type=AbstractType.UNIT,
                         mission=mission, x=x, y=y, **kwargs)
+
+
+def building(pointer, cell, in_limbo=False, type_pointer=None):
+    """一个己方建筑。`in_limbo=True` 即完工待放置的那一栋。"""
+    x, y = at(cell)
+    return build_object(pointer,
+                        type_pointer=(BUILDING_TYPE if type_pointer is None
+                                      else type_pointer),
+                        house=PLAYER_HOUSE,
+                        object_type=AbstractType.BUILDING,
+                        mission=Mission.CONSTRUCTION, x=x, y=y,
+                        in_limbo=in_limbo, on_map=not in_limbo)
+
+
+def factory(owner, obj, timer=54, queued=()):
+    """一个工厂条目。`timer >= 54` 即完工。"""
+    return build_factory(owner, obj, timer=timer, queued=queued)
+
+
+#: 假类型表：一个建筑条目，指针与 `building()` 默认给出的 `type_pointer` 一致。
+def make_types():
+    """只含一个建筑条目的类型表。"""
+    return TypeTable.parse(build_type_table([
+        (BUILDING_TYPE_NAME, 800, 0, BUILDING_TYPE,
+         AbstractType.BUILDINGTYPE)]))
+
+
+class FakePlaceQueryClient:
+    """只实现 `place_query` 的假客户端，返回预置的合法格。"""
+
+    def __init__(self, legal=(), error=None):
+        self.legal = tuple(legal)
+        self.error = error
+        self.queries = []
+
+    def place_query(self, entry, house, candidates, **kwargs):
+        self.queries.append({"entry": entry, "house": house,
+                             "candidates": tuple(candidates)})
+        if self.error is not None:
+            raise self.error
+        return [cell_center(x, y) for x, y in self.legal]
 
 
 class FakeExecutor:
@@ -74,13 +123,13 @@ class FakeExecutor:
 
 
 class FakeObserver:
-    def __init__(self, state, map_data=None):
+    def __init__(self, state, map_data=None, client=None, types=None):
         self.events = EventLog()
         self.identity = IdentityTable()
         self.identity.update(state)
         self.map_data = map_data if map_data else MAP
-        self.types = None
-        self.client = None
+        self.types = types
+        self.client = client
         self.observation = None
 
     def poll(self):
@@ -88,8 +137,9 @@ class FakeObserver:
 
 
 class Case(unittest.TestCase):
-    def build(self, state, observation=None, registry=None, **kwargs):
-        self.observer = FakeObserver(state)
+    def build(self, state, observation=None, registry=None, client=None,
+              types=None, **kwargs):
+        self.observer = FakeObserver(state, client=client, types=types)
         self.executor = FakeExecutor()
         self.registry = registry or TacticRegistry().load_builtin()
         self.layer = MicroLayer(self.observer, self.registry, self.executor,
@@ -98,8 +148,10 @@ class Case(unittest.TestCase):
         self.state = state
         self.observation = observation or Observation(
             frame=state.frame, house=state.player_house(),
-            own=tuple(o for o in state.objects if o.house == PLAYER_HOUSE),
-            visible_enemies=(), neutral=(), state=state, map_data=MAP)
+            own=tuple(o for o in state.objects
+                      if o.house == PLAYER_HOUSE and not o.in_limbo),
+            visible_enemies=(), neutral=(), state=state, map_data=MAP,
+            types=types)
         self.observer.observation = self.observation
         return self.commander
 
@@ -109,8 +161,10 @@ class Case(unittest.TestCase):
     def tick(self, state):
         self.observation = Observation(
             frame=state.frame, house=state.player_house(),
-            own=tuple(o for o in state.objects if o.house == PLAYER_HOUSE),
-            visible_enemies=(), neutral=(), state=state, map_data=MAP)
+            own=tuple(o for o in state.objects
+                      if o.house == PLAYER_HOUSE and not o.in_limbo),
+            visible_enemies=(), neutral=(), state=state, map_data=MAP,
+            types=self.observer.types)
         self.observer.observation = self.observation
         return self.layer.tick(self.observation)
 
@@ -387,6 +441,120 @@ class TestUnitPool(Case):
         self.assertEqual(pool.agents(), (self.agent(ALLY_A),))
         self.assertIsNone(pool.object_of(self.agent(ENEMY)))
         self.assertEqual(pool.cell_of(self.agent(ALLY_A)), (1, 1))
+
+    def test_limbo_building_is_addressable_but_not_usable(self):
+        """R1：完工待放置的建筑在 limbo 里，技法要能拿到它的 id 才发得出 `Place`。"""
+        state = make_state(objects=[tank(ALLY_A, (1, 1)),
+                                    building(PENDING, (2, 2), in_limbo=True)])
+        self.build(state)
+        pool = UnitPool(self.observation, self.observer.identity)
+        agent = self.agent(PENDING)
+        self.assertIsNotNone(agent)
+        self.assertEqual(pool.agent_id(PENDING), agent)
+        self.assertEqual(pool.pending(), (agent,))
+        # 可寻址，但不算可用单位：不能被派去做别的事
+        self.assertNotIn(agent, pool.agents())
+        self.assertIsNone(pool.object_of(agent))
+        self.assertEqual(pool.cell_of(agent), None)
+
+
+# ---------------------------------------------------------------- 待放置与落点
+class TestPlacement(Case):
+    """R1 + R2（安全版）：模型从 `status` 读到待放置建筑与合法落点。"""
+
+    def setUp(self):
+        state = make_state(
+            objects=[building(YARD, (3, 3)),
+                     building(PENDING, (3, 3), in_limbo=True)],
+            factories=[factory(PLAYER_HOUSE, PENDING, timer=54)])
+        self.client = FakePlaceQueryClient(legal=[(4, 3), (2, 3)])
+        self.build(state, client=self.client, types=make_types())
+
+    def test_reports_building_with_agent_id(self):
+        report = self.commander.status()
+        self.assertEqual(len(report.placement), 1)
+        self.assertIn(f"#{self.agent(PENDING)}", report.placement[0])
+        self.assertIn(BUILDING_TYPE_NAME, report.placement[0])
+        self.assertIn("待放置 1 栋", report.render())
+
+    def test_reports_legal_sites_and_tells_model_how_to_use_them(self):
+        report = self.commander.status()
+        self.assertEqual(report.sites, ((4, 3), (2, 3)))
+        self.assertIn("可选落点：(4,3)、(2,3)", report.render())
+        self.assertIn("place_ready_building", report.render())
+        self.assertEqual(report.placement_note, "")
+
+    def test_queries_engine_with_a_real_house_pointer(self):
+        # PlaceQuery.house_class 传 0 会被拒，故必须是真实阵营指针
+        self.commander.status()
+        query = self.client.queries[0]
+        self.assertEqual(query["house"].pointer, PLAYER_HOUSE)
+        self.assertEqual(query["entry"].pointer, BUILDING_TYPE)
+        self.assertTrue(query["candidates"])
+
+    def test_sites_are_cached_across_calls(self):
+        # 每次读局势都查一次引擎会把 tick 压在 I/O 上
+        self.commander.status()
+        self.commander.status()
+        self.assertEqual(len(self.client.queries), 1)
+
+    def test_query_failure_is_reported_not_raised(self):
+        self.client.error = CommandFailed("引擎不可达", command_type="PlaceQuery")
+        report = self.commander.status()          # 不该抛
+        self.assertEqual(report.sites, ())
+        self.assertIn("查询失败", report.placement_note)
+        self.assertIn("落点未知", report.render())
+
+    def test_no_pending_building_means_no_placement_lines(self):
+        state = make_state(objects=[building(YARD, (3, 3))],
+                           factories=[factory(PLAYER_HOUSE, PENDING, timer=10)])
+        self.build(state, client=self.client, types=make_types())
+        report = self.commander.status()
+        self.assertEqual(report.placement, ())
+        self.assertEqual(report.sites, ())
+        self.assertEqual(self.client.queries, [])
+
+
+# ---------------------------------------------------------------- 电力与生产
+class TestPowerAndProduction(Case):
+    def test_reports_power_water_level(self):
+        state = GameState.parse(build_game_state(
+            frame=100,
+            houses=[build_house(PLAYER_HOUSE, current_player=True,
+                                power_output=100, power_drain=140),
+                    build_house(ENEMY_HOUSE)]))
+        self.build(state)
+        report = self.commander.status()
+        self.assertEqual(report.power, "140/100｜电力不足")
+        self.assertIn("电力｜140/100｜电力不足", report.render())
+
+    def test_reports_production_progress_and_type(self):
+        """R7 的替代实现：类型从队列指针回查，不给 `Factory` 加字段。"""
+        state = make_state(
+            objects=[building(PENDING, (3, 3), in_limbo=True)],
+            factories=[factory(PLAYER_HOUSE, PENDING, timer=0, queued=(PENDING,))])
+        self.build(state, types=make_types())
+        report = self.commander.status()
+        self.assertEqual(len(report.production), 1)
+        self.assertIn(BUILDING_TYPE_NAME, report.production[0])
+        self.assertIn("进度 0/54", report.production[0])
+        self.assertIn("生产 1 线", report.render())
+
+    def test_marks_completed_and_held(self):
+        state = make_state(
+            objects=[building(PENDING, (3, 3), in_limbo=True)],
+            factories=[factory(PLAYER_HOUSE, PENDING, timer=54)])
+        self.build(state, types=make_types())
+        report = self.commander.status()
+        self.assertIn("完工待放置", report.production[0])
+
+    def test_unknown_type_falls_back_to_question_mark(self):
+        state = make_state(
+            objects=[building(PENDING, (3, 3), in_limbo=True)],
+            factories=[factory(PLAYER_HOUSE, PENDING, timer=0, queued=(PENDING,))])
+        self.build(state)                          # 不给类型表
+        report = self.commander.status()
+        self.assertIn("?", report.production[0])
 
 
 if __name__ == "__main__":
