@@ -146,9 +146,8 @@ class TestBuildChain(unittest.TestCase):
             visible_enemies=(), neutral=(), state=self.state, map_data=MAP,
             types=self.observer.types)
         self.observer.observation = self.observation
-        self.registry = TacticRegistry()
-        from ra2agent.tactics.local.construction import TACTICS
-        self.registry.load(TACTICS)
+        # 整库加载、按名字取技法：不 import 具体模块，模块搬了家这里也不会断
+        self.registry = TacticRegistry().load_builtin()
         self.layer = FakeLayer(self.registry, self.state)
         self.commander = Commander(self.layer, self.observer)
 
@@ -175,9 +174,15 @@ class TestBuildChain(unittest.TestCase):
         empty = GameState.parse(build_game_state(
             houses=[build_house(PLAYER_HOUSE, current_player=True)],
             objects=[obj(YARD, (3, 3), AbstractType.BUILDING)]))
-        pool = self._pool(empty)
-        context = _context(self.observation, pool)
-        self.assertEqual(check_conditions(("has_pending_building",), context),
+        # 条件只看局面，故观测要与局面配套——不能借「有待放置建筑」的那一份
+        observation = Observation(
+            frame=empty.frame, house=empty.player_house(),
+            own=tuple(o for o in empty.objects
+                      if o.house == PLAYER_HOUSE and not o.in_limbo),
+            visible_enemies=(), neutral=(), state=empty, map_data=MAP,
+            types=self.observer.types)
+        self.assertEqual(check_conditions(("has_pending_building",),
+                                          _context(observation, self._pool(empty))),
                          ("has_pending_building",))
 
     def test_condition_passes_when_a_building_waits(self):
@@ -185,13 +190,25 @@ class TestBuildChain(unittest.TestCase):
                                           _context(self.observation, self._pool())),
                          ())
 
-    def test_missing_cell_is_rejected_by_the_registry(self):
-        """必填参数没人填时当场报错，不要等技法里抛 KeyError。"""
+    def test_cell_may_be_omitted(self):
+        """`cell` 现在是可选的：不给就走兜底落点，技法自己围着待放建筑找一格。"""
+        dataset = self.registry.run("place_ready_building",
+                                    observation=self.observation,
+                                    subject=self._pool(),
+                                    params={}, frame=self.state.frame)
+        self.assertEqual(len(dataset), 1)
+        self.assertIsInstance(dataset[0], Place)
+        self.assertEqual(dataset[0].building, self._agent())
+        # 兜底不会选待放建筑自己报的那一格
+        self.assertNotEqual(dataset[0].cell, (3, 3))
+
+    def test_bad_cell_shape_is_rejected_by_the_registry(self):
+        """形状不对的参数当场报错，不要等技法里抛 KeyError。"""
         from ra2agent.errors import TacticError
         with self.assertRaises(TacticError):
             self.registry.run("place_ready_building",
                               observation=self.observation, subject=self._pool(),
-                              params={}, frame=self.state.frame)
+                              params={"cell": [1, 2, 3]}, frame=self.state.frame)
 
     def test_executor_routes_the_place_intent(self):
         """L0 照旧只负责把意图翻成命令：不需要为放置新增任何选路。"""

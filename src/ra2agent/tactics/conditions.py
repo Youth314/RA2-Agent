@@ -72,13 +72,9 @@ def no_enemies(context) -> bool:
 def has_pending_building(context) -> bool:
     """手上有完工待放置的建筑（停在 limbo 里那栋）。
 
-    `subject` 有两种：`call` 受理时是 `UnitPool`（有 `pending()`），技法真跑起来时
-    是 `Squad`（没有）。**只认前者的写法会让这条技法永远调不动**——受理过了、
-    运行时再判一次却是假。故 Squad 这一路直接查局面的 limbo 对象。
+    只看局面，不碰 `subject`：`subject` 有两种形态（受理时 `UnitPool` 有 `pending()`、
+    运行时 `Squad` 没有），只认前者的写法会让技法受理通过、运行时却永远调不动。
     """
-    pending = getattr(context.subject, "pending", None)
-    if callable(pending):
-        return bool(pending())
     state = context.observation.state
     if state is None:
         return False
