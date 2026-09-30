@@ -407,9 +407,9 @@ class ResolvePlayerTest(unittest.TestCase):
         self.roster = pathlib.Path(self._dir.name) / "match.json"
         self.roster.write_text(json.dumps({"players": [
             {"name": "Alpha", "game_dir": "D:\\Games\\ra2probe",
-             "probe_port": 14521, "side": 1, "color": 6},
+             "probe_port": 14521, "match_port": 15000, "side": 1, "color": 6},
             {"name": "Beta", "game_dir": "D:\\Games\\ra2probe-b",
-             "probe_port": 14522, "side": 0, "color": 1},
+             "probe_port": 14522, "match_port": 15001, "side": 0, "color": 1},
         ]}), encoding="utf-8")
 
     def test_port_and_dir_come_from_the_roster(self):

@@ -1,12 +1,39 @@
 {
-  "map": "spawnmap.ini",
   "ready_timeout": 120.0,
   "launch_gap": 12.0,
+  "rules": {
+    "scenario": "spawnmap.ini",
+    "peer_ip": "127.0.0.1",
+    "game_id": 3735928559,
+    "seed": 1,
+    "protocol": 2,
+    "conn_timeout": 3600,
+    "reconnect_timeout": 2400,
+    "credits": 10000,
+    "tech_level": 10,
+    "fog_of_war": "No",
+    "unit_count": 10,
+    "game_speed": 1,
+    "crates": false,
+    "short_game": true,
+    "mcv_redeploy": true,
+    "build_off_ally": true,
+    "naval_combat": true,
+    "allies_allowed": true,
+    "no_garrisons": false,
+    "multi_engineer": "Yes",
+    "ai_players": 0,
+    "ai_difficulty": 1,
+    "ai_handicap": 2,
+    "ai_country": 1,
+    "ai_color": 1
+  },
   "players": [
     {
       "name": "Alpha",
       "game_dir": "D:\\Games\\ra2probe",
       "probe_port": 14521,
+      "match_port": 15000,
       "side": 1,
       "color": 6
     },
@@ -14,6 +41,7 @@
       "name": "Beta",
       "game_dir": "D:\\Games\\ra2probe-b",
       "probe_port": 14522,
+      "match_port": 15001,
       "side": 0,
       "color": 1
     }
