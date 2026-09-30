@@ -393,3 +393,72 @@ class TestGameTool(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ResolvePlayerTest(unittest.TestCase):
+    """`--player` 从名册取该玩家的目录与端口。"""
+
+    def setUp(self):
+        """写一份临时名册。"""
+        import pathlib
+        import tempfile
+        self._dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self._dir.cleanup)
+        self.roster = pathlib.Path(self._dir.name) / "match.json"
+        self.roster.write_text(json.dumps({"players": [
+            {"name": "Alpha", "game_dir": "D:\\Games\\ra2probe",
+             "probe_port": 14521, "side": 1, "color": 6},
+            {"name": "Beta", "game_dir": "D:\\Games\\ra2probe-b",
+             "probe_port": 14522, "side": 0, "color": 1},
+        ]}), encoding="utf-8")
+
+    def test_port_and_dir_come_from_the_roster(self):
+        """两个玩家各自拿到自己那份端口与目录，而不是模块常量。"""
+        from ra2agent.mcp import resolve_player
+
+        alpha_port, alpha = resolve_player("Alpha", self.roster)
+        beta_port, beta = resolve_player("Beta", self.roster)
+        self.assertEqual((alpha_port, beta_port), (14521, 14522))
+        self.assertEqual(alpha.game_dir, "D:\\Games\\ra2probe")
+        self.assertEqual(beta.game_dir, "D:\\Games\\ra2probe-b")
+        self.assertEqual(beta.game_dir_wsl, "/mnt/d/Games/ra2probe-b")
+        self.assertIn("ra2probe-b", beta.crash_report)
+
+    def test_explicit_port_wins(self):
+        """命令行显式给的端口优先于名册。"""
+        from ra2agent.mcp import resolve_player
+
+        port, host = resolve_player("Beta", self.roster, port=19999)
+        self.assertEqual(port, 19999)
+        self.assertEqual(host.port, 19999)
+
+    def test_unknown_player_is_an_error(self):
+        """名册里没有的玩家要报错，而不是悄悄用默认值。"""
+        from ra2agent.mcp import resolve_player
+
+        with self.assertRaises(KeyError):
+            resolve_player("Gamma", self.roster)
+
+    def test_missing_roster_is_an_error(self):
+        """名册不存在时报错，而不是退回单实例常量。"""
+        import pathlib
+        from ra2agent.mcp import resolve_player
+
+        with self.assertRaises(FileNotFoundError):
+            resolve_player("Alpha", pathlib.Path(self._dir.name) / "nope.json")
+
+
+class WakeSessionTest(unittest.TestCase):
+    """唤醒目标会话可以显式指定。"""
+
+    def test_session_override_lands_in_the_bridge(self):
+        """`wake_session` 覆盖 `config/wake.json` 里的值。"""
+        session = GameSession(wake_session="sess-beta")
+        bridge = session._build_wake(None)
+        self.assertEqual(bridge.policy.session, "sess-beta")
+
+    def test_no_override_keeps_the_file_value(self):
+        """不给覆盖时保持文件里的值（此处是默认空串）。"""
+        session = GameSession()
+        bridge = session._build_wake(None)
+        self.assertEqual(bridge.policy.session, "")

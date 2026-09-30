@@ -38,6 +38,9 @@ class WakePolicy:
     max_pending: int = 8
     #: 投递超时（秒）。
     timeout: float = DEFAULT_TIMEOUT
+    #: 唤醒投给哪个 DSH 会话。留空则交给桥插件按「唯一候选」去猜——一台机器上跑
+    #: 两个玩家时会唤醒错人，故每个玩家的服务端都该显式给一个。
+    session: str = ""
 
     @classmethod
     def load(cls, path) -> "WakePolicy":
@@ -93,8 +96,10 @@ class WakeBridge:
     def request(self, text, frame, tactic="", session="") -> dict:
         """请求唤醒模型。返回这一条的记录。
 
-        被限流挡住时**不丢内容**——攒进待发队列，下次投递时并成一条。
+        被限流挡住时**不丢内容**——攒进待发队列，下次投递时并成一条。`session`
+        留空时用策略里配好的那个；两边都空才让桥插件按唯一候选去猜。
         """
+        session = session or self.policy.session
         text = (text or "").strip()
         record = {"frame": frame, "tactic": tactic, "text": text}
         if not text:

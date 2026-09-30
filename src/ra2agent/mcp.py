@@ -8,6 +8,7 @@ JSON-RPC 2.0，stdio 传输，一行一条消息；只用标准库（本项目�
 
 stdout 只放协议消息，日志一律走 stderr，否则会污染流。
 """
+import dataclasses
 import json
 import sys
 import threading
@@ -21,6 +22,7 @@ from .errors import ConnectionLost, Ra2Error
 from .executor import Executor
 from .game import GameHost
 from .intents import DecisionLog
+from .match import MatchRoster
 from .micro import MicroLayer
 from .observation import Observer
 from .rules import attach_type_aliases
@@ -149,6 +151,8 @@ class GameSession:
 DEFAULT_ALIASES_PATH = "corpus/derived/rules.json"
 #: 唤醒桥的配置。不存在就用默认值。
 DEFAULT_WAKE_CONFIG = "config/wake.json"
+#: 对局名册。`--player` 用它取该玩家的游戏目录与探针端口。
+DEFAULT_ROSTER = "config/match.json"
 
 
 class GameSession:
@@ -159,12 +163,15 @@ class GameSession:
 
     def __init__(self, host=None, port=None, log_path=None,
                  tick_interval=TICK_INTERVAL, on_log=None, game_host=None,
-                 aliases_path=None, wake_config_path=None):
+                 aliases_path=None, wake_config_path=None, wake_session=None):
         self.host = host
         self.port = port
         self.log_path = log_path
         self.aliases_path = aliases_path or DEFAULT_ALIASES_PATH
         self.wake_config_path = wake_config_path or DEFAULT_WAKE_CONFIG
+        #: 唤醒投给哪个 DSH 会话。留空则由桥插件按唯一候选去猜——同机两个玩家时
+        #: 会唤醒错人，故每个玩家的服务进程都该给一个。
+        self.wake_session = wake_session or ""
         self.tick_interval = tick_interval
         self.on_log = on_log
         self.game_host = game_host or GameHost(host=host or DEFAULT_HOST,
@@ -211,6 +218,8 @@ class GameSession:
         except (OSError, ValueError, json.JSONDecodeError) as error:
             self._emit(f"唤醒配置读不了，改用默认值：{error}")
             policy = WakePolicy()
+        if self.wake_session:
+            policy = dataclasses.replace(policy, session=self.wake_session)
         return WakeBridge(endpoint=policy.endpoint, policy=policy, log=log,
                           timeout=policy.timeout)
 
@@ -540,16 +549,59 @@ def _tool_error(text) -> dict:
     return {"content": [{"type": "text", "text": text}], "isError": True}
 
 
+def resolve_player(player, roster_path, host=None, port=None):
+    """按名册给一个玩家配出探针端口与宿主。
+
+    一台机器上跑一局时，每个玩家有**自己的**游戏目录与探针端口，两者都来自名册
+    而不是模块常量，所以同一个服务进程只能服务名册里的一方。
+
+    @param player: 名册里的玩家名。
+    @param roster_path: 名册路径。
+    @param host: 探针地址；默认 `127.0.0.1`。
+    @param port: 探针端口；默认取名册里该玩家的那个。
+    @returns: `(port, game_host)`。
+    @raises KeyError: 名册里没有这个玩家。
+    @raises FileNotFoundError: 名册文件不存在。
+    @raises ValueError: 名册本身不自洽。
+    """
+    participant = MatchRoster.load(roster_path).get(player)
+    resolved_port = participant.probe_port if port is None else port
+    game_host = GameHost(host=host or DEFAULT_HOST, port=resolved_port,
+                         game_dir=participant.game_dir,
+                         game_dir_wsl=participant.wsl_dir,
+                         crash_report=participant.wsl_dir + "/EXCEPT_CNCNET.TXT")
+    return resolved_port, game_host
+
+
 def main(argv=None) -> int:
-    """命令行入口：`python3 -m ra2agent.mcp`。"""
+    """命令行入口：`python3 -m ra2agent.mcp`。
+
+    一台机器上跑一局时，每个玩家有**自己的**服务进程：用 `--player` 从名册取出
+    它那份游戏目录与探针端口，用 `--wake-session` 指明唤醒投给哪个 DSH 会话。
+    两者都不给就是原来的单实例用法。
+    """
     import argparse
+
     parser = argparse.ArgumentParser(description="ra2agent 的 MCP 服务")
     parser.add_argument("--host", default=None)
     parser.add_argument("--port", type=int, default=None)
     parser.add_argument("--log", default=None, help="决策日志路径（JSONL）")
     parser.add_argument("--tick-interval", type=float, default=TICK_INTERVAL)
+    parser.add_argument("--roster", default=DEFAULT_ROSTER,
+                        help="对局名册路径，默认 config/match.json")
+    parser.add_argument("--player", default=None,
+                        help="名册里的玩家名；给了就用它那份目录与探针端口")
+    parser.add_argument("--wake-session", default=None,
+                        help="唤醒投给哪个 DSH 会话；不给则由桥插件按唯一候选去猜")
     args = parser.parse_args(argv)
-    session = GameSession(args.host, args.port, args.log, args.tick_interval)
+
+    game_host = None
+    if args.player:
+        args.port, game_host = resolve_player(args.player, args.roster,
+                                              host=args.host, port=args.port)
+
+    session = GameSession(args.host, args.port, args.log, args.tick_interval,
+                          game_host=game_host, wake_session=args.wake_session)
     try:
         McpServer(session).serve_forever()
     except KeyboardInterrupt:

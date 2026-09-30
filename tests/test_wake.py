@@ -48,6 +48,24 @@ class TestDelivery(WakeCase):
         self.assertEqual(self.poster.calls, [])
         self.assertEqual(record["skipped"], "空说明")
 
+    def test_policy_session_targets_the_wake(self):
+        """策略里配了会话就投给它——同机两个玩家时不能靠插件去猜。"""
+        self.build(session="sess-beta")
+        self.bridge.request("来了", frame=100)
+        self.assertEqual(self.poster.calls[0][1]["session"], "sess-beta")
+
+    def test_caller_session_beats_the_policy(self):
+        """调用方显式给的会话优先于策略。"""
+        self.build(session="sess-beta")
+        self.bridge.request("来了", frame=100, session="sess-alpha")
+        self.assertEqual(self.poster.calls[0][1]["session"], "sess-alpha")
+
+    def test_no_session_anywhere_still_reaches_the_bridge(self):
+        """两边都不给时把空串交出去，由插件按唯一候选去猜（旧行为）。"""
+        self.build()
+        self.bridge.request("来了", frame=100)
+        self.assertEqual(self.poster.calls[0][1]["session"], "")
+
     def test_default_endpoint_is_the_dsh_webserver(self):
         # 桥插件挂在 DSH 的 WebServer 上（与 GUI 同端口），不是自己另开一个
         from ra2agent.wake import DEFAULT_ENDPOINT
