@@ -18,11 +18,16 @@ from ra2agent.observation import Observation
 from ra2agent.state import GameState, MapData, TypeTable, cell_center
 from ra2agent.tactics import (Level, Mode, Tactic, TacticInfo, TacticPolicy,
                               TacticRegistry)
-from ra2agent.tactics.builtin.production import is_type_name
-from ra2agent.tactics.core import REQUIRED, Param, is_optional_cell
+from ra2agent.tactics.core import (REQUIRED, Param, is_non_empty_str,
+                                   is_optional_cell)
 from tests.fixtures import (ENEMY_HOUSE, PLAYER_HOUSE, build_factory,
                             build_game_state, build_house, build_map_soa,
                             build_object, build_type_table)
+
+def is_type_name(value) -> bool:
+    """非空字符串。测试自带，免得依赖某个技法模块。"""
+    return is_non_empty_str(value)
+
 
 SIDE = 9
 ALLY_A = 0xA1

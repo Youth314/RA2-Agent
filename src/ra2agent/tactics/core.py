@@ -86,6 +86,11 @@ def is_optional_cell(value) -> bool:
     return value is None or is_cell(value)
 
 
+def is_non_empty_str(value) -> bool:
+    """非空字符串。类型名一类的参数用它，别让空白串一路走到类型表里。"""
+    return isinstance(value, str) and bool(value.strip())
+
+
 def is_non_negative_int(value) -> bool:
     """是否是非负整数。"""
     return (isinstance(value, int) and not isinstance(value, bool) and value >= 0)

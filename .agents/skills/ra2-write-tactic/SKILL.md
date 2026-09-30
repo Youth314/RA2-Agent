@@ -84,17 +84,30 @@ return (ctx.intent(Wake, text="基地被打了，3 个建筑在掉血"),)
 | 成员 | 是什么 |
 |---|---|
 | `ctx.observation` | 一帧经迷雾过滤的观测；`map_data`、`visible_enemies`、`state` 都在这 |
-| `ctx.subject` | 本层管的编队（只读）：`agents()` 本次该管的单位、`object_of(id)`、`agent_id(pointer)`、`cell_of(id)` |
+| `ctx.subject` | 本层管的编队（只读）：`agents()` 本次该管的单位、`object_of(id)`、`agent_id(pointer)`、`cell_of(id)`。**`subject` 有两种形态**，见下 |
 | `ctx.params` | 本次调用的参数，已按名片补好默认值 |
 | `ctx.frame` | 当前游戏帧 |
-| `ctx.attempt` | 第几次尝试；卡住重来时由运行时递增，用来换落点 |
-| `ctx.memo` | 跨帧记事本，按「技法名 + 键」隔离，任务结束清空 |
+| `ctx.attempt` | 第几次尝试；卡住重来时由运行时递增，用来换落点。**脉冲恒为 0** |
+| `ctx.memo` | 跨帧记事本，按「技法名 + 键」隔离。**编队任务结束清空**；脉冲目前每拍都是新的空记事本，攒不下进度 |
 | `ctx.call(name, **params, optional=False)` | 调另一条技法 |
 | `ctx.intent(cls, **payload)` | 按信封约定造意图 |
 | `ctx.types` | 对象类型表；没取到时为 `None` |
 | `ctx.type_pointer(name, rtti=None)` | 类型名 → 指针，找不到给 `None` |
 | `ctx.intent(cls, scope=None, **payload)` | 造意图；没给 `scope` 就用本队单位，一个都没有时用空归属 |
 | `ctx.remember(key, value)` / `ctx.recall(key, default)` | 记事本的读写糖 |
+
+**`subject` 的两种形态，写法要同时适配：**
+
+- 模型 `call` 受理、以及自动脉冲运行时，它是 `UnitPool`——**己方全部对象**，含完工待放置的建筑（`pending()`），但**不含已在别的任务里的单位**这一信息；
+- 技法在编队任务里真跑起来时，它是 `Squad`——**只有这条任务名下的单位**，没有 `pending()`。
+
+**能用 `ctx.observation` 判的就别碰 `subject`。** 碰了要保证两种形态下都对：只认
+`UnitPool` 的写法（例如调 `subject.pending()`）会让技法受理通过、运行时却永远调不动。
+需要单位名单时用 `ctx.subject.agents()`，它两边都有。
+
+**自动触发的 subject 是全池**——一条自动技法会把模型正在调动、正在进攻的部队一起
+算进去。要自动跑又要限定范围时，自己在 `run` 里按 `ctx.subject.object_of(id)` 逐个筛，
+别假设"只有空闲单位"。
 
 ## 四、能返回的意图
 
@@ -103,9 +116,29 @@ return (ctx.intent(Wake, text="基地被打了，3 个建筑在掉血"),)
 | `MoveTo` | `units`、`cell`、`stance` | 移动；`stance` 取 `aggressive` / `passive` / `hold` |
 | `Hold` | `units` | 停止并驻守 |
 | `Attack` | `units`、`target` | 攻击指定对象 |
-| `Produce` | `type_pointer` | 开始生产 |
-| `Place` | `building`、`cell` | 放置已完工建筑 |
+| `Produce` | `type_pointer`、`type_name` | 开始生产 |
+| `Place` | `building`、`cell` | 放置已完工建筑；`building` 是 **agent id**，完工待放对象只有 `ctx.subject.agent_id(pointer)` 认得 |
 | `Sell` | `buildings` | 变卖建筑 |
+| `Deploy` | `units` | 展开基地车（走 `ClickEvent`，不是 `UnitOrder`） |
+| `Wake` | `text` | **不落到引擎**：请求唤醒模型，`split_wakes` 把它交给唤醒桥。限度见下 |
+| `TacticCall` | `tactic`、`params` | 指挥层意图，不是你要返回的东西——它是模型 `call` 的载荷 |
+
+### `Wake` 的节制
+
+一次 `Wake` 就是**一轮 LLM 调用**，而一局有额度上限、两次之间还有帧数限流。故：
+
+- **常规失败原因不要用 `Wake` 传**——那是每拍都能算出来的事实。任务失败的原因会随
+  `status` 的「新结果」报给模型（带 `reason`），不需要你再叫一次。
+- `Wake` 只留给**只有模型能决定**的事：该扩张还是防守、这笔钱怎么花。
+- 被限流挡住的内容不会丢，会攒进待发队列下次合并投出。
+
+### 空单位：目前做不到
+
+`call` **必须点名至少一个己方单位**（`Commander._check_units`），而生产、建造、变卖
+这类**阵营级动作不针对任何对象**。框架里 `ctx.intent` 已经支持无归属（`Scope.empty()`），
+但 `call` 这条入口还没接上，故现在只能：**用 `units` 点名一个相关建筑**（例如让某个厂
+来造），意图再带上这些 id。这是框架限制，不是设计意图；别为此把技法写成依赖具体厂的
+样子。
 
 **对象一律用 Agent 侧 id**，不是引擎指针——指针在单位变身时会变。引擎指针转 id
 用 `ctx.subject.agent_id(pointer)`。
@@ -147,12 +180,33 @@ Tactic(TacticInfo(
     version=1), run)
 ```
 
-条件名目前有 `has_units`、`has_map`、`has_enemies`、`no_enemies`、`cell_explored`。
-不够用时去 `tactics/conditions.py` 加，不要在技法里偷偷判断。
+条件名见 `tactics/conditions.py`，目录如下（不够用时去那里加，**不要在技法里偷偷判断**）：
 
-**每个参数都要挂取值检查**，内置的有 `is_cell`、`is_stance`、`is_non_negative_int`、
-`is_positive_number`。只声明 `Param` 会漏掉形状错误：`cell: null` 会一路走到你的函数里
-才炸，模型拿到的是一句看不懂的 TypeError。
+| 条件 | 判什么 | 要参数 |
+|---|---|---|
+| `has_units` | 这一队至少有一个可用单位 | |
+| `has_map` | 已有底图 | |
+| `has_enemies` / `no_enemies` | 当前看不看得见敌人 | |
+| `has_pending_building` | 手上有完工待放置的建筑 | |
+| `has_construction_yard` | 己方有一栋建造厂 | |
+| `has_factory` | 己方有生产队列条目 | |
+| `cell_explored` / `cell_unknown` | 参数里的格已探索 / 未探索 | ✓ |
+| `can_afford` | 参数点名的类型买得起（价格从类型表取） | ✓ |
+
+**参数型条件的两条限制**：
+
+1. **卡片筛选时没有参数**（`tactics` 这个工具不带参数），故这类条件**不会让卡片消失**，
+   只在 `call` 受理与技法真跑时生效。别指望靠它把用不上的技法从卡片里藏掉。
+2. 条件拿到的参数是**补好默认值的那一份**（受理时先过 `check_params`），故 `Param`
+   的默认值要能代表"不填"的语义；`None` 这类默认值要给参数挂 `is_optional_cell`
+   这样的检查，否则 `is_cell` 会把默认值判成非法。
+
+**条件会在两种 `subject` 下各判一次**（受理时 `UnitPool`、运行时 `Squad`）。能用
+`ctx.observation` 判的就别碰 `subject`，否则要两路都写对。
+
+**每个参数都要挂取值检查**，内置的有 `is_cell`、`is_optional_cell`、`is_stance`、
+`is_non_negative_int`、`is_positive_number`。只声明 `Param` 会漏掉形状错误：
+`cell: null` 会一路走到你的函数里才炸，模型拿到的是一句看不懂的 TypeError。
 
 ## 六、等级怎么申报
 
@@ -199,12 +253,26 @@ def test_xxx(self):
 
 必须覆盖：正常路径、条件不满足（应被拒）、缺参数（应报错）、边界（空单位、无地图）。
 
+**还要有一条走 `Commander.call`。** `registry.run` 是**直调**，它绕过了卡片筛选、
+`_check_units`、租约（`_taken`）与 `check_params` 的真实次序——而"技法受理通过、真跑
+起来却永远调不动"这类问题**只在那条路上暴露**。至少断言一次：
+
+```python
+result = commander.call([CallRequest(tactic="mine", units=(agent,),
+                                     params={...})])[0]
+self.assertTrue(result.accepted, result.error)
+```
+
 跑全套：`PYTHONPATH=src python3 -m unittest discover -s tests -t .`。
 
 ## 九、注册
 
-新技法先放 `src/ra2agent/tactics/local/`（不入库），验证通过后再并入
-`tactics/builtin/`。等级、条件或参数有任何一处说不清，就退回草稿。
+新技法先放 `src/ra2agent/tactics/local/`（该目录被 `.gitignore` 排除，不入库），
+验证通过后再并入 `tactics/builtin/`，并在 `builtin/__init__.py` 的 `TACTICS` 里汇总。
+等级、条件或参数有任何一处说不清，就退回草稿。
+
+**注册进库之前先问一句：它在两种 `subject` 下都跑得动吗？** 未注册的草稿只被
+`registry.run` 直调过，而注册之后模型会从 `call` 进来——那才是 `UnitPool` 那一侧。
 
 ## 十、禁止清单
 
@@ -213,3 +281,4 @@ def test_xxx(self):
 - 捕获异常后当作没发生（要就让它抛，运行时负责隔离与记录）。
 - 一次产出几十条命令（意图上限 32，超了直接拒绝）。
 - 把「什么时候该用」藏进代码却不写 `requires`。
+- 用 `Wake` 传常规失败原因（那是每拍可算的事实，浪费整局额度）。
