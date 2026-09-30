@@ -34,8 +34,29 @@ def watched_only(events):
     return tuple(out)
 
 
+def house_finished(house) -> bool:
+    """这个阵营的对局结束了没有（出局 / 获胜 / 判负）。
+
+    **这是「对局结束」的边界**：结束后不该再有唤醒。实测对局打完、游戏进程退出后，
+    队列里积压的旧事件仍被逐条投递，每条都开一轮模型（两个玩家各收到 8-10 条），
+    白烧一轮又一轮。故事件源这边先拦一道：不再产生新的唤醒。
+    """
+    if house is None:
+        return False
+    return bool(getattr(house, "defeated", False)
+                or getattr(house, "is_winner", False)
+                or getattr(house, "is_loser", False))
+
+
+def match_over(context) -> bool:
+    """技法视角：对局是否已分出胜负。"""
+    return house_finished(getattr(context.observation, "house", None))
+
+
 def _report_trouble(context):
-    """有事就唤醒模型，附上事件原文；没事返回空（空转不报给模型）。"""
+    """有事就唤醒模型，附上事件原文；没事、或对局已结束则返回空。"""
+    if match_over(context):
+        return ()
     happened = watched_only(context.events)
     if not happened:
         return ()

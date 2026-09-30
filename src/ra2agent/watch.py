@@ -26,7 +26,7 @@ from .engine.client import Client
 from .engine.events import summarize
 from .deploy.match import MatchRoster
 from .engine.observation import Observer
-from .tactics.builtin.report import watched_only
+from .tactics.builtin.report import house_finished, watched_only
 from .wake import WakeBridge, WakePolicy
 
 #: 读局势的间隔（秒）。与 MCP 侧的 tick 同量级——事件是帧间差，别比游戏还密。
@@ -62,7 +62,16 @@ def watch(port, session, *, interval=DEFAULT_INTERVAL, client=None,
     rounds = 0
     while stop_after is None or rounds < stop_after:
         rounds += 1
-        observation = observer.poll()
+        try:
+            observation = observer.poll()
+        except (OSError, Ra2Error) as error:
+            # 游戏退出（对局打完或窗口关掉）不是脚本出错：说一句人话就收工，
+            # 免得把一个正常的收尾刷成一屏异常栈。
+            print(f"游戏读不到了（{error}）——它大概已经退出，监听结束", flush=True)
+            break
+        if house_finished(observation.house):
+            print("对局已分出胜负，监听结束", flush=True)
+            break
         fresh, cursor = observer.events.new_since(cursor)
         text = wake_text(fresh)
         if text:

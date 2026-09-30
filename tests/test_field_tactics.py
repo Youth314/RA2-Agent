@@ -328,3 +328,29 @@ class TestRetreat(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class TestMatchOverBoundary(unittest.TestCase):
+    """对局分出胜负后不再唤醒。
+
+    实测：对局打完、游戏进程退出后，收件箱里积压的旧事件仍被逐条投递，每条开一轮模型
+    （两个玩家各收到 8-10 条）。事件源这边先拦一道，不再产生新的唤醒。
+    """
+
+    def _house(self, **flags):
+        from ra2agent.engine.state import House
+        base = dict(pointer=0x1000, array_index=0, name="me", faction="Alliance",
+                    money=0, current_player=True, is_human_player=True,
+                    defeated=False, is_winner=False, is_loser=False)
+        base.update(flags)
+        return House(**base)
+
+    def test_each_finish_flag_ends_the_match(self):
+        from ra2agent.tactics.builtin.report import house_finished
+        self.assertFalse(house_finished(self._house()))
+        self.assertTrue(house_finished(self._house(defeated=True)))
+        self.assertTrue(house_finished(self._house(is_winner=True)))
+        self.assertTrue(house_finished(self._house(is_loser=True)))
+
+    def test_a_missing_house_is_not_finished(self):
+        from ra2agent.tactics.builtin.report import house_finished
+        self.assertFalse(house_finished(None))
