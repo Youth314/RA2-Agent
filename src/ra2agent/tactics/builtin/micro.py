@@ -153,7 +153,10 @@ TACTICS = (
         summary="把这队单位推进到目标格附近，逐单位展开队形",
         params=(
             Param("cell", REQUIRED, "目标格 (x, y)", is_cell),
-            Param("stance", Stance.AGGRESSIVE, "接战姿态：aggressive / passive / hold",
+            Param("stance", Stance.AGGRESSIVE,
+                  "接战姿态。aggressive＝**遇到敌人会追**，可能被拽离目标格、甚至被拖进"
+                  "敌人建筑群的射程里；只想走到位置、不追敌就用 passive，只想原地开火"
+                  "就用 hold",
                   is_stance),
             Param("spread", 1, "队形展开；0 表示全去中心格", is_non_negative_int),
         ),
@@ -191,7 +194,9 @@ TACTICS = (
         params=(
             Param("cell", REQUIRED, "目标格 (x, y)", is_cell),
             Param("radius", 8, "接战半径（格）", is_positive_number),
-            Param("stance", Stance.AGGRESSIVE, "推进姿态", is_stance),
+            Param("stance", Stance.AGGRESSIVE,
+                  "推进姿态。aggressive＝路上遇敌会追（实测有玩家因此被拽到敌方建筑群里"
+                  "送掉 4 台）；要卡位就 passive，配合 guard_area 精确守点", is_stance),
             Param("spread", 1, "队形展开；0 表示全去中心格", is_non_negative_int),
         ),
         requires=("has_units", "has_map", "cell_passable"),
