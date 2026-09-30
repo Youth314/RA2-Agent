@@ -1,0 +1,21 @@
+{
+  "map": "spawnmap.ini",
+  "ready_timeout": 120.0,
+  "launch_gap": 12.0,
+  "players": [
+    {
+      "name": "Alpha",
+      "game_dir": "D:\\Games\\ra2probe",
+      "probe_port": 14521,
+      "side": 1,
+      "color": 6
+    },
+    {
+      "name": "Beta",
+      "game_dir": "D:\\Games\\ra2probe-b",
+      "probe_port": 14522,
+      "side": 0,
+      "color": 1
+    }
+  ]
+}
