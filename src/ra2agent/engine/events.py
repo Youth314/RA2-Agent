@@ -237,7 +237,9 @@ def _detect_placement(before, after, policy):
         return ()
     fresh = []
     for obj in after.state.own_objects():
-        if not obj.in_limbo:
+        # **只认建筑**：生产出来的单位出厂时也会短暂进 limbo（实测每出一台坦克都报
+        # 一次「完工待放置」），而「放哪儿」只对建筑成立。单位出厂不是需要模型决定的事。
+        if not obj.in_limbo or not obj.is_building:
             continue
         old = before.state.object(obj.pointer)
         if old is not None and old.in_limbo:

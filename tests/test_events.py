@@ -108,6 +108,19 @@ class TestPlacementReady(unittest.TestCase):
             [e for e in detect(before, after)
              if e.kind is EventKind.PLACEMENT_READY], [])
 
+    def test_a_unit_rolling_out_of_a_factory_is_not_reported(self):
+        """出厂的单位也会短暂进 limbo，但「放哪儿」只对建筑成立——别为它叫模型。"""
+        from ra2agent.constants import AbstractType, Mission
+        from tests.fixtures import build_object
+        unit = build_object(0xE1, house=PLAYER_HOUSE, object_type=AbstractType.UNIT,
+                            mission=Mission.GUARD, x=300, y=300, in_limbo=True,
+                            on_map=False)
+        before = self._frame([])
+        after = self._frame([unit], number=140)
+        self.assertEqual(
+            [e for e in detect(before, after)
+             if e.kind is EventKind.PLACEMENT_READY], [])
+
     def test_a_placed_building_is_not_reported(self):
         before = self._frame([self._building()])
         after = self._frame([self._building()], number=130)
