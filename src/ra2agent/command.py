@@ -316,10 +316,13 @@ class StatusReport:
         if self.results:
             lines.append(f"新结果 {len(self.results)} 条：")
             for event in self.results:
-                lines.append(
-                    f"- {event['tactic']}#{event['intent_id']}｜{event['state']}｜"
-                    f"到位 {len(event['arrived'])} 损失 {len(event['lost'])} "
-                    f"失败 {len(event['failed'])}")
+                line = (f"- {event['tactic']}#{event['intent_id']}｜{event['state']}｜"
+                        f"到位 {len(event['arrived'])} 损失 {len(event['lost'])} "
+                        f"失败 {len(event['failed'])}")
+                if event.get("reason"):
+                    # 只有失败了才值得说原因；成功的那一行不塞噪声
+                    line += f"｜原因：{event['reason']}"
+                lines.append(line)
         if self.notices:
             lines.append(f"告警 {len(self.notices)} 条：")
             for notice in self.notices:
@@ -632,12 +635,16 @@ class Commander:
             if not self.registry.policy.allows(info):
                 return CallResult(False, request.tactic,
                                   error=f"等级 {info.level} 超出门槛，或已被停用")
+            # 参数先校验：它比条件更具体（「缺少参数 type」胜过「此刻用不上：can_afford」），
+            # 且补好默认值后，参数型条件才能拿到完整参数。
+            params = self.registry.check_params(request.tactic, request.params)
+            # 顺序仍是「先条件、后单位」：单位名单全死光时那句真话不该被条件名挡掉
             missing = self.registry.missing_conditions(info, observation,
-                                                       self._pool(observation))
+                                                       self._pool(observation),
+                                                       params)
             if missing:
                 return CallResult(False, request.tactic,
                                   error=f"此刻用不上：{'、'.join(missing)}")
-            params = self.registry.check_params(request.tactic, request.params)
         except TacticError as error:
             return CallResult(False, request.tactic, error=str(error))
 

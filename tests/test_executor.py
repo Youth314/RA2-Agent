@@ -548,6 +548,9 @@ class TestReasonFor(unittest.TestCase):
             "invalid unit action": "action_unimplemented",
             "Proximity check failed": "placement_blocked",
             "unbuildable": "unbuildable",
+            # 实测原文：该建筑已不在任何工厂的完工条目里（此前归成 unknown）
+            "completed object 430783368 not found from any factory":
+                "no_completed_object",
         }
         for message, reason in cases.items():
             with self.subTest(message=message):

@@ -270,18 +270,24 @@ class MicroLayer:
         """任务结束就结算并移出，返回是否已结束。"""
         if squad.intent.is_expired(observation.frame):
             squad.intent.state = IntentState.EXPIRED
-            self._finish(squad, observation, outcomes, IntentState.EXPIRED)
+            self._finish(squad, observation, outcomes, IntentState.EXPIRED,
+                         reason="超过有效期")
             return True
         if any(unit.mode not in DONE_MODES for unit in squad.units):
             return False
         arrived = sum(1 for unit in squad.units if unit.mode == UnitMode.ARRIVED)
         state = IntentState.SATISFIED if arrived else IntentState.FAILED
         squad.intent.state = state
-        self._finish(squad, observation, outcomes, state)
+        self._finish(squad, observation, outcomes, state,
+                     reason=getattr(squad.intent, "fail_reason", ""))
         return True
 
-    def _finish(self, squad, observation, outcomes, state) -> None:
-        """收尾：记结算、移出编队。"""
+    def _finish(self, squad, observation, outcomes, state, reason="") -> None:
+        """收尾：记结算、移出编队。
+
+        `reason` 是失败原因的人话。不给的话「失败 2 个」对模型没有信息量——它只能
+        猜是钱不够、落点被占，还是对象没了。原因同时进决策日志与 `status`。
+        """
         record = {
             "intent_id": squad.intent.id,
             "tactic": squad.intent.tactic,
@@ -291,6 +297,7 @@ class MicroLayer:
             "arrived": [u.agent_id for u in squad.units if u.mode == UnitMode.ARRIVED],
             "lost": [u.agent_id for u in squad.units if u.mode == UnitMode.LOST],
             "failed": [u.agent_id for u in squad.units if u.mode == UnitMode.FAILED],
+            "reason": reason,
         }
         self.completed.append(record)
         self._squads.remove(squad)
@@ -400,10 +407,15 @@ class MicroLayer:
         return unit.mode == UnitMode.MOVING and unit.goal is None
 
     def _fail_squad(self, squad, observation, outcomes, reason) -> None:
-        """整队失败。"""
+        """整队失败。
+
+        `reason` 记在意图上，等紧随其后的 `_settle` 收尾时带进 `completed`——
+        否则模型只看到「失败 N 个」，永远不知道是钱不够还是落点被占。
+        """
         for unit in squad.units:
             if unit.mode not in DONE_MODES:
                 unit.mode = UnitMode.FAILED
+        squad.intent.fail_reason = reason
         self._record(observation.frame, "squad_failed", squad.intent,
                      {"tactic": squad.intent.tactic, "reason": reason})
         # 结算交给紧随其后的 _settle：一处收尾，免得同一条编队被记两次

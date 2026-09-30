@@ -16,7 +16,10 @@ from ra2agent.intents import IntentState, Scope, TacticCall
 from ra2agent.micro import MicroLayer, UnitMode
 from ra2agent.observation import Observation
 from ra2agent.state import GameState, MapData, TypeTable, cell_center
-from ra2agent.tactics import Level, Tactic, TacticInfo, TacticPolicy, TacticRegistry
+from ra2agent.tactics import (Level, Mode, Tactic, TacticInfo, TacticPolicy,
+                              TacticRegistry)
+from ra2agent.tactics.builtin.production import is_type_name
+from ra2agent.tactics.core import REQUIRED, Param, is_optional_cell
 from tests.fixtures import (ENEMY_HOUSE, PLAYER_HOUSE, build_factory,
                             build_game_state, build_house, build_map_soa,
                             build_object, build_type_table)
@@ -47,10 +50,10 @@ def at(cell):
     return cell[0] * 256 + 128, cell[1] * 256 + 128
 
 
-def make_state(frame=100, objects=(), factories=()):
+def make_state(frame=100, objects=(), factories=(), money=10000):
     return GameState.parse(build_game_state(
         frame=frame,
-        houses=[build_house(PLAYER_HOUSE, current_player=True),
+        houses=[build_house(PLAYER_HOUSE, current_player=True, money=money),
                 build_house(ENEMY_HOUSE)],
         factories=list(factories),
         objects=list(objects)))
@@ -605,6 +608,115 @@ class TestMatchBrief(Case):
         text = self.commander.status(self.observation).render()
         self.assertNotIn("本局｜", text)
         self.assertFalse(self.commander._briefed)
+
+
+class TestParamConditions(Case):
+    """参数相关的条件（`can_afford` 一类）此前恒为假——探针不给参数。
+
+    它们只在 `call` 受理与技法真跑时生效；卡片筛选拿不到参数，故不会让卡片消失。
+    """
+
+    def setUp(self):
+        self.types = TypeTable.parse(build_type_table([
+            ("Grizzly Battle Tank", 700, 0, 0x901, AbstractType.UNITTYPE),
+        ]))
+
+    def _build(self, money=10000):
+        self.build(make_state(objects=[tank(ALLY_A, (1, 1))], money=money),
+                   types=self.types)
+        self.registry.register(Tactic(
+            TacticInfo(name="train_thing", summary="造一种兵",
+                       params=(Param("type", REQUIRED, "类型", is_type_name),
+                               Param("cell", None, "格", is_optional_cell)),
+                       requires=("can_afford",)),
+            lambda ctx: ()))
+
+    def _call(self, params):
+        return self.commander.call([CallRequest(
+            tactic="train_thing", units=(self.agent(ALLY_A),),
+            params=params)])[0]
+
+    def test_condition_sees_params_and_refuses_when_poor(self):
+        self._build(money=100)               # 灰熊 700，买不起
+        result = self._call({"type": "Grizzly Battle Tank"})
+        self.assertFalse(result.accepted)
+        self.assertIn("can_afford", result.error)
+
+    def test_condition_passes_when_affordable(self):
+        self._build(money=10000)
+        result = self._call({"type": "Grizzly Battle Tank"})
+        self.assertTrue(result.accepted, result.error)
+
+    def test_resolvable_but_unaffordable_type_is_still_refused(self):
+        self._build(money=0)                 # 再穷一点，确认边界
+        result = self._call({"type": "Grizzly Battle Tank"})
+        self.assertFalse(result.accepted)
+        self.assertIn("can_afford", result.error)
+
+    def test_condition_not_given_params_judges_false(self):
+        # 受理点传的是原始请求，可能缺参数——条件要容忍，判否而不是抛
+        self._build()
+        result = self._call({})
+        self.assertFalse(result.accepted)
+        self.assertIn("缺少参数", result.error)          # 参数校验报得更具体
+
+    def test_bad_parameters_are_reported_before_conditions(self):
+        """参数错比条件错更具体——先说「缺少参数」，别拿 `can_afford` 挡回去。"""
+        self._build(money=100)
+        result = self._call({})
+        self.assertFalse(result.accepted)
+        self.assertIn("缺少参数", result.error)
+        self.assertNotIn("can_afford", result.error)
+
+    def test_card_screening_does_not_use_params(self):
+        """卡片筛选时没有参数，故参数型条件不会让卡片消失。"""
+        self._build()
+        names = [card.name for card in self.registry.cards(Mode.MATCH)]
+        self.assertIn("train_thing", names)
+
+
+class TestFailureReason(Case):
+    """失败原因要进 `status`——否则模型只看到「失败 N 个」，学不到东西。"""
+
+    def setUp(self):
+        self.build(make_state(objects=[tank(ALLY_A, (1, 1))]))
+
+    def _register_failing(self, error):
+        def run(context):
+            raise error
+        self.registry.register(Tactic(
+            TacticInfo(name="doomed", summary="注定失败"), run))
+
+    def test_reason_is_rendered_in_results(self):
+        from ra2agent.errors import TacticError
+        self._register_failing(TacticError("引擎说钱不够"))
+        self.commander.call([CallRequest(tactic="doomed",
+                                         units=(self.agent(ALLY_A),))])
+        self.tick(self.state)
+        report = self.commander.status()
+        self.assertEqual(len(report.results), 1)
+        self.assertEqual(report.results[0]["reason"], "引擎说钱不够")
+        self.assertIn("原因：引擎说钱不够", report.render())
+
+    def test_successful_result_has_no_reason_noise(self):
+        self.commander.call([CallRequest(tactic="hold_position",
+                                         units=(self.agent(ALLY_A),))])
+        self.tick(self.state)
+        report = self.commander.status()
+        self.assertEqual(report.results[0]["state"], "satisfied")
+        self.assertNotIn("原因：", report.render())
+
+    def test_expired_task_says_so(self):
+        self.commander.call([CallRequest(tactic="advance_to_cell",
+                                         units=(self.agent(ALLY_A),),
+                                         params={"cell": (5, 5)},
+                                         ttl_frames=1)])
+        later = make_state(frame=self.state.frame + 10,
+                           objects=[tank(ALLY_A, (1, 1))])
+        self.tick(later)
+        report = self.commander.status()
+        self.assertEqual(report.results[0]["state"], "expired")
+        self.assertIn("超过有效期", report.render())
 
 
 class TestStatusEvents(Case):

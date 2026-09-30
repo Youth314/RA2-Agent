@@ -73,8 +73,11 @@ class Autopilot:
         """跑一条技法并把它的意图各下发一次。"""
         name = tactic.info.name
         record = {"tactic": name, "frame": observation.frame, "kind": "pulse"}
-        # 门槛由 registry.run 强制执行；先问一次只为把「为什么没跑」记清楚
-        reason = self.registry.admit(name, observation, subject)
+        # 门槛由 registry.run 强制执行；先问一次只为把「为什么没跑」记清楚。
+        # 脉冲没有调用方给参数，故条件按补好的默认值判——自动触发的技法不许有必填参数
+        reason = self.registry.admit(
+            name, observation, subject,
+            self.registry.check_params(name, {}))
         if reason:
             record["skipped"] = reason
             self._log(observation, "auto_skipped", record)

@@ -59,12 +59,15 @@ DEFAULT_MAX_WAIT_FRAMES = 45
 
 #: 服务端 `error_message` 到稳定原因码的映射。
 #: 原文措辞不一，故按子串匹配；未命中的归入 `unknown`，原文随异常保留。
+#: `no_completed_object` 来自 `PlaceBuilding` 的实测原文（该建筑已不在任何工厂的
+#: 完工条目里），此前被归成 `unknown`，模型看不出是「手上没有可放的建筑」。
 ERROR_REASONS = (
     ("object not found", "object_missing"),
     ("illegal mission", "illegal_mission"),
     ("invalid unit action", "action_unimplemented"),
     ("invalid house", "invalid_house"),
     ("proximity check failed", "placement_blocked"),
+    ("not found from any factory", "no_completed_object"),
     ("unbuildable", "unbuildable"),
     ("invalid id", "invalid_type_id"),
 )

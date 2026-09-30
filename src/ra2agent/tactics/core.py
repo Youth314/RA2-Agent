@@ -77,6 +77,15 @@ def is_stance(value) -> bool:
     return value in tuple(Stance)
 
 
+def is_optional_cell(value) -> bool:
+    """可省略的格参数：`None` 或 `(x, y)`。
+
+    `Param` 的默认值也会过一遍检查，故「不填就用技法的兜底逻辑」这类参数不能挂
+    `is_cell`——`None` 会被判非法。
+    """
+    return value is None or is_cell(value)
+
+
 def is_non_negative_int(value) -> bool:
     """是否是非负整数。"""
     return (isinstance(value, int) and not isinstance(value, bool) and value >= 0)
@@ -499,7 +508,8 @@ class TacticRegistry:
         if not self.policy.allows(info):
             self._record(context, "tactic_denied", "被策略拒绝")
             raise TacticDenied(f"技法 {info.name}（{info.level}）被策略拒绝")
-        missing = self.missing_conditions(info, context.observation, context.subject)
+        missing = self.missing_conditions(info, context.observation, context.subject,
+                                          context.params)
         if missing:
             self._record(context, "tactic_denied", f"适用条件不满足：{missing}")
             raise TacticDenied(
@@ -516,11 +526,14 @@ class TacticRegistry:
         self._record(context, "tactic_run", f"产出 {len(intents)} 条意图")
         return intents
 
-    def admit(self, name, observation, subject) -> str:
+    def admit(self, name, observation, subject, params=None) -> str:
         """受理前的公共门槛：暴露、等级、适用条件。通过返回空串，否则返回原因。
 
         模型的 `call` 与自动触发都过这一条——**触发层不是后门**，等级门槛、停用
         名单、适用条件一项不少。
+
+        `params` 给了就传给条件：自动触发没有参数（技法不许有必填参数），模型调用
+        则带着它点名的参数。
         """
         try:
             info = self.get(name).info
@@ -530,7 +543,7 @@ class TacticRegistry:
             return "这是零件，只供组合技法调用"
         if not self.policy.allows(info):
             return f"等级 {info.level} 超出门槛，或已被停用"
-        missing = self.missing_conditions(info, observation, subject)
+        missing = self.missing_conditions(info, observation, subject, params)
         if missing:
             return f"此刻用不上：{'、'.join(missing)}"
         return ""
@@ -540,14 +553,22 @@ class TacticRegistry:
         return tuple(self._tactics[name] for name in sorted(self._tactics)
                      if self._tactics[name].info.trigger.automatic_triggered)
 
-    def missing_conditions(self, info, observation, subject) -> tuple:
-        """返回此刻不满足的适用条件名。"""
+    def missing_conditions(self, info, observation, subject, params=None) -> tuple:
+        """返回此刻不满足的适用条件名。
+
+        **参数要传进来**：`can_afford`、`cell_explored` 这类条件读 `context.params`，
+        探针不给参数时它们必然为假，挂进 `requires` 等于把技法藏起来。
+
+        `params` 可能是**未经 `check_params` 的原始请求**（受理点为了不改变拒因次序
+        而先判条件），故条件要自己容忍缺项与缺默认值。
+        """
         if not info.requires:
             return ()
         probe = TacticContext(
             registry=self, tactic=Tactic(info=info, run=lambda context: ()),
-            observation=observation, subject=subject, params={}, frame=0, memo={},
-            log=None, chain=(info.name,), attempt=0, budget=_Budget(0))
+            observation=observation, subject=subject, params=dict(params or {}),
+            frame=0, memo={}, log=None, chain=(info.name,), attempt=0,
+            budget=_Budget(0))
         return check_conditions(info.requires, probe)
 
     def check_params(self, name, params) -> dict:
