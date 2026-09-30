@@ -67,6 +67,45 @@ def make_host(stdout="", error=None, **kwargs):
     return GameHost(runner=runner, **kwargs), runner
 
 
+class TestFocusTargetsTheRightInstance(unittest.TestCase):
+    """同桌面两个同名实例时，按标题找窗口有歧义：路径对得上才算自己那一份。
+
+    实测两个测试 agent 都不肯用 `game focus`——怕抢到对手那个窗口、等于替对方按
+    暂停。按进程路径认出自己那一份之后，这个顾虑才消掉。
+    """
+
+    def _host(self, paths, focused):
+        from ra2agent.game import GameHost, ProcessInfo
+        host = GameHost(
+            focus_reset=lambda: focused.append("reset") or True,
+            path_probe=lambda pid: paths.get(pid, ""),
+            pid_window_probe=lambda pid: 100 + pid,
+            handle_focus=lambda handle: focused.append(handle) or True)
+        host.processes = lambda: (ProcessInfo(GAME_EXE, 11),
+                                  ProcessInfo(GAME_EXE, 22))
+        return host
+
+    def test_the_matching_process_wins(self):
+        focused = []
+        host = self._host({11: r"D:\Games\ra2probe\gamemd.exe",
+                           22: r"D:\Games\ra2probe-b\gamemd.exe"}, focused)
+        self.assertTrue(host.focus_game())
+        self.assertEqual(focused, [111], "该抓路径匹配的那一份")
+        self.assertIn("按进程 11", host.last_focus_route)
+
+    def test_a_prefix_sibling_is_not_mistaken_for_ours(self):
+        """`ra2probe` 与 `ra2probe-b` 互为前缀，比前缀会认错人。"""
+        host = self._host({11: r"D:\Games\ra2probe-b\gamemd.exe"}, [])
+        self.assertIsNone(host._own_pid())
+
+    def test_unmatched_path_falls_back_to_the_title_route(self):
+        focused = []
+        host = self._host({11: r"J:\elsewhere\gamemd.exe"}, focused)
+        self.assertTrue(host.focus_game())
+        self.assertEqual(focused, ["reset"])
+        self.assertIn("按标题", host.last_focus_route)
+
+
 # ---------------------------------------------------------------- 解析
 class TestParseProcesses(unittest.TestCase):
     def test_reads_pid(self):

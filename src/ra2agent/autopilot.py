@@ -63,13 +63,13 @@ class Autopilot:
         records = []
         for tactic in self.due(observation, events):
             self._last_run[tactic.info.name] = observation.frame
-            records.append(self._pulse(tactic, observation, subject))
+            records.append(self._pulse(tactic, observation, subject, events))
         if records:
             self.records.extend(records)
             del self.records[:-self.max_records]
         return tuple(records)
 
-    def _pulse(self, tactic, observation, subject):
+    def _pulse(self, tactic, observation, subject, events=()):
         """跑一条技法并把它的意图各下发一次。"""
         name = tactic.info.name
         record = {"tactic": name, "frame": observation.frame, "kind": "pulse"}
@@ -84,7 +84,8 @@ class Autopilot:
             return record
         try:
             intents = self.registry.run(name, observation=observation,
-                                        subject=subject, frame=observation.frame)
+                                        subject=subject, frame=observation.frame,
+                                        events=events)
         except Ra2Error as error:
             record["error"] = str(error)
             self._log(observation, "auto_failed", record)

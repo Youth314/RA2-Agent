@@ -38,6 +38,12 @@ class EventKind(str, Enum):
     INSUFFICIENT_FUNDS = "insufficient_funds"
     INFILTRATED = "infiltrated"
     PLAYER_DEFEATED = "player_defeated"
+    #: 己方对象**从地图上消失**（被打掉）。完工待放置的那一栋不算——它只是进了
+    #: limbo，指针还在。
+    OBJECT_LOST = "object_lost"
+    #: 新出现一栋**完工待放置**的建筑。放哪儿是模型的事（「电厂往矿区那边放」
+    #: 这类判断），故要把它叫回来看一眼。
+    PLACEMENT_READY = "placement_ready"
 
 
 KIND_LABEL.update({
@@ -45,6 +51,8 @@ KIND_LABEL.update({
     EventKind.INSUFFICIENT_FUNDS: "资金不足",
     EventKind.INFILTRATED: "被渗透",
     EventKind.PLAYER_DEFEATED: "玩家出局",
+    EventKind.OBJECT_LOST: "损失单位/建筑",
+    EventKind.PLACEMENT_READY: "建筑完工待放置",
 })
 
 
@@ -96,6 +104,12 @@ class Event:
             return f"被{self.data.get('side_label', '')}渗透"
         if self.kind is EventKind.PLAYER_DEFEATED:
             return f"{self.subject.render()} 被击败"
+        if self.kind is EventKind.OBJECT_LOST:
+            names = "、".join(self.data.get("names", ())) or "对象"
+            return f"损失 {self.data.get('count', 1)} 个：{names}"
+        if self.kind is EventKind.PLACEMENT_READY:
+            names = "、".join(self.data.get("names", ())) or "建筑"
+            return f"完工待放置：{names}"
         return self.kind.value
 
 
@@ -207,8 +221,62 @@ def detect(before, after, policy=None) -> tuple:
     events += _detect_low_power(before.house, me, after.frame, policy)
     events += _detect_funds(before.house, me, after.frame, policy)
     events += _detect_infiltration(before.house, me, after.frame, policy)
+    events += _detect_losses(before, after, policy)
+    events += _detect_placement(before, after, policy)
     events += _detect_defeats(before, after, me, policy)
     return tuple(events)
+
+
+def _detect_placement(before, after, policy):
+    """**新**出现一栋完工待放置的建筑时报一次。
+
+    放哪儿是模型的事（往矿区那边放、还是先占住路口），所以这条要能把它叫回来。
+    已经报过的（上一帧就在 limbo 里）不再报——否则每拍都会叫一次。
+    """
+    if after.state is None or before.state is None:
+        return ()
+    fresh = []
+    for obj in after.state.own_objects():
+        if not obj.in_limbo:
+            continue
+        old = before.state.object(obj.pointer)
+        if old is not None and old.in_limbo:
+            continue                     # 上一帧就在等放置，不是新事
+        fresh.append(obj)
+    if not fresh:
+        return ()
+    types = getattr(after, "types", None)
+    names = []
+    for obj in fresh:
+        name = types.name(obj, "") if types is not None else ""
+        if name and name not in names:
+            names.append(name)
+    return (Event(kind=EventKind.PLACEMENT_READY, frame=after.frame,
+                  subject=subject_of(after.house, after.house),
+                  data={"count": len(fresh), "names": tuple(names)}),)
+
+
+def _detect_losses(before, after, policy):
+    """己方对象从地图上消失时报一次。
+
+    **判据是「指针不在这一帧的对象表里」**，不是「不在 `own` 里」：建筑完工待放置
+    时会进 limbo、从 `own` 里消失，但指针还在——那是去放置，不是被打掉。
+    """
+    if after.state is None or not before.own:
+        return ()
+    lost = [obj for obj in before.own
+            if after.state.object(obj.pointer) is None]
+    if not lost:
+        return ()
+    types = getattr(after, "types", None)
+    names = []
+    for obj in lost:
+        name = types.name(obj, "") if types is not None else ""
+        if name and name not in names:
+            names.append(name)
+    return (Event(kind=EventKind.OBJECT_LOST, frame=after.frame,
+                  subject=subject_of(after.house, after.house),
+                  data={"count": len(lost), "names": tuple(names)}),)
 
 
 def _detect_low_power(before, after, frame, policy):

@@ -128,6 +128,32 @@ def game_windows(substring=GAME_TITLE):
             if substring.lower() in title.lower()]
 
 
+def process_path(pid):
+    """某个进程的可执行文件路径（Windows 形式）；取不到给空串。
+
+    同桌面两个同名窗口时，**路径是唯一能认出「哪一份是我们连的那个」的东西**
+    （名册里每个参与者有自己的 `game_dir`）。
+    """
+    return _run(f"(Get-Process -Id {int(pid)} -ErrorAction SilentlyContinue).Path").strip()
+
+
+def window_of_process(pid):
+    """某个进程主窗口的 handle；进程不存在或没有窗口给 `None`。"""
+    text = _run(f"(Get-Process -Id {int(pid)} -ErrorAction SilentlyContinue)"
+                f".MainWindowHandle").strip()
+    try:
+        handle = int(text)
+    except ValueError:
+        return None
+    return handle or None
+
+
+def focus_process(pid):
+    """把某个进程的主窗口置前。认不出窗口时返回假。"""
+    handle = window_of_process(pid)
+    return focus_handle(handle) if handle is not None else False
+
+
 def focus_handle(handle):
     """还原并置前指定窗口。"""
     return _run(f'[W]::Focus({handle})').strip().lower() == "true"

@@ -57,8 +57,43 @@ class WakePolicy:
         return cls(**data)
 
 
+def _error_of(body):
+    """插件回话里的 `error` 字段；读不出就给原文。
+
+    回话是 JSON（中文可能被转义），直接塞进 `record["error"]` 会让人读到一坨
+    `\\u4f1a\\u8bdd`。这里取出那句人话。
+    """
+    try:
+        data = json.loads(body or "")
+    except ValueError:
+        return (body or "").strip()
+    if isinstance(data, dict) and isinstance(data.get("error"), str):
+        return data["error"]
+    return (body or "").strip()
+
+
+def _verdict(body):
+    """从桥插件的回话里读 `ok` 字段。
+
+    插件对「能解析但拒绝」的请求回的是 **HTTP 200 + `{"ok": false, "error": …}`**
+    （会话不存在、持久化没确认都是这种）。故只看 HTTP 码会把这种失败当成功。
+    不是 JSON 或没有 `ok` 字段时给 `None`——无从判断，就别替它下结论。
+    """
+    try:
+        data = json.loads(body or "")
+    except ValueError:
+        return None
+    if isinstance(data, dict) and "ok" in data:
+        return bool(data["ok"])
+    return None
+
+
 def _post(endpoint, payload, timeout):
-    """投一次 HTTP。返回 `(ok, 正文)`；网络问题归到 `(False, 原因)`。"""
+    """投一次 HTTP，返回 `(HTTP 成功?, 正文)`。网络问题归到 `(False, 原因)`。
+
+    **判成败不在这里**：插件对「能解析但拒绝」的请求回 HTTP 200 + `{"ok": false}`，
+    故由 `WakeBridge.request` 读回话里的 `ok`（见 `_verdict`）。
+    """
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     request = urllib.request.Request(
         endpoint, data=body, method="POST",
@@ -116,6 +151,10 @@ class WakeBridge:
 
         payload = self._payload(text, frame, tactic, session)
         ok, body = self._post(self.endpoint, payload, self.timeout)
+        if ok and _verdict(body) is False:
+            # 插件明说失败（HTTP 200 + ok:false）——曾经把它记成「已唤醒」，那条说明
+            # 随即被清出待发队列，永久丢掉，而 status 也不报（它只报没送出去的）。
+            ok = False
         record["sent"] = ok
         if ok:
             self._sent += 1
@@ -125,7 +164,7 @@ class WakeBridge:
         else:
             # 投不出去就留着，下次并进去重投——静默丢事件比报错糟得多
             self._pending.append(text)
-            record["error"] = body
+            record["error"] = _error_of(body)
         return self._keep(record)
 
     @property

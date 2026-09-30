@@ -216,7 +216,7 @@ class FakeHost(GameHost):
     """离线替身：外部调用全换掉，只留 `inspect`/`describe` 的真实拼装。"""
 
     def __init__(self, processes=(), listening=False, focused=True, crash_age=None,
-                 windows=(), focus_ok=True):
+                 windows=(), focus_ok=True, focus_route="按进程 7 认准"):
         super().__init__(runner=lambda argv, timeout=None: None,
                          focus_probe=lambda: focused,
                          focus_reset=lambda: focus_ok,
@@ -226,6 +226,7 @@ class FakeHost(GameHost):
         self._listening = listening
         self._crash_age = crash_age
         self._focus_ok = focus_ok
+        self.last_focus_route = focus_route
         self.launched = False
         self.terminated = False
         self.focus_calls = 0
@@ -395,14 +396,23 @@ class TestGameTool(unittest.TestCase):
                       session.call_tool("game", {"action": "focus"}))
         self.assertEqual(host.focus_calls, 1)
 
-    def test_focus_says_how_many_same_named_windows_it_saw(self):
-        """两个同名实例同桌面时，按标题找窗口有歧义——得说清找了个几个。"""
+    def test_focus_reports_which_route_it_took(self):
+        """同桌面两个同名实例时，说清是「按进程认准」还是「按标题取第一个」。"""
         session, _ = game_session(
             processes=(ProcessInfo("gamemd-spawn-ra2yrcpp.exe", 7),),
-            windows=((11, "Yuri's Revenge"), (22, "Yuri's Revenge")))
+            windows=((11, "Yuri's Revenge"), (22, "Yuri's Revenge")),
+            focus_route="按进程 7 认准")
         text = session.call_tool("game", {"action": "focus"})
         self.assertIn("已把游戏窗口置前", text)
-        self.assertIn("同名窗口有 2 个", text)
+        self.assertIn("按进程 7 认准", text)
+
+    def test_focus_warns_when_it_could_only_guess_by_title(self):
+        session, _ = game_session(
+            processes=(ProcessInfo("gamemd-spawn-ra2yrcpp.exe", 7),),
+            windows=((11, "Yuri's Revenge"), (22, "Yuri's Revenge")),
+            focus_route="按标题取第一个（同名实例分辨不出是哪一份）")
+        text = session.call_tool("game", {"action": "focus"})
+        self.assertIn("分辨不出是哪一份", text)
 
     def test_focus_failure_says_what_it_found(self):
         """置前失败时别只说「没找到？」——找到几个、成没成要分开说。"""

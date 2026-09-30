@@ -82,7 +82,7 @@ class TestRegistration(unittest.TestCase):
 
     def test_builtin_library_loads(self):
         registry = TacticRegistry().load_builtin()
-        self.assertEqual(len(registry), 12)
+        self.assertEqual(len(registry), 13)
         self.assertIn("advance_covering", registry.names())
         self.assertIn("hold_and_fire", registry.names())
         self.assertIn("deploy_mcv", registry.names())
@@ -95,7 +95,9 @@ class TestRegistration(unittest.TestCase):
 
     def test_opening_tactic_declares_a_trigger(self):
         registry = TacticRegistry().load_builtin()
-        self.assertEqual([t.info.name for t in registry.automatic()], ["deploy_mcv"])
+        # `deploy_mcv` 按帧跑；`report_trouble` 按事件跑（出事才叫模型回来）
+        self.assertEqual([t.info.name for t in registry.automatic()],
+                         ["deploy_mcv", "report_trouble"])
 
     def test_param_conditions_do_not_hide_cards(self):
         """读参数的条件在「没有参数」时跳过，不判否。
@@ -119,6 +121,42 @@ class TestRegistration(unittest.TestCase):
         # 给了参数（哪怕不完整）就照判：受理时的拒绝仍要诚实
         self.assertIn("can_afford", registry.missing_conditions(
             registry.get("train_unit").info, observation, subject, {}))
+
+    def test_report_trouble_wakes_only_on_watched_events(self):
+        """出事才把模型叫回来；没事空转，别的事也不吵。
+
+        这是「事件 → 唤醒」那条链的技法端：此前**没有任何技法发过 `Wake`**，
+        整条路在实机上一次都没走通。
+        """
+        from ra2agent.events import Event, EventKind, Subject
+        registry = TacticRegistry().load_builtin()
+        lost = Event(kind=EventKind.OBJECT_LOST, frame=100,
+                     subject=Subject("house", 0, "me"),
+                     data={"count": 1, "names": ("Grizzly Battle Tank",)})
+        intents = registry.run("report_trouble", observation=make_observation(),
+                               subject=FakeSubject(), events=(lost,))
+        self.assertEqual([i.kind for i in intents], ["wake"])
+        self.assertIn("Grizzly", intents[0].text)
+
+        self.assertEqual(registry.run("report_trouble",
+                                      observation=make_observation(),
+                                      subject=FakeSubject()), ())
+        quiet = Event(kind=EventKind.INSUFFICIENT_FUNDS, frame=100,
+                      subject=Subject("house", 0, "me"))
+        self.assertEqual(registry.run("report_trouble",
+                                      observation=make_observation(),
+                                      subject=FakeSubject(), events=(quiet,)), ())
+        # 建筑完工也要叫人，并附上「放哪儿」的指路
+        ready = Event(kind=EventKind.PLACEMENT_READY, frame=100,
+                      subject=Subject("house", 0, "me"),
+                      data={"count": 1, "names": ("Allied Power Plant",)})
+        intents = registry.run("report_trouble", observation=make_observation(),
+                               subject=FakeSubject(), events=(ready,))
+        self.assertEqual([i.kind for i in intents], ["wake"])
+        self.assertIn("完工待放置", intents[0].text)
+        self.assertIn("可选落点", intents[0].text)
+        # 它是零件：模型直接调没有意义（没有事件可报），故不进卡片
+        self.assertFalse(registry.get("report_trouble").info.expose)
 
     def test_non_param_conditions_still_filter_cards(self):
         """不读参数的条件照旧筛卡片——「跳过」只针对读参数的。"""

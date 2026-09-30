@@ -57,6 +57,9 @@ TACTICS = (
         summary="让建造厂开始生产一栋建筑；造好后还要 place_ready_building 放下",
         params=(Param("type", REQUIRED, "建筑的注册名或显示名，如 GAPOWR",
                       is_non_empty_str),),
-        requires=("can_afford", "has_construction_yard", "prereq_met"),
+        # `type_not_pending` 挡同型重复下单：原版对建筑不允许同型排队，第二次下单
+        # 会被引擎悄悄吞掉（实测第二座矿厂走到 37/54 后无声消失）。
+        requires=("can_afford", "has_construction_yard", "prereq_met",
+                  "type_not_pending"),
     ), _produce),
 )

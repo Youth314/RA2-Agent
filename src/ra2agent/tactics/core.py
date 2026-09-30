@@ -239,7 +239,7 @@ class TacticContext:
     """
 
     def __init__(self, *, registry, tactic, observation, subject, params, frame,
-                 memo, log, chain, attempt, budget):
+                 memo, log, chain, attempt, budget, events=()):
         self._registry = registry
         self.tactic = tactic
         self.observation = observation
@@ -251,6 +251,9 @@ class TacticContext:
         self.chain = chain
         self.attempt = attempt
         self._budget = budget
+        #: 这一拍新发生的事件（自动触发时由触发层带下来）。**编队任务里为空**：
+        #: 事件只喂给「按事件触发的脉冲」，否则同一件事会被每条在管任务各报一次。
+        self.events = tuple(events or ())
 
     @property
     def name(self) -> str:
@@ -480,7 +483,7 @@ class TacticRegistry:
 
     # ------------------------------------------------------------ 调用
     def run(self, name, *, observation, subject, params=None, frame=0, memo=None,
-            log=None, attempt=0) -> tuple:
+            log=None, attempt=0, events=()) -> tuple:
         """顶层调用：校验参数、建上下文、调用、检查产出总量。"""
         tactic = self.get(name)
         clean = self.check_params(name, params or {})
@@ -488,7 +491,7 @@ class TacticRegistry:
             registry=self, tactic=tactic, observation=observation, subject=subject,
             params=clean, frame=frame, memo=memo if memo is not None else {},
             log=log or self.log, chain=(name,), attempt=attempt,
-            budget=_Budget(self.policy.max_calls))
+            budget=_Budget(self.policy.max_calls), events=events)
         intents = self._invoke(context)
         if len(intents) > self.policy.max_intents:
             raise TacticError(
@@ -544,20 +547,21 @@ class TacticRegistry:
         return intents
 
     def admit(self, name, observation, subject, params=None) -> str:
-        """受理前的公共门槛：暴露、等级、适用条件。通过返回空串，否则返回原因。
+        """受理前的公共门槛：等级、适用条件。通过返回空串，否则返回原因。
 
-        模型的 `call` 与自动触发都过这一条——**触发层不是后门**，等级门槛、停用
-        名单、适用条件一项不少。
+        **这条闸只给自动触发用**（全仓库只有 `Autopilot._pulse` 调它）。等级门槛、
+        停用名单、适用条件一项不少——触发层不是后门。
 
-        `params` 给了就传给条件：自动触发没有参数（技法不许有必填参数），模型调用
-        则带着它点名的参数。
+        **不看 `expose`**：`expose` 是「给不给模型看卡片」的概念，模型调用在
+        `Command._accept` 里单独判。放在这里会出真事：自动层按 `trigger` 选定一条
+        非暴露的技法（`automatic()` 本来就不看 expose），随后被这道闸拒掉、连
+        `run` 都不调——`report_trouble` 就这么哑了整条唤醒链（触发命中 → 静默跳过，
+        实机表现是「出了事没人叫模型」）。
         """
         try:
             info = self.get(name).info
         except TacticError as error:
             return str(error)
-        if not info.expose:
-            return "这是零件，只供组合技法调用"
         if not self.policy.allows(info):
             return f"等级 {info.level} 超出门槛，或已被停用"
         missing = self.missing_conditions(info, observation, subject, params)

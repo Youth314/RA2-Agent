@@ -525,9 +525,10 @@ class TestPlacement(Case):
 
     def test_reports_building_with_agent_id(self):
         report = self.commander.status()
-        self.assertEqual(len(report.placement), 1)
-        self.assertIn(f"#{self.agent(PENDING)}", report.placement[0])
-        self.assertIn(BUILDING_TYPE_NAME, report.placement[0])
+        self.assertEqual(report.placement_count, 1)
+        text = "\n".join(report.placement)
+        self.assertIn(f"#{self.agent(PENDING)}", text)
+        self.assertIn(BUILDING_TYPE_NAME, text)
         self.assertIn("待放置 1 栋", report.render())
 
     def test_placement_line_does_not_print_a_misleading_cell(self):
@@ -536,12 +537,34 @@ class TestPlacement(Case):
         self.assertNotIn("格", report.placement[0])
         self.assertIn("等待放置", report.placement[0])
 
-    def test_reports_legal_sites_and_tells_model_how_to_use_them(self):
+    def test_reports_legal_sites_with_bearings(self):
+        """落点要带**方位**：模型不该为了放个电厂去算坐标。"""
         report = self.commander.status()
         self.assertEqual(report.sites, ((4, 3), (2, 3)))
-        self.assertIn("可选落点：(4,3)、(2,3)", report.render())
-        self.assertIn("place_ready_building", report.render())
+        text = report.render()
+        self.assertIn("可选落点 2 格", text)
+        self.assertIn("例如 (4,3)、(2,3)", text)
+        self.assertIn("place_ready_building", text)
         self.assertEqual(report.placement_note, "")
+
+    def test_each_pending_building_gets_its_own_sites(self):
+        """一栋一问：不同建筑占地不同，引擎给的合法格也不同。
+
+        以前只问第一栋，第二栋跟着显示第一栋的落点——实测被报成「2×2 与 3×3
+        混在一个列表里」。
+        """
+        state = make_state(
+            objects=[building(YARD, (3, 3)),
+                     building(PENDING, (3, 3), in_limbo=True),
+                     building(0xC3, (5, 5), in_limbo=True)],
+            factories=[factory(PLAYER_HOUSE, PENDING, timer=54),
+                       factory(PLAYER_HOUSE, 0xC3, timer=54)])
+        self.client = FakePlaceQueryClient(legal=[(4, 3), (2, 3)])
+        self.build(state, client=self.client, types=make_types())
+        report = self.commander.status()
+        self.assertEqual(report.placement_count, 2)
+        self.assertEqual(len(self.client.queries), 2, "两栋各问了一次引擎")
+        self.assertIn("可选落点 2 格", report.render())
 
     def test_queries_engine_with_a_real_house_pointer(self):
         # PlaceQuery.house_class 传 0 会被拒，故必须是真实阵营指针
@@ -806,6 +829,32 @@ class TestPrerequisiteGate(Case):
         self.assertFalse(result.accepted)
         self.assertIn("prereq_met", result.error)
         self.assertIn("可造", result.error)      # 提示指向那段，那里写着「临水…」
+
+    def test_ordering_the_same_structure_twice_is_refused(self):
+        """同型建筑已在生产队列或待放置里，就不再收第二单。
+
+        原版对建筑不允许同型重复排队，第二次下单被引擎悄悄吞掉——任务既不结算也
+        没产出（实测第二座矿厂走到 37/54 后无声消失）。故拦在受理点并说清原因。
+        """
+        state = make_state(
+            objects=[building(YARD, (3, 3)),
+                     building(PENDING, (3, 3), in_limbo=True)],
+            factories=[factory(PLAYER_HOUSE, PENDING, timer=54)])
+        observation = Observation(
+            frame=state.frame, house=state.player_house(),
+            own=tuple(o for o in state.objects
+                      if o.house == PLAYER_HOUSE and not o.in_limbo),
+            visible_enemies=(), neutral=(), state=state, map_data=MAP,
+            types=make_types(), catalogue=Catalogue([
+                Entry(id="GAPOWR", name=BUILDING_TYPE_NAME, kind="building",
+                      cost=800, tech_level=1, prerequisite=("GACNST",),
+                      owners=("Alliance",)),
+            ]))
+        self.build(state, observation=observation, types=make_types())
+        result = self._call(BUILDING_TYPE_NAME)      # 就是那栋待放置的类型
+        self.assertFalse(result.accepted)
+        self.assertIn("type_not_pending", result.error)
+        self.assertIn("已经在生产队列或已完工待放置", result.error)
 
     def test_met_prerequisites_are_accepted(self):
         self._build()

@@ -423,9 +423,10 @@ class GameSession:
             return "游戏没在跑，无法抢焦点。用 game start 启动。"
         windows = list(self.game_host.window_probe())
         if self.game_host.focus_game():
-            note = (f"（同名窗口有 {len(windows)} 个，按标题取了第一个——"
-                    f"多实例同桌面时请用 game status 的帧号确认是不是你要的那个）"
-                    if len(windows) > 1 else "")
+            route = getattr(self.game_host, "last_focus_route", "")
+            note = f"（{route}）" if route else ""
+            if len(windows) > 1 and "按标题" in route:
+                note += "——同名实例分辨不出是哪一份，请用 game status 的帧号确认"
             return f"已把游戏窗口置前{note}。"
         if not windows:
             return "没能置前——没找到标题含游戏名的窗口。"

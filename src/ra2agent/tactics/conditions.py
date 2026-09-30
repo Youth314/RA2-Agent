@@ -63,6 +63,8 @@ HINTS = {
     "prereq_met": "建造前提没满足，或这个类型不在可造清单里（见 status 的「可造」段）",
     "cell_passable": "目标格不可通行或在地图外（水、岩石、墙）",
     "can_afford": "钱不够",
+    "type_not_pending": "这一型已经在生产队列或已完工待放置了"
+                        "——先把它放下/等它出来，别重复下同一单",
 }
 
 
@@ -267,3 +269,42 @@ def has_factory(context) -> bool:
     """
     state = context.observation.state
     return bool(state is not None and state.own_factories())
+
+
+@condition("type_not_pending", needs_params=True)
+def type_not_pending(context) -> bool:
+    """参数点名的类型**不在**生产队列里、也不在待放置里。
+
+    原版对建筑不允许同型重复排队：第二次同型下单会被引擎**悄悄吞掉**——任务既不
+    结算也没有产出（实测「第二座矿厂走到 37/54 后无声消失、也没有 failed 结果」）。
+    把它拦在受理点，模型当场知道该先放下或等它出来，而不是白等一场。
+
+    解析不出类型名时判真：名字本身有问题该由 `can_afford` / `prereq_met` 去报，
+    不在这里叠一条。
+    """
+    name = _param_type(context)
+    want = context.type_pointer(name) if name else None
+    if want is None:
+        return True
+    return want not in _pending_type_pointers(context)
+
+
+def _pending_type_pointers(context):
+    """正在生产或已完工待放置的对象类型指针。"""
+    state = context.observation.state
+    types = context.types
+    if state is None or types is None:
+        return frozenset()
+    out = set()
+    for factory in state.own_factories():
+        pointers = list(factory.queued_objects)
+        if factory.completed:
+            # 建筑厂完工时产出物就是 `factory.object`；单位厂这里加的是厂自己，
+            # 与「请求的类型」不会撞上，无害。
+            pointers.append(factory.object)
+        for pointer in pointers:
+            obj = state.object(pointer)
+            entry = types.info(obj) if obj is not None else None
+            if entry is not None:
+                out.add(entry.pointer)
+    return frozenset(out)

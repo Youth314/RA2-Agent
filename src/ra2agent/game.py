@@ -110,7 +110,8 @@ class GameHost:
     def __init__(self, runner=None, host=DEFAULT_HOST, port=DEFAULT_PORT,
                  game_dir=GAME_DIR, game_dir_wsl=GAME_DIR_WSL, exe=GAME_EXE,
                  crash_report=None, focus_probe=None, focus_reset=None,
-                 window_probe=None, port_probe=None, now=time.time):
+                 window_probe=None, port_probe=None, now=time.time,
+                 path_probe=None, pid_window_probe=None, handle_focus=None):
         self.runner = runner or default_runner
         self.host = host
         self.port = port
@@ -122,6 +123,12 @@ class GameHost:
         self.focus_reset = focus_reset or winfocus.reset
         #: 标题含游戏名的窗口清单。报「置前失败」时要能说清找到了几个。
         self.window_probe = window_probe or winfocus.game_windows
+        #: 进程路径与窗口句柄：用来在同名实例之间认准自己那一份。
+        self.process_path = path_probe or winfocus.process_path
+        self.window_of_process = pid_window_probe or winfocus.window_of_process
+        self.focus_handle = handle_focus or winfocus.focus_handle
+        #: 上一次 `focus_game()` 走的哪条路，供 `game focus` 回报。
+        self.last_focus_route = ""
         self.port_probe = port_probe or self._probe_over_socket
         self.now = now
         #: 本进程最近一次 `launch()` 的时刻；用于判断留证是不是这次的事。
@@ -194,10 +201,33 @@ class GameHost:
     def focus_game(self):
         """把游戏窗口置前，返回是否成功。
 
-        失焦即暂停主循环，而**光把它设成前台不会恢复**：`SetForegroundWindow`
-        对已经在前台的窗口不产生切换。实现见 `winfocus.reset`。
+        先按**进程路径**认准自己那一份（同桌面两个同名实例时按标题找有歧义：先找到
+        的那个未必是我们连的那一份），认不出再退回标题路径。标题那条路走
+        `winfocus.reset`：`SetForegroundWindow` 对已经在前台的窗口不产生切换，
+        先移开再置前才造得出真正的切换。
         """
+        pid = self._own_pid()
+        if pid is not None:
+            handle = self.window_of_process(pid)
+            if handle is not None and self.focus_handle(handle):
+                self.last_focus_route = f"按进程 {pid} 认准"
+                return True
+        self.last_focus_route = "按标题取第一个（同名实例分辨不出是哪一份）"
         return self.focus_reset()
+
+    def _own_pid(self):
+        """可执行文件落在 `self.game_dir` 里的那个游戏进程；认不出给 `None`。
+
+        比目录而不是比前缀：`ra2probe` 与 `ra2probe-b` 互为前缀，比前缀会认错人。
+        """
+        wanted = (self.game_dir or "").rstrip("\\/").lower()
+        if not wanted:
+            return None
+        for process in self.processes():
+            path = (self.process_path(process.pid) or "").strip().lower()
+            if path and path.rsplit("\\", 1)[0] == wanted:
+                return process.pid
+        return None
 
     # ------------------------------------------------------------ 报告
     def inspect(self):

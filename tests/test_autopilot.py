@@ -8,11 +8,12 @@ import unittest
 from ra2agent.autopilot import Autopilot, kind_of
 from ra2agent.errors import CommandFailed, TacticError
 from ra2agent.events import Event, EventKind, Subject
-from ra2agent.intents import Deploy
+from ra2agent.intents import Deploy, Wake
 from ra2agent.observation import Observation
 from ra2agent.state import GameState
 from ra2agent.tactics import (Level, Param, Tactic, TacticInfo, TacticPolicy,
                               TacticRegistry, Trigger)
+from ra2agent.wake import WakeBridge
 from tests.fixtures import PLAYER_HOUSE, build_game_state, build_house
 
 
@@ -156,6 +157,80 @@ class TestPulse(AutopilotCase):
         for frame in range(100, 220, 30):
             self.autopilot.run(observation(frame), (), self.subject())
         self.assertLessEqual(len(self.autopilot.records), 3)
+
+
+class TestEventWakesTheModel(AutopilotCase):
+    """「出事 → 把模型叫回来」这条链：事件 → 触发 → `Wake` → 唤醒桥投递。
+
+    模型平时不在场（自动层自己跑）；只有事件驱动的那条路能把它叫回来。此前**没有
+    任何技法发过 `Wake`**，所以这条链虽然齐备，实机上一次都没走通过。
+    """
+
+    def build_with_wake(self, tactics):
+        self.registry = TacticRegistry().load(tactics)
+        self.executor = FakeExecutor()
+        self.posted = []
+
+        def poster(endpoint, payload, timeout):
+            self.posted.append(payload)
+            return True, "已唤醒"
+
+        self.bridge = WakeBridge(poster=poster)
+        self.autopilot = Autopilot(self.registry, self.executor, wake=self.bridge)
+        return self.autopilot
+
+    def test_an_event_wakes_the_model_with_the_event_text(self):
+        def run(ctx):
+            self.assertEqual(len(ctx.events), 1, "技法要看得到当拍事件")
+            return (ctx.intent(Wake, text="电力不足（150/100）"),)
+
+        self.build_with_wake([tactic("a", run, Trigger.on(EventKind.LOW_POWER))])
+        records = self.autopilot.run(observation(),
+                                     (event(EventKind.LOW_POWER),), self.subject())
+        self.assertEqual(len(self.posted), 1)
+        self.assertIn("电力不足", self.posted[0]["text"])
+        self.assertTrue(records[0]["wakes"][0]["sent"])
+
+    def test_the_real_report_trouble_tactic_wakes_the_model(self):
+        """用**真技法**走一遍这条链。
+
+        实机踩过的坑：`report_trouble` 是 `expose=False`，自动层按事件选中它、却被
+        `admit` 的 expose 闸拒掉，连 `run` 都不调——离线全绿（假技法默认
+        `expose=True`），实机哑了整条唤醒链。故这里必须用内置库里的那一条。
+        """
+        self.registry = TacticRegistry().load_builtin()
+        self.executor = FakeExecutor()
+        self.posted = []
+
+        def poster(endpoint, payload, timeout):
+            self.posted.append(payload)
+            return True, "已唤醒"
+
+        self.autopilot = Autopilot(self.registry, self.executor,
+                                   wake=WakeBridge(poster=poster))
+        self.autopilot.run(observation(), (event(EventKind.OBJECT_LOST),),
+                           self.subject())
+        self.assertEqual(len(self.posted), 1, "真技法没把唤醒送出去")
+        self.assertIn("损失", self.posted[0]["text"])
+
+    def test_no_event_no_wake(self):
+        self.build_with_wake([tactic(
+            "a", lambda ctx: (ctx.intent(Wake, text="不该发生"),),
+            Trigger.on(EventKind.LOW_POWER))])
+        self.autopilot.run(observation(), (), self.subject())
+        self.assertEqual(self.posted, [])
+
+    def test_the_bridge_holds_back_a_second_wake_too_soon(self):
+        """限流在桥上：两次唤醒太近就攒着，下一次并成一条投出去。"""
+        self.build_with_wake([tactic(
+            "a", lambda ctx: (ctx.intent(Wake, text="又出事"),),
+            Trigger.on(EventKind.LOW_POWER))])
+        self.autopilot.run(observation(100), (event(EventKind.LOW_POWER, 100),),
+                           self.subject())
+        self.autopilot.run(observation(110), (event(EventKind.LOW_POWER, 110),),
+                           self.subject())
+        self.assertEqual(len(self.posted), 1, "第二次太近，没有立刻投")
+        self.assertEqual(len(self.bridge.pending), 1, "但也没丢")
 
 
 class TestAdmissionIsShared(AutopilotCase):

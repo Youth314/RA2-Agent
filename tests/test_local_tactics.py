@@ -153,9 +153,10 @@ class TestBuildChain(unittest.TestCase):
 
     def test_status_offers_a_site_for_the_pending_building(self):
         report = self.commander.status()
-        self.assertEqual(len(report.placement), 1)
+        self.assertEqual(report.placement_count, 1)
         self.assertEqual(report.sites, ((4, 3),))
-        self.assertIn("可选落点：(4,3)", report.render())
+        self.assertIn("可选落点 1 格", report.render())
+        self.assertIn("例如 (4,3)", report.render())
 
     def test_model_call_reaches_a_place_intent(self):
         """模型一条 call 就能做到放置——不必给技法硬编码落点。"""

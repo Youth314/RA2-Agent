@@ -148,6 +148,57 @@ class TestFailure(WakeCase):
         self.assertLessEqual(len(self.bridge.records), 3)
 
 
+class TestPluginVerdict(unittest.TestCase):
+    """插件用 **HTTP 200 + `{"ok": false}`** 表示「能解析但拒绝」。
+
+    只看 HTTP 码会把这种失败当成功：那条说明随即被清出待发队列、**永久丢掉**，
+    而 `status` 也不报（它只报没送出去的）。实测踩过——所以这里钉住。
+    """
+
+    def test_ok_false_body_counts_as_failure(self):
+        from ra2agent.wake import _post, _verdict
+        self.assertFalse(_verdict('{"ok":false,"error":"会话无法解析"}'))
+        self.assertTrue(_verdict('{"ok":true,"session":"x"}'))
+        self.assertIsNone(_verdict("不是 JSON"))
+        self.assertIsNone(_verdict('{"session":"x"}'))
+
+    def test_rejected_request_keeps_the_text_pending(self):
+        import json as _json
+
+        def poster(endpoint, payload, timeout):
+            return True, _json.dumps({"ok": False, "error": "会话无法解析"})
+
+        bridge = WakeBridge(poster=poster, policy=WakePolicy(min_frames=1))
+        record = bridge.request("要紧的事", frame=1)
+        self.assertFalse(record["sent"], "插件明说失败，不能记成已送达")
+        self.assertEqual(bridge.pending, ("要紧的事",))
+
+    def test_http_post_reads_the_verdict(self):
+        """走真 `_post` 也要按回话判——不能只看 HTTP 码。"""
+        import json as _json
+        from unittest import mock
+
+        from ra2agent import wake as wake_module
+
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+            def read(self):
+                return _json.dumps({"ok": False, "error": "会话不存在"}).encode()
+
+        bridge = WakeBridge(policy=WakePolicy(min_frames=1))
+        with mock.patch.object(wake_module.urllib.request, "urlopen",
+                               return_value=Response()):
+            record = bridge.request("要紧的事", frame=1)
+        self.assertFalse(record["sent"])
+        self.assertIn("会话不存在", record["error"])
+        self.assertEqual(bridge.pending, ("要紧的事",))
+
+
 class TestPolicyConfig(unittest.TestCase):
     def load(self, payload):
         directory = tempfile.mkdtemp()

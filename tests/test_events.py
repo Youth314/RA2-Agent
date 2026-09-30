@@ -28,6 +28,94 @@ def other(**kwargs):
     return build_house(ENEMY_HOUSE, **kwargs)
 
 
+class TestObjectLoss(unittest.TestCase):
+    """己方对象从地图上消失 = 掉单位/掉建筑。
+
+    这是玩家 agent 报出的能力缺口：单位 id 会凭空消失，`status` 只说「这些 id 不是
+    你方可用单位」，分不出是损失了还是观测换了。
+    """
+
+    def _frame(self, objects, number=100, own=None):
+        state = GameState.parse(build_game_state(
+            houses=[me()], objects=list(objects), frame=number))
+        # `build_object` 给的是线上字节，`GameState.parse` 之后才是对象；`own`
+        # 装的是解析后的对象（跟真实观测一致）。
+        mine = state.objects if own is None else own
+        return Observation(frame=state.frame, house=state.player_house(),
+                           own=tuple(mine), state=state)
+
+    def _tank(self, pointer=0xB1, in_limbo=False):
+        from ra2agent.constants import AbstractType, Mission
+        from tests.fixtures import build_object
+        return build_object(pointer, house=PLAYER_HOUSE,
+                            object_type=AbstractType.UNIT, mission=Mission.GUARD,
+                            x=300, y=300, in_limbo=in_limbo, on_map=not in_limbo)
+
+    def test_a_vanished_object_is_reported(self):
+        before = self._frame([self._tank()])
+        after = self._frame([])
+        events = [e for e in detect(before, after)
+                  if e.kind is EventKind.OBJECT_LOST]
+        self.assertEqual(len(events), 1)
+        self.assertEqual(events[0].data["count"], 1)
+        self.assertIn("损失", events[0].render())
+
+    def test_a_completed_building_entering_limbo_is_not_a_loss(self):
+        """完工待放置：从 `own` 里消失，但指针还在——那是去放置，不是被打掉。"""
+        before = self._frame([self._tank()])
+        after = self._frame([self._tank(in_limbo=True)], own=())
+        self.assertEqual(
+            [e for e in detect(before, after)
+             if e.kind is EventKind.OBJECT_LOST], [])
+
+    def test_nothing_lost_reports_nothing(self):
+        before = self._frame([self._tank()])
+        after = self._frame([self._tank()], number=110)
+        self.assertEqual(
+            [e for e in detect(before, after)
+             if e.kind is EventKind.OBJECT_LOST], [])
+
+
+class TestPlacementReady(unittest.TestCase):
+    """新出现一栋完工待放置的建筑时报一次——放哪儿是模型的事，得把它叫回来。"""
+
+    def _frame(self, objects, number=100):
+        state = GameState.parse(build_game_state(
+            houses=[me()], objects=list(objects), frame=number))
+        return Observation(frame=state.frame, house=state.player_house(),
+                           own=tuple(state.objects), state=state)
+
+    def _building(self, pointer=0xC1, in_limbo=False):
+        from ra2agent.constants import AbstractType, Mission
+        from tests.fixtures import build_object
+        return build_object(pointer, house=PLAYER_HOUSE,
+                            object_type=AbstractType.BUILDING,
+                            mission=Mission.CONSTRUCTION, x=300, y=300,
+                            in_limbo=in_limbo, on_map=not in_limbo)
+
+    def test_entering_limbo_reports_once(self):
+        before = self._frame([self._building()])
+        after = self._frame([self._building(in_limbo=True)], number=110)
+        ready = [e for e in detect(before, after)
+                 if e.kind is EventKind.PLACEMENT_READY]
+        self.assertEqual(len(ready), 1)
+        self.assertIn("完工待放置", ready[0].render())
+
+    def test_staying_in_limbo_does_not_report_again(self):
+        before = self._frame([self._building(in_limbo=True)])
+        after = self._frame([self._building(in_limbo=True)], number=120)
+        self.assertEqual(
+            [e for e in detect(before, after)
+             if e.kind is EventKind.PLACEMENT_READY], [])
+
+    def test_a_placed_building_is_not_reported(self):
+        before = self._frame([self._building()])
+        after = self._frame([self._building()], number=130)
+        self.assertEqual(
+            [e for e in detect(before, after)
+             if e.kind is EventKind.PLACEMENT_READY], [])
+
+
 class TestPureFunction(unittest.TestCase):
     def test_first_frame_reports_nothing(self):
         # 第一帧没有「之前」，当前局面由本局简报负责，那不是事件

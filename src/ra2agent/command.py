@@ -184,6 +184,50 @@ def describe_placement(agent_id, factory, state, types) -> str:
     return f"- #{agent_id}｜{name}｜等待放置"
 
 
+def describe_cells(cells) -> str:
+    """把若干格写成 `(x,y)、(x,y)`。"""
+    return "、".join(f"({x},{y})" for x, y in cells)
+
+
+def bearing_of(center, cell) -> str:
+    """`cell` 在 `center` 的哪一侧。格坐标 x 向东为正、y 向南为正。
+
+    粗略取八向：主轴明显（超过 2:1）就报正方向，否则报斜向。模型读「西侧 3 格」
+    比读 `(107,61)` 省事——**省掉算坐标的心智**正是这段的意义。
+    """
+    dx, dy = cell[0] - center[0], cell[1] - center[1]
+    if dx == 0 and dy == 0:
+        return "原地"
+    if dy == 0:
+        return "东" if dx > 0 else "西"
+    if dx == 0:
+        return "南" if dy > 0 else "北"
+    if abs(dx) > 2 * abs(dy):
+        return "东" if dx > 0 else "西"
+    if abs(dy) > 2 * abs(dx):
+        return "南" if dy > 0 else "北"
+    ew = "东" if dx > 0 else "西"
+    ns = "南" if dy > 0 else "北"
+    return ew + ns
+
+
+def describe_bearings(center, sites, top=4) -> str:
+    """按相对基地的方位与距离概括一组落点，多的折成计数。"""
+    if center is None or not sites:
+        return "方位未知"
+    groups = {}
+    for cell in sites:
+        groups.setdefault(bearing_of(center, cell), []).append(cell)
+    parts = []
+    for name, cells in sorted(groups.items(), key=lambda item: (-len(item[1]),
+                                                                item[0]))[:top]:
+        spans = [max(abs(c[0] - center[0]), abs(c[1] - center[1])) for c in cells]
+        span = (f"{spans[0]}" if min(spans) == max(spans)
+                else f"{min(spans)}–{max(spans)}")
+        parts.append(f"{name} {len(cells)} 格（{span} 格外）")
+    return "·".join(parts)
+
+
 def _unit_line(item) -> str:
     """一个单位一行：id、名字、格，以及它是不是已经在某条任务里。"""
     state = f"在管 {item['tactic']}" if item.get("tactic") else "空闲"
@@ -300,6 +344,8 @@ class StatusReport:
     production: tuple = ()
     #: 完工待放置的建筑，每栋一行。
     placement: tuple = ()
+    #: 待放置几**栋**。`placement` 现在是逐行文本（含方位子行），栋数单独记。
+    placement_count: int = 0
     #: 建筑待放置但拿不到落点集时的说明；拿到了则为空。
     placement_note: str = ""
     #: 当前可选落点（格坐标）。由模型挑一个，作为 `place_ready_building` 的参数。
@@ -330,13 +376,11 @@ class StatusReport:
             lines.append(f"生产 {len(self.production)} 线：")
             lines.extend(self.production)
         if self.placement:
-            lines.append(f"待放置 {len(self.placement)} 栋：")
+            lines.append(f"待放置 {self.placement_count or len(self.placement)} 栋：")
             lines.extend(self.placement)
             if self.sites:
-                shown = "、".join(f"({x},{y})" for x, y in self.sites)
-                lines.append(f"- 可选落点：{shown}")
-                lines.append("- 用 call place_ready_building 指定其中一格"
-                             "（参数 cell，形如 [x,y]）")
+                lines.append("- 用 call place_ready_building 指定一格"
+                             "（参数 cell，形如 [x,y]）；不给 cell 则由 L0 问引擎要")
             elif self.placement_note:
                 lines.append(f"- 落点未知：{self.placement_note}")
         if self.buildable:
@@ -402,10 +446,9 @@ class Commander:
         self._seen_auto = 0
         self._seen_wakes = 0
         #: 落点集缓存。`PlaceQuery` 是一次真机往返，不该每次读局势都查。
-        self._sites: tuple = ()
-        self._sites_signature = None
-        self._sites_frame: int | None = None
-        self._sites_note = ""
+        #: 落点集缓存：建筑指针 → `(帧, 落点, 说明)`。**一栋一份**——不同建筑
+        #: 占地不同，引擎给的合法格也不同。
+        self._sites_cache: dict = {}
         #: 自动触发层。技法按名片里的触发声明自己跑，产出的是脉冲。
         # 唤醒桥挂在技法层上：一个会话一份额度，自动层与模型调用的路径共用
         self.autopilot = Autopilot(layer.registry, layer.executor, log=log,
@@ -436,6 +479,7 @@ class Commander:
             power=self._power(observation),
             production=self._production(observation),
             placement=placement, placement_note=placement_note,
+            placement_count=len(self._completed_factories(observation.state)),
             sites=sites,
             buildable=self._buildable(observation),
             units=self._own_units(observation),
@@ -470,11 +514,14 @@ class Commander:
 
     # ------------------------------------------------------------ 待放置与落点
     def _placement(self, observation, pool) -> tuple:
-        """完工待放置的建筑，以及它当前的可选落点。
+        """完工待放置的建筑，以及**每栋各自**的可选落点。
 
-        返回 `(建筑各行, 拿不到落点时的说明, 落点元组)`。合法格只有引擎说了算，
-        故这里替模型问一次 `PlaceQuery`——**结果按帧缓存**，不然每次读局势都要
-        一次真机往返。模型从 `sites` 里挑一格回传，L0 照旧只负责执行。
+        返回 `(行, 拿不到落点时的说明, 全部落点)`。合法格只有引擎说了算，故这里替
+        模型问 `PlaceQuery`——**结果按帧、按建筑缓存**，不然每次读局势都要一次真机
+        往返。
+
+        **必须一栋一问**：不同建筑占地不同，引擎给的合法格也不同。以前只问第一栋，
+        第二栋的落点就跟着第一栋的列表一起显示（实测被报成「2×2 与 3×3 混着给」）。
         """
         state = observation.state
         factories = self._completed_factories(state)
@@ -482,13 +529,22 @@ class Commander:
             self._forget_sites()
             return (), "", ()
         types = getattr(self.observer, "types", None)
-        rows = []
+        center = self._base_center(state, types)
+        lines, notes, every = [], [], []
         for factory in factories:
             agent = pool.agent_id(factory.object)
-            rows.append(describe_placement(agent if agent is not None else "?",
-                                           factory, state, types))
-        sites, note = self._sites_for(observation, factories, pool)
-        return tuple(rows), note, sites
+            lines.append(describe_placement(agent if agent is not None else "?",
+                                            factory, state, types))
+            sites, note = self._sites_for(observation, factory, pool)
+            every.extend(sites)
+            if sites:
+                lines.append(f"  - 可选落点 {len(sites)} 格："
+                             f"{describe_bearings(center, sites)}"
+                             f"｜例如 {describe_cells(sites[:4])}")
+            else:
+                lines.append(f"  - 落点未知：{note}")
+                notes.append(note)
+        return tuple(lines), "；".join(notes), tuple(every)
 
     @staticmethod
     def _completed_factories(state):
@@ -497,28 +553,44 @@ class Commander:
             return ()
         return tuple(factory for factory in state.own_factories() if factory.completed)
 
-    def _sites_for(self, observation, factories, pool) -> tuple:
-        """取（或复用缓存的）合法落点集。"""
-        signature = tuple(factory.object for factory in factories)
+    def _base_center(self, state, types):
+        """方位参照点：建造厂所在格；没有就取己方建筑的中心。
+
+        模型读「西侧 3 格」比读 `(107,61)` 省事，而「西」是相对基地说的。
+        """
+        cells = [obj.coordinates.cell for obj in state.own_objects()
+                 if obj.is_building and not obj.in_limbo]
+        if not cells:
+            return None
+        if types is not None:
+            for obj in state.own_objects():
+                if obj.in_limbo or not obj.is_building:
+                    continue
+                name = types.name(obj, "")
+                if "construction yard" in name.lower():
+                    return obj.coordinates.cell
+        return (sum(c[0] for c in cells) // len(cells),
+                sum(c[1] for c in cells) // len(cells))
+
+    def _sites_for(self, observation, factory, pool) -> tuple:
+        """取（或复用缓存的）某一栋的合法落点集。"""
+        pointer = factory.object
         frame = observation.frame
-        fresh = (self._sites_signature == signature and self._sites_frame is not None
-                 and frame - self._sites_frame < PLACE_SITES_TTL_FRAMES)
-        if fresh:
-            return self._sites, self._sites_note
+        cached = self._sites_cache.get(pointer)
+        if cached is not None and frame - cached[0] < PLACE_SITES_TTL_FRAMES:
+            return cached[1], cached[2]
         try:
-            self._sites = self._query_sites(observation, factories[0], pool)
-            self._sites_note = "" if self._sites else "引擎未返回任何合法格"
+            sites = self._query_sites(observation, factory, pool)
+            note = "" if sites else "引擎未返回任何合法格"
         except Exception as error:
             # 查不到不是读局势的失败：报一句说明，任务照旧跑。
             # 失败同样被缓存一个 TTL——否则引擎持续出错时会每拍重试一次。
             # 兜底面放宽到 `Exception`：这里一冒泡，整个 `status` 就不可用，而模型
             # 恰恰是在「有建筑待放置」时最需要它（实测被 `int(House)` 整死过）。
             # 出错这件事本身仍然报出来，不是静默吞掉。
-            self._sites = ()
-            self._sites_note = f"查询失败（{error}）"
-        self._sites_signature = signature
-        self._sites_frame = frame
-        return self._sites, self._sites_note
+            sites, note = (), f"查询失败（{error}）"
+        self._sites_cache[pointer] = (frame, sites, note)
+        return sites, note
 
     def _buildable(self, observation) -> tuple:
         """「现在能造什么、还缺什么」，每类一行。读不到目录时给空。
@@ -565,10 +637,7 @@ class Commander:
 
     def _forget_sites(self) -> None:
         """手上没有待放置建筑时丢掉缓存。"""
-        self._sites = ()
-        self._sites_signature = None
-        self._sites_frame = None
-        self._sites_note = ""
+        self._sites_cache.clear()
 
     def _query_sites(self, observation, factory, pool) -> tuple:
         """问引擎：基地周围哪些格可以放下这栋建筑。
