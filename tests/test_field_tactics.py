@@ -277,7 +277,23 @@ class TestScoutArea(unittest.TestCase):
         self.assertEqual(intents[0].stance, "passive", "侦察默认不恋战")
 
     def test_nothing_left_to_explore_settles(self):
-        self.assertEqual(self._intents(shrouded=[], params={"radius": 3}), ())
+        """这一带都探过了就转驻守收工，而不是把单位空占着。"""
+        intents = self._intents(shrouded=[], params={"radius": 3})
+        self.assertEqual([i.kind for i in intents], ["hold"])
+
+    def test_it_keeps_going_instead_of_stopping_after_one_leg(self):
+        """持续侦察：上一次下的那块探到了，下一拍该换一块继续（不是就此停住）。"""
+        state = make_state([miner(0xB1)])
+        obs = make_observation(state, map_data=make_map(shrouded=[(6, 2)]))
+        unit = state.object(0xB1)
+        reg, memo = TacticRegistry().load_builtin(), {}
+        first = reg.run("scout_area", observation=obs,
+                        subject=subject_of(state, unit.pointer), frame=100, memo=memo)
+        self.assertEqual([i.cell for i in first], [(6, 2)])
+        # 已经在下令去那儿，且单位还没动（GUARD）——不该每拍重发
+        again = reg.run("scout_area", observation=obs,
+                        subject=subject_of(state, unit.pointer), frame=110, memo=memo)
+        self.assertEqual(again, ())
 
 
 class TestRetreat(unittest.TestCase):

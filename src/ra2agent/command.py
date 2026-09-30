@@ -15,7 +15,8 @@ from .runtime.autopilot import Autopilot
 from .data.catalogue import (MAX_BUILDABLE_BUILDINGS, MAX_BUILDABLE_UNITS,
                         own_building_cells, owned_building_ids, stolen_labels,
                         water_nearby)
-from .constants import (LandType, PLACE_QUERY_MAX_LENGTH, PLACE_SITE_RADIUS)
+from .constants import (LandType, Mission, PLACE_QUERY_MAX_LENGTH,
+                       PLACE_SITE_RADIUS)
 from .errors import Ra2Error, TacticError
 from .engine.events import summarize
 from .runtime.formation import place_candidates
@@ -235,10 +236,46 @@ def describe_bearings(center, sites, top=4) -> str:
     return "·".join(parts)
 
 
+#: 游戏自身任务 → 人话。**「没有在管任务」不等于「闲着」**：矿车由游戏 AI 驱动，
+#: 它的 `Mission` 是 `HARVEST`/`ENTER` 时正在干活，只报「空闲」会把玩家引到错方向
+#: （实测一个玩家据此连报两次「矿车没在采矿」，而它两在采矿、一台在回厂卸货）。
+MISSION_WORDS = {
+    "HARVEST": "采矿中",
+    "ENTER": "进厂",
+    "RETURN": "返厂",
+    "UNLOAD": "卸货",
+    "MOVE": "移动中",
+    "QMOVE": "移动中",
+    "ATTACK_MOVE": "边打边进",
+    "PATROL": "巡逻中",
+    "ATTACK": "交战中",
+    "AREA_GUARD": "区域警戒",
+    "GUARD": "警戒",
+    "CONSTRUCTION": "建造中",
+    "REPAIR": "维修中",
+    "SELLING": "变卖中",
+}
+
+
 def _unit_line(item) -> str:
-    """一个单位一行：id、名字、格，以及它是不是已经在某条任务里。"""
-    state = f"在管 {item['tactic']}" if item.get("tactic") else "空闲"
+    """一个单位一行：id、名字、格，以及它此刻在干什么。
+
+    在管任务优先报（那是模型自己下的）；没有在管任务时才看游戏自身的 `Mission`，
+    两者都没有才是「空闲」。
+    """
+    if item.get("tactic"):
+        state = f"在管 {item['tactic']}"
+    else:
+        state = MISSION_WORDS.get(item.get("mission", ""), "空闲")
     return f"- {item['id']}｜{item['name']}｜格 ({item['cell'][0]},{item['cell'][1]})｜{state}"
+
+
+def _mission_name(value) -> str:
+    """`current_mission` 的名字；认不出给空串（那就按空闲算）。"""
+    try:
+        return Mission(value).name
+    except ValueError:
+        return ""
 
 
 class UnitPool:
@@ -754,6 +791,7 @@ class Commander:
                 continue
             out.append({"id": agent, "name": self._name(obj),
                         "cell": obj.coordinates.cell,
+                        "mission": _mission_name(obj.mission),
                         "tactic": busy.get(agent, "")})
         return tuple(out)
 
