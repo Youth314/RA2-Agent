@@ -437,6 +437,14 @@ class StatusReport:
         return "\n".join(lines)
 
 
+#: 房子级动作要点名谁。这些技法不针对具体单位，但任务仍得挂在某个己方对象上。
+HOUSE_LEVEL = {
+    "build_structure": "建造厂",
+    "place_ready_building": "建造厂（或生产它的那个厂）",
+    "train_unit": "对应的生产建筑",
+}
+
+
 class Commander:
     """四个工具的实体。MCP 服务与脚本都只是它的适配器。"""
 
@@ -823,7 +831,8 @@ class Commander:
         except TacticError as error:
             return CallResult(False, request.tactic, error=str(error))
 
-        units, problem = self._check_units(request.units, observation)
+        units, problem = self._check_units(request.units, observation,
+                                           request.tactic)
         if problem:
             return CallResult(False, request.tactic, error=problem)
         taken = self._taken(units)
@@ -834,6 +843,9 @@ class Commander:
             if free:
                 hint = (f"空闲可用的还有 {list(free)}——可以只点它们重新下单，"
                         f"或先撤销再改派")
+            elif request.tactic in HOUSE_LEVEL:
+                hint = ("这个厂正忙；生产与放置一次只能排一条，等这条结算"
+                        "（下一次 `status` 会报结果）再排下一条")
             else:
                 hint = "点名的单位都在忙；先撤销再改派，或换别的单位"
             return CallResult(False, request.tactic,
@@ -853,9 +865,19 @@ class Commander:
                                     "params": params})
         return CallResult(True, request.tactic, intent_id=squad.intent.id)
 
-    def _check_units(self, units, observation):
-        """单位必须存在、且属于己方，否则当场拒绝。"""
+    def _check_units(self, units, observation, tactic=""):
+        """单位必须存在、且属于己方，否则当场拒绝。
+
+        房子级动作（造楼、造兵、放置）也要点名一个己方单位——任务得挂在谁头上、
+        命令生效的判据也记在它身上。模型最容易漏的就是这一步，故**把该点谁直接
+        写进拒因**，别让它靠猜（实测两个玩家都为这白烧过一步）。
+        """
         if not units:
+            what = HOUSE_LEVEL.get(tactic)
+            if what:
+                return (), (f"没有给出单位——{tactic} 虽然是房子级动作，任务仍要挂在"
+                            f"某个己方单位上：把{what}的 id 放进 units"
+                            f"（`status` 的己方单位段里有）")
             return (), "没有给出单位"
         own = self._pool(observation)
         unknown = [u for u in units if own.object_of(u) is None]

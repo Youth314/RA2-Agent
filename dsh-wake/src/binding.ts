@@ -121,10 +121,6 @@ export async function deliverWake(
   request: WakeRequest,
 ): Promise<WakeOutcome> {
   try {
-    const resolved = await ctx.sessionController.resolveAgent(sessionId)
-    if ('error' in resolved) {
-      return { ok: false, error: `会话 "${sessionId}" 无法解析：${resolved.error.message}` }
-    }
     const message = createUserMessage({
       content: [{ type: 'text', text: request.text }],
       source: {
@@ -133,6 +129,24 @@ export async function deliverWake(
         ...request.tactic === undefined ? {} : { tactic: request.tactic },
       },
     })
+    // 子 agent 的会话不归 `sessionController` 管——它明确拒绝 subagent 路由的会话
+    // （`owned by subagent routing`），而玩家的会话正是这种：玩家插件按 childId 拉起
+    // MCP 服务，那个 childId 就是子 agent。agent 本身是活的，直接投它的收件箱，
+    // 与 `send_message` 走同一条机制。
+    const live = ctx.agents.get(sessionId)
+    if (live !== undefined) {
+      live.followup(message)
+      const flushed = await ctx.sessions.flush(live.session)
+      if (!flushed) {
+        return { ok: false, error: '会话持久化没有确认这条唤醒（没有 session/flush 监听者）' }
+      }
+      return { ok: true, session: live.id }
+    }
+    // 普通会话：解析（冷会话顺带恢复），解析不了再报错。
+    const resolved = await ctx.sessionController.resolveAgent(sessionId)
+    if ('error' in resolved) {
+      return { ok: false, error: `会话 "${sessionId}" 无法解析：${resolved.error.message}` }
+    }
     // followup appends the inbox splice synchronously and wakes the driver.
     resolved.agent.followup(message)
     const flushed = await ctx.sessions.flush(resolved.agent.session)
