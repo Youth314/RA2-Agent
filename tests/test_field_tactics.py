@@ -216,6 +216,17 @@ class TestKeepHarvesters(unittest.TestCase):
 
     def test_at_target_orders_nothing(self):
         self.assertEqual(self._intents(4), ())
+    def test_a_busy_production_line_is_not_stolen(self):
+        """载具生产是全局单线：自动补矿车不该和模型排的坦克抢那条线。"""
+        from tests.fixtures import build_factory
+        objects = ([building(0xA0), building(0xA1, type_pointer=FACTORY_TYPE),
+                    miner(0xB0)]
+                   + [build_factory(PLAYER_HOUSE, 0xB0, timer=10, queued=(0xB0,))])
+        state = make_state(objects)
+        obs = make_observation(state, map_data=make_map())
+        self.assertEqual(run(TacticRegistry().load_builtin(), "keep_harvesters",
+                             params={"target": 4}, observation=obs,
+                             subject=subject_of(state, 0xA0)), ())
 
 
 class TestKeepPower(unittest.TestCase):

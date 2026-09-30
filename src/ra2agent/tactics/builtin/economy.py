@@ -172,10 +172,23 @@ def _auto_harvest(context):
     return tuple(out)
 
 
+def _line_busy(context) -> bool:
+    """生产线上已经有活在排（任一工厂队列非空）。
+
+    载具生产是**全局单线**（实测：多座兵工厂只是冗余），故自动补矿车会和模型排的
+    坦克抢那一条线——实测一个玩家抱怨「自动层在偷生产线，这一台等于少出一台半灰熊，
+    而且我撤不掉它」。自动层不该抢模型的产能。
+    """
+    state = context.observation.state
+    if state is None:
+        return False
+    return any(tuple(factory.queued_objects) for factory in state.own_factories())
+
+
 def _keep_harvesters(context):
-    """矿车不够目标数就补一台；够了一台也不造。"""
+    """矿车不够目标数就补一台；够了、或生产线正忙就不造。"""
     target = int(context.params["target"])
-    if len(_own_harvesters(context)) >= target:
+    if len(_own_harvesters(context)) >= target or _line_busy(context):
         return ()
     for name in HARVESTERS:
         intents = context.call("train_unit", optional=True, type=name)
