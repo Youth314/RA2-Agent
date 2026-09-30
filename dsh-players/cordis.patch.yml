@@ -13,6 +13,12 @@
 # `inheritedServerName` 指向上层（ra2 preset 里 `mcp-ra2` 那一行）的 serverName：
 # 子 agent 继承父 preset，也就会继承那一份连默认探针端口的客户端，本插件在子
 # agent 建立时按这个名字把它们 deny 掉。部署里确实没有这一层时配成空串。
+#
+# `playerDeny`（这里没写，用代码里的默认值）是玩家面裁剪名单：名单里的工具对玩家
+# 子 agent 既不可见、也调不动。默认已含 bash/pwsh/write/edit、所有能派生新 agent 的
+# 入口（subagent*、workflow、ralph、spawn_teammate）与 plugin_manager；名册派生的
+# `play_as_*` 会自动并进来。**部署自己新增的派生入口要自己加**（任何一行
+# `@deepseek-ai/dsh-tool-subagent` 都能用 toolName 改名）。
 - insert:
     - id: ra2-players
       name: '@local/ra2-players'

@@ -3,9 +3,11 @@
  * 每个工具建一个**只指挥那一方**的 continuable 子 agent，并给它挂一份自己的
  * RA2 MCP 客户端。
  *
- * 隔离是构造上的：子 agent 的工具表里只有它自己那一份客户端的工具
- * （`mcp__ra2_<玩家>__*`），父 preset 留下来的那一份（`mcp__ra2__*`，连的是
- * 没有 `--player` 的默认服务）在它建立时被 deny 掉，另有一道按前缀拦执行的守卫。
+ * 隔离是构造上的，三层：子 agent 只拿到自己那份客户端的工具
+ * （`mcp__ra2_<玩家>__*`）；父 preset 留下来的那份（`mcp__ra2__*`）与玩家面裁剪
+ * 名单（`playerDeny`）里的工具都被 `tools.restrict` 从它的视野里摘掉；另有一道
+ * `tools/execute` 守卫按名字拦执行，覆盖 `restrict` 摘不掉的本层注册与之后才出现的
+ * 名字。裁剪名单里的 `play_as_*` 是**按名册动态算出来的**——多一个玩家就自动多一条。
  *
  * 服务端配合：每个玩家一个
  * `python3 -m ra2agent.mcp --player <名册里的名字> --wake-session <子 agent id>`，
@@ -44,7 +46,28 @@ export interface Config {
      * 部署里没有这一层，此时不做继承前缀的 deny 与守卫。
      */
     readonly inheritedServerName?: string;
+    /**
+     * 玩家面裁剪名单：这些工具对玩家子 agent 既不可见、也调不动。
+     *
+     * 自己那 5 个 `mcp__ra2_<自己>__*` 不受影响；名册派生的 `play_as_*` 会**自动**并进
+     * 这份名单，不用（也不该）手写。名单里写了这个 session 里根本没有的名字不会让
+     * 挂载失败——摘不掉的存在性检查与执行期守卫各管一段，见 README。
+     */
+    readonly playerDeny?: string[];
 }
+/**
+ * 玩家面默认要裁掉的工具。
+ *
+ * 前八个是需求指定的；后面四个是「能派生新 agent」的其余入口：
+ * `subagent_codex` / `subagent_claude_code` 是 ra2 preset 里关掉的两行
+ * `@deepseek-ai/dsh-tool-subagent`（一旦打开就会按它们的 `toolName` 注册），
+ * `spawn_teammate` 是 `@deepseek-ai/dsh-experimental-tool-agent-team` 的派生入口，
+ * `ralph` 是 `@deepseek-ai/dsh-tool-ralph`（它自己会起 subagent）。
+ *
+ * **部署自己新增的派生入口必须自己加进来**：任何一份 `@deepseek-ai/dsh-tool-subagent`
+ * 行都可以用 `toolName` 改名字，插件没法从注册表里认出「谁是派生入口」。
+ */
+export declare const DEFAULT_PLAYER_DENY: readonly string[];
 export declare const Config: z<Config>;
 /** 加载时定下来、之后每次调用共用的事实。 */
 export interface ResolvedConfig {
@@ -64,6 +87,8 @@ export interface ResolvedConfig {
     readonly toolCallTimeoutMs: number;
     /** 上层那份客户端的 serverName；空串表示没有这一层。 */
     readonly inheritedServerName: string;
+    /** 配置里给的玩家面裁剪名单；名册派生的 `play_as_*` 由 {@link effectivePlayerDeny} 并进来。 */
+    readonly playerDeny: readonly string[];
 }
 /**
  * 校验 schema 表达不了的事实。
@@ -72,6 +97,17 @@ export interface ResolvedConfig {
  * @throws {Error} 路径、provider、命令或者 serverName 不合法。
  */
 export declare function resolveConfig(config: Config): ResolvedConfig;
+/**
+ * 最终生效的玩家面裁剪名单：配置项，加上**按名册动态算出来**的 `play_as_*`。
+ *
+ * 名册里有几个玩家就有几条 `play_as_*`；加一个玩家不用改配置。玩家自己也不该拿得到
+ * 这些工具——它要是能调 `play_as_beta`，等 Beta 那个 agent 一结算就能认领对面，
+ * 等于造一个对面的人来绕过隔离。
+ * @param playerDeny - 配置里给的名单（已经校验过）。
+ * @param players - 名册里的玩家。
+ * @returns 去重后保持顺序的名单：配置项在前，`play_as_*` 在后。
+ */
+export declare function effectivePlayerDeny(playerDeny: readonly string[], players: readonly RosterPlayer[]): string[];
 /** 一次 `play_as_*` 调用的入参。 */
 export interface PlayArgs {
     /** 交给这个子 agent 的初始任务。 */

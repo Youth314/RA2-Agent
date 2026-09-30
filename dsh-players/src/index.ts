@@ -3,9 +3,11 @@
  * 每个工具建一个**只指挥那一方**的 continuable 子 agent，并给它挂一份自己的
  * RA2 MCP 客户端。
  *
- * 隔离是构造上的：子 agent 的工具表里只有它自己那一份客户端的工具
- * （`mcp__ra2_<玩家>__*`），父 preset 留下来的那一份（`mcp__ra2__*`，连的是
- * 没有 `--player` 的默认服务）在它建立时被 deny 掉，另有一道按前缀拦执行的守卫。
+ * 隔离是构造上的，三层：子 agent 只拿到自己那份客户端的工具
+ * （`mcp__ra2_<玩家>__*`）；父 preset 留下来的那份（`mcp__ra2__*`）与玩家面裁剪
+ * 名单（`playerDeny`）里的工具都被 `tools.restrict` 从它的视野里摘掉；另有一道
+ * `tools/execute` 守卫按名字拦执行，覆盖 `restrict` 摘不掉的本层注册与之后才出现的
+ * 名字。裁剪名单里的 `play_as_*` 是**按名册动态算出来的**——多一个玩家就自动多一条。
  *
  * 服务端配合：每个玩家一个
  * `python3 -m ra2agent.mcp --player <名册里的名字> --wake-session <子 agent id>`，
@@ -32,7 +34,7 @@ import {
   PlayerClaims,
   playerToolName,
 } from './players.ts'
-import type { PlayerClientPlan, PlayerClientPlugin } from './players.ts'
+import type { PlayerClientPlan, PlayerClientPlugin, PlayerMount } from './players.ts'
 import { readRoster } from './roster.ts'
 import type { RosterPlayer } from './roster.ts'
 
@@ -62,7 +64,42 @@ export interface Config {
    * 部署里没有这一层，此时不做继承前缀的 deny 与守卫。
    */
   readonly inheritedServerName?: string
+  /**
+   * 玩家面裁剪名单：这些工具对玩家子 agent 既不可见、也调不动。
+   *
+   * 自己那 5 个 `mcp__ra2_<自己>__*` 不受影响；名册派生的 `play_as_*` 会**自动**并进
+   * 这份名单，不用（也不该）手写。名单里写了这个 session 里根本没有的名字不会让
+   * 挂载失败——摘不掉的存在性检查与执行期守卫各管一段，见 README。
+   */
+  readonly playerDeny?: string[]
 }
+
+/**
+ * 玩家面默认要裁掉的工具。
+ *
+ * 前八个是需求指定的；后面四个是「能派生新 agent」的其余入口：
+ * `subagent_codex` / `subagent_claude_code` 是 ra2 preset 里关掉的两行
+ * `@deepseek-ai/dsh-tool-subagent`（一旦打开就会按它们的 `toolName` 注册），
+ * `spawn_teammate` 是 `@deepseek-ai/dsh-experimental-tool-agent-team` 的派生入口，
+ * `ralph` 是 `@deepseek-ai/dsh-tool-ralph`（它自己会起 subagent）。
+ *
+ * **部署自己新增的派生入口必须自己加进来**：任何一份 `@deepseek-ai/dsh-tool-subagent`
+ * 行都可以用 `toolName` 改名字，插件没法从注册表里认出「谁是派生入口」。
+ */
+export const DEFAULT_PLAYER_DENY: readonly string[] = [
+  'bash',
+  'pwsh',
+  'write',
+  'edit',
+  'subagent',
+  'subagent_fork',
+  'subagent_codex',
+  'subagent_claude_code',
+  'spawn_teammate',
+  'workflow',
+  'ralph',
+  'plugin_manager',
+]
 
 /** 默认名册路径。 */
 const DEFAULT_ROSTER_PATH = '/home/youthz/ra2-agent/config/match.json'
@@ -88,6 +125,7 @@ export const Config: z<Config> = z.object({
   mcpEnv: z.dict(String).default({}),
   toolCallTimeoutMs: z.number().default(60_000),
   inheritedServerName: z.string().default(DEFAULT_INHERITED_SERVER_NAME),
+  playerDeny: z.array(String).default([...DEFAULT_PLAYER_DENY]),
 })
 
 /** 加载时定下来、之后每次调用共用的事实。 */
@@ -108,6 +146,8 @@ export interface ResolvedConfig {
   readonly toolCallTimeoutMs: number
   /** 上层那份客户端的 serverName；空串表示没有这一层。 */
   readonly inheritedServerName: string
+  /** 配置里给的玩家面裁剪名单；名册派生的 `play_as_*` 由 {@link effectivePlayerDeny} 并进来。 */
+  readonly playerDeny: readonly string[]
 }
 
 /**
@@ -139,6 +179,12 @@ export function resolveConfig(config: Config): ResolvedConfig {
   if (!Number.isFinite(timeout) || timeout <= 0) {
     throw new Error(`ra2-players: toolCallTimeoutMs 必须是正的有限数，收到 ${String(timeout)}`)
   }
+  const playerDeny = config.playerDeny ?? [...DEFAULT_PLAYER_DENY]
+  for (const name of playerDeny) {
+    if (name === '' || name.trim() !== name) {
+      throw new Error(`ra2-players: playerDeny 里的 ${JSON.stringify(name)} 不是非空、无首尾空白的工具名`)
+    }
+  }
   return {
     rosterPath,
     provider,
@@ -150,7 +196,27 @@ export function resolveConfig(config: Config): ResolvedConfig {
     mcpEnv: { PYTHONPATH: `${mcpCwd}/src`, ...config.mcpEnv },
     toolCallTimeoutMs: timeout,
     inheritedServerName,
+    playerDeny: [...new Set(playerDeny)],
   }
+}
+
+/**
+ * 最终生效的玩家面裁剪名单：配置项，加上**按名册动态算出来**的 `play_as_*`。
+ *
+ * 名册里有几个玩家就有几条 `play_as_*`；加一个玩家不用改配置。玩家自己也不该拿得到
+ * 这些工具——它要是能调 `play_as_beta`，等 Beta 那个 agent 一结算就能认领对面，
+ * 等于造一个对面的人来绕过隔离。
+ * @param playerDeny - 配置里给的名单（已经校验过）。
+ * @param players - 名册里的玩家。
+ * @returns 去重后保持顺序的名单：配置项在前，`play_as_*` 在后。
+ */
+export function effectivePlayerDeny(
+  playerDeny: readonly string[],
+  players: readonly RosterPlayer[],
+): string[] {
+  const names = [...playerDeny]
+  for (const player of players) names.push(playerToolName(player.name))
+  return [...new Set(names)]
 }
 
 /** 一次 `play_as_*` 调用的入参。 */
@@ -212,13 +278,15 @@ export function initialPrompt(playerName: string, task: string): string {
  * 一名玩家那一份 MCP 客户端的挂载方案。
  * @param player - 名册里的一方。
  * @param resolved - 加载时解析好的配置。
- * @returns 命名、配置与继承前缀。
+ * @param deny - 最终生效的玩家面裁剪名单。
+ * @returns 命名、玩家面名单、配置与继承前缀。
  */
-function clientPlanFor(player: RosterPlayer, resolved: ResolvedConfig): PlayerClientPlan {
+function clientPlanFor(player: RosterPlayer, resolved: ResolvedConfig, deny: readonly string[]): PlayerClientPlan {
   const serverName = checkedPlayerServerName(player.name, resolved.inheritedServerName)
   return {
     serverName,
     inheritedServerName: resolved.inheritedServerName,
+    deny,
     configure: childId => McpClient.Config({
       transport: 'stdio',
       serverName,
@@ -345,13 +413,15 @@ export function mountPlayers(ctx: Context, config: Config, client: PlayerClientP
   const roster = readRoster(resolved.rosterPath)
   const runtime: PlayerRuntime = { ctx, resolved, claims: new PlayerClaims() }
   const plans = new Map<string, PlayerClientPlan>()
-  const mounted = new Map<string, Awaited<ReturnType<typeof mountPlayerClient>>>()
+  const mounted = new Map<string, PlayerMount>()
+  const deny = effectivePlayerDeny(resolved.playerDeny, roster.players)
 
   for (const player of roster.players) {
     // 玩家名到工具名/serverName 的派生在这里全部校验完：名字不合法、serverName
     // 太长、与上层撞名，都在加载时失败，而不是等到模型去调它。
-    plans.set(player.name, clientPlanFor(player, resolved))
+    plans.set(player.name, clientPlanFor(player, resolved, deny))
   }
+  ctx.logger.info(`ra2-players: 玩家面裁剪名单 ${deny.length} 条：${deny.join(', ')}`)
 
   ctx.on('agent/created', async ({ agent }) => {
     const playerName = runtime.claims.playerOf(agent.id)
@@ -365,11 +435,17 @@ export function mountPlayers(ctx: Context, config: Config, client: PlayerClientP
       mounted.delete(agent.id)
       await previous.dispose()
     }
-    const scope = await mountPlayerClient(ctx, agent, plan, client)
-    mounted.set(agent.id, scope)
+    const mount = await mountPlayerClient(ctx, agent, plan, client)
+    mounted.set(agent.id, mount)
+    ctx.logger.info(
+      `ra2-players: ${playerName} 的子 agent ${agent.id} 已挂上 ${plan.serverName}；`
+      + `视野里摘掉 ${String(mount.hidden.length)} 条、只拦执行 ${String(mount.guardOnly.length)} 条`
+      + `${mount.guardOnly.length === 0 ? '' : `（${mount.guardOnly.join(', ')}）`}`
+      + `${mount.absent.length === 0 ? '' : `、名单里不存在 ${mount.absent.join(', ')}`}`,
+    )
     agent.ctx.effect(() => async () => {
       mounted.delete(agent.id)
-      await scope.dispose()
+      await mount.dispose()
     }, `ra2-players: ${playerName}`)
   })
 

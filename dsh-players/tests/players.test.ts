@@ -33,8 +33,9 @@ import SystemPrompt from '@deepseek-ai/dsh-system-prompt'
 import ToolRuntime, { defineContentToolFixture } from '@deepseek-ai/dsh-tools'
 import { MockAdapter, textResponse } from '/home/youthz/deepseek-harness/packages/core/agent-loop/tests/mock-adapter.ts'
 import * as Players from '../src/index.ts'
-import { PlayerClaims, playerServerName, playerToolName } from '../src/players.ts'
-import type { PlayerClientPlugin } from '../src/players.ts'
+import { effectivePlayerDeny } from '../src/index.ts'
+import { mountPlayerClient, PlayerClaims, playerServerName, playerToolName } from '../src/players.ts'
+import type { PlayerClientPlugin, PlayerMount } from '../src/players.ts'
 
 /** 一份两方的名册，跟 `config/match.json` 同形。 */
 function rosterOf(names: readonly string[]): string {
@@ -51,6 +52,31 @@ function rosterOf(names: readonly string[]): string {
     })),
   })
 }
+
+/**
+ * 玩家继承面上的一整套工具：模拟 ra2 preset + profile 给出的那一份。
+ * `pwsh` 故意不在里面——Linux 上 `tool-pwsh` 是 disabled 的，拿它验「名单里写了不存在
+ * 的名字」这条路径（真实部署里就会走到）。
+ */
+const INHERITED_FACE: readonly string[] = [
+  'ask_user_question',
+  'bash',
+  'edit',
+  'glob',
+  'grep',
+  'list_agents',
+  'plugin_manager',
+  'present',
+  'read',
+  'send_message',
+  'skill',
+  'subagent_fork',
+  'todo_write',
+  'web_fetch',
+  'web_search',
+  'workflow',
+  'write',
+]
 
 /** 一条注册在某个 scope 里的假 MCP 工具。 */
 function fixtureTool(name: string) {
@@ -138,6 +164,7 @@ async function boot(options: BootOptions = {}): Promise<Booted> {
     apply: (fixtureCtx: Context) => {
       const scope = createScope(fixtureCtx, ancestorKey)
       ancestorScope = scope
+      for (const name of INHERITED_FACE) scope.ctx.tools.register(fixtureTool(name))
       if (options.inheritedTools !== false) scope.ctx.tools.register(fixtureTool('mcp__ra2__status'))
     },
   })
@@ -153,8 +180,13 @@ async function boot(options: BootOptions = {}): Promise<Booted> {
         sessionId: spec.childId as SessionId,
         parentAgent: spec.request.parent,
         agentOptions: { provider: 'mock', model: 'mock' },
-        // 模拟子 agent 继承父的 preset：把它的 scope 挂到祖先那一层下面。
-        setup: (_childCtx: Context, child: Agent) => { bindScopeParent(child, ancestorKey) },
+        // 模拟子 agent 继承父的 preset：把它的 scope 挂到祖先那一层下面；顺带在
+        // **它自己的层**里注册一条 `subagent`，跟 tool-subagent 打开
+        // modelSelectionSettings 之后按 agent 注册的行为一样——那种名字 restrict 摘不掉。
+        setup: (childCtx: Context, child: Agent) => {
+          bindScopeParent(child, ancestorKey)
+          childCtx.tools.register(fixtureTool('subagent'))
+        },
       })
       started.push({ spec, handle })
       options.onChildCreated?.(ctx, spec, handle.agent)
@@ -342,7 +374,7 @@ test('子 agent 只看得见自己那一份客户端，上层那份被 deny 掉'
   }
 })
 
-test('deny 之后才出现的继承工具，由 tools/execute 守卫按前缀拒绝', async () => {
+test('deny 之后才出现的继承 MCP 工具，由 tools/execute 守卫拦住', async () => {
   const b = await boot()
   try {
     await mount(b.ctx, { rosterPath: b.rosterPath })
@@ -369,7 +401,7 @@ test('deny 之后才出现的继承工具，由 tools/execute 守卫按前缀拒
     assert.equal(denied.isError, true)
     assert.match(
       denied.content.flatMap(block => block.type === 'text' ? [block.text] : []).join('\n'),
-      /不属于本玩家，已拒绝/,
+      /不属于本玩家的 MCP 客户端，已拒绝/,
     )
   } finally {
     await b.cleanup()
@@ -578,6 +610,178 @@ test('玩家客户端的命令行带 --player 与 --wake-session <childId>', asy
     assert.equal(second.serverName, 'ra2_beta')
     assert.equal(first.cwd, '/home/youthz/ra2-agent')
     assert.equal(first.env['PYTHONPATH'], '/home/youthz/ra2-agent/src')
+  } finally {
+    await b.cleanup()
+  }
+})
+
+/** 一份结构合法的 stdio 客户端配置，直接挂载的用例用。 */
+function stdioConfig(serverName: string): McpClientConfig {
+  return {
+    transport: 'stdio',
+    serverName,
+    command: 'python3',
+    args: [],
+    env: {},
+    cwd: '/tmp',
+    toolCallTimeoutMs: 1000,
+    failOnStartupError: false,
+    reconnect: { enabled: false },
+  }
+}
+
+/** 绕过 `play_as_*`，直接挂一次玩家客户端，拿挂载报告。 */
+async function mountDirect(
+  ctx: Context,
+  ancestorKey: object,
+  deny: readonly string[],
+): Promise<PlayerMount> {
+  let mount: PlayerMount | undefined
+  const child = { id: SessionId('direct-child') }
+  await ctx.plugin({
+    name: 'fixture-direct-mount',
+    inject: ['tools'],
+    apply: async (fixtureCtx: Context) => {
+      bindScopeParent(child, ancestorKey)
+      // 模拟 tool-subagent 在这个 agent 自己的层里注册的 `subagent`。
+      createScope(fixtureCtx, child).ctx.tools.register(fixtureTool('subagent'))
+      mount = await mountPlayerClient(fixtureCtx, child, {
+        serverName: 'ra2_alpha',
+        inheritedServerName: 'ra2',
+        deny,
+        configure: () => stdioConfig('ra2_alpha'),
+      }, fakeClient())
+    },
+  })
+  assert.ok(mount !== undefined, '挂载必须返回报告')
+  return mount
+}
+
+/** 玩家面保留的那批名字。 */
+const KEPT_FACE: readonly string[] = [
+  'ask_user_question',
+  'glob',
+  'grep',
+  'list_agents',
+  'present',
+  'read',
+  'send_message',
+  'skill',
+  'todo_write',
+  'web_fetch',
+  'web_search',
+]
+
+test('玩家面裁剪：名单里的继承工具看不见，保留的还在', async () => {
+  const b = await boot()
+  try {
+    await mount(b.ctx, { rosterPath: b.rosterPath })
+    const lead = await createLead(b.ctx, b.ancestorKey)
+    await callPlay(b.ctx, lead, playerToolName('Alpha'), '守住左路')
+    const alpha = b.started[0]?.handle.agent
+    assert.ok(alpha !== undefined)
+
+    const names = visibleTools(b.ctx, alpha)
+    for (const name of ['bash', 'write', 'edit', 'subagent_fork', 'workflow', 'plugin_manager', 'mcp__ra2__status']) {
+      assert.ok(!names.includes(name), `${name} 应该被裁掉，实际还在：${names.join(',')}`)
+    }
+    // play_as_* 也是按名册动态裁掉的。
+    assert.ok(!names.includes(playerToolName('Alpha')))
+    assert.ok(!names.includes(playerToolName('Beta')))
+    for (const name of KEPT_FACE) {
+      assert.ok(names.includes(name), `${name} 应该保留，实际不在：${names.join(',')}`)
+    }
+    // 自己那 5 个客户端工具（这里替身只注册了 status）不受裁剪影响。
+    assert.ok(names.includes('mcp__ra2_alpha__status'))
+    // 本层注册的 subagent 摘不掉——它在自己的层里，restrict 只过滤继承面。
+    assert.ok(names.includes('subagent'), '本层注册的 subagent 仍会出现在视野里（执行期被守卫拦住）')
+  } finally {
+    await b.cleanup()
+  }
+})
+
+test('玩家面裁剪：本层注册的 subagent 摘不掉，但执行被守卫拒绝', async () => {
+  const b = await boot()
+  try {
+    await mount(b.ctx, { rosterPath: b.rosterPath })
+    const lead = await createLead(b.ctx, b.ancestorKey)
+    await callPlay(b.ctx, lead, playerToolName('Alpha'), '守住左路')
+    const alpha = b.started[0]?.handle.agent
+    assert.ok(alpha !== undefined)
+
+    const denied = await b.ctx.tools.execute({
+      callId: ToolCallId('call-subagent'),
+      name: 'subagent',
+      arguments: { description: '造个孙 agent', prompt: '你去连 14521' },
+      agent: alpha,
+      signal: new AbortController().signal,
+    })
+    assert.equal(denied.isError, true)
+    assert.match(
+      denied.content.flatMap(block => block.type === 'text' ? [block.text] : []).join('\n'),
+      /在玩家面裁剪名单里/,
+    )
+  } finally {
+    await b.cleanup()
+  }
+})
+
+test('玩家面裁剪：play_as_* 按名册动态生成，加一个玩家就多一条', async () => {
+  // 名单本身从名册推出来，不写死。
+  const generated = effectivePlayerDeny(['bash'], [{ name: 'Alpha' }, { name: 'Beta' }])
+  assert.deepEqual(generated, ['bash', 'play_as_alpha', 'play_as_beta'])
+  assert.deepEqual(effectivePlayerDeny([], []), [])
+
+  const b = await boot({ roster: rosterOf(['Alpha', 'Beta', 'Gamma']) })
+  try {
+    await mount(b.ctx, { rosterPath: b.rosterPath })
+    assert.ok(b.ctx.tools.schemas().some(schema => schema.name === 'play_as_gamma'))
+    const lead = await createLead(b.ctx, b.ancestorKey)
+    await callPlay(b.ctx, lead, playerToolName('Alpha'), '守住左路')
+    const alpha = b.started[0]?.handle.agent
+    assert.ok(alpha !== undefined)
+    const names = visibleTools(b.ctx, alpha)
+    assert.ok(!names.includes('play_as_gamma'), `第三个玩家也必须被裁掉：${names.join(',')}`)
+  } finally {
+    await b.cleanup()
+  }
+})
+
+test('玩家面裁剪：名单里写了不存在的名字，加载与调用都不崩', async () => {
+  const b = await boot()
+  try {
+    await mount(b.ctx, {
+      rosterPath: b.rosterPath,
+      playerDeny: [...Players.DEFAULT_PLAYER_DENY, 'does_not_exist', 'pwsh'],
+    })
+    const lead = await createLead(b.ctx, b.ancestorKey)
+    await callPlay(b.ctx, lead, playerToolName('Alpha'), '守住左路')
+    assert.equal(b.started.length, 1)
+
+    // 报告要区分三类：摘掉的、摘不掉只能拦执行的、压根不存在的。
+    const report = await mountDirect(b.ctx, b.ancestorKey, ['bash', 'subagent', 'definitely_absent'])
+    assert.ok(report.hidden.includes('bash'), `bash 应该被摘掉：${report.hidden.join(',')}`)
+    assert.ok(report.guardOnly.includes('subagent'), `subagent 应该归为只能拦执行：${report.guardOnly.join(',')}`)
+    assert.deepEqual(report.absent, ['definitely_absent'])
+    await report.dispose()
+  } finally {
+    await b.cleanup()
+  }
+})
+
+test('玩家面裁剪：配置可以整体覆盖（playerDeny 为空就只裁 play_as_*）', async () => {
+  const b = await boot()
+  try {
+    await mount(b.ctx, { rosterPath: b.rosterPath, playerDeny: [] })
+    const lead = await createLead(b.ctx, b.ancestorKey)
+    await callPlay(b.ctx, lead, playerToolName('Alpha'), '守住左路')
+    const alpha = b.started[0]?.handle.agent
+    assert.ok(alpha !== undefined)
+    const names = visibleTools(b.ctx, alpha)
+    assert.ok(names.includes('bash'), 'playerDeny 为空时 bash 应当保留')
+    assert.ok(names.includes('workflow'))
+    assert.ok(!names.includes(playerToolName('Alpha')), 'play_as_* 始终由名册派生，不受 playerDeny 影响')
+    assert.ok(!names.includes('mcp__ra2__status'), '继承来的 MCP 客户端始终被裁掉')
   } finally {
     await b.cleanup()
   }
