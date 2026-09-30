@@ -36,6 +36,8 @@ class WakePolicy:
     max_per_match: int = 30
     #: 一次投递里最多带几段合并进来的说明。
     max_pending: int = 8
+    #: 待发项最多留多少帧（60 帧≈1 秒）。更久的直接丢：事件早结束了。
+    stale_frames: int = 1800
     #: 投递超时（秒）。
     timeout: float = DEFAULT_TIMEOUT
     #: 唤醒投给哪个 DSH 会话。留空则交给桥插件按「唯一候选」去猜——一台机器上跑
@@ -120,6 +122,9 @@ class WakeBridge:
         #: 投递函数，测试时换掉即可不碰网络。
         self._post = poster or _post
         self.log = log
+        #: 待发队列：`(帧, 说明)`。带帧号是为了**丢掉过期的**——投不出去时攒着是对的，
+        #: 但攒到事件早结束（实测一条帧 29750 的「建筑完工待放置」投到 55660 才到）就是
+        #: 白花模型一轮：它醒来只会看到「这事早完了」。
         self._pending: list = []
         self._last_frame = None
         self._sent = 0
@@ -144,7 +149,7 @@ class WakeBridge:
             record["skipped"] = f"本局额度用尽（{self.policy.max_per_match} 次）"
             return self._keep(record)
         if self._too_soon(frame):
-            self._pending.append(text)
+            self._pending.append((frame, text))
             del self._pending[:-self.policy.max_pending]
             record["deferred"] = f"距上次不足 {self.policy.min_frames} 帧，已并入待发队列"
             return self._keep(record)
@@ -163,7 +168,7 @@ class WakeBridge:
             record["reply"] = _summarize(body)
         else:
             # 投不出去就留着，下次并进去重投——静默丢事件比报错糟得多
-            self._pending.append(text)
+            self._pending.append((frame, text))
             record["error"] = _error_of(body)
         return self._keep(record)
 
@@ -174,20 +179,37 @@ class WakeBridge:
 
     @property
     def pending(self) -> tuple:
-        """还没送出去的内容。"""
-        return tuple(self._pending)
+        """还没送出去的内容（不含已过期的，见 `_prune`）。"""
+        return tuple(text for _frame, text in self._pending)
 
     # ------------------------------------------------------------ 内部
     def _too_soon(self, frame) -> bool:
         return (self._last_frame is not None
                 and frame - self._last_frame < self.policy.min_frames)
 
+    def _prune(self, frame) -> int:
+        """丢掉过期太久的待发项，返回丢了几条。
+
+        过期判据是「发生到现在隔了多少帧」。与投递失败留着重投并不矛盾：失败留一会儿
+        是对的，留到事件本身已经结束就没有意义了。
+        """
+        keep = [(when, piece) for when, piece in self._pending
+                if frame - when <= self.policy.stale_frames]
+        dropped = len(self._pending) - len(keep)
+        self._pending = keep
+        return dropped
+
     def _payload(self, text, frame, tactic, session) -> dict:
         """把待发的与这次的并成一条——一次唤醒就是一轮 LLM 调用，能省则省。"""
-        combined = list(self._pending)
+        self._prune(frame)
+        combined = [piece for _when, piece in self._pending]
         if text not in combined:
             combined.append(text)
-        return {"text": "\n".join(f"- {piece}" for piece in combined),
+        # 说明本身可能是多行（事件列表已自带 `- `）：逐行再加前缀会出 `- -`，空条目
+        # 也会变成光秃秃一个 `- `（实测玩家收到过 `- -` 与空条目）。故按整段拼，段间
+        # 空一行，并滤掉空段。
+        pieces = [piece.strip() for piece in combined if piece and piece.strip()]
+        return {"text": "\n\n".join(pieces),
                 "frame": frame, "tactic": tactic, "session": session,
                 "merged": len(combined)}
 
