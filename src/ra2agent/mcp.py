@@ -17,10 +17,11 @@ import time
 from . import __version__
 from .client import Client
 from .command import CallRequest, Commander
+from .catalogue import Catalogue
 from .constants import DEFAULT_HOST, DEFAULT_PORT, LoadStage
 from .errors import ConnectionLost, Ra2Error
 from .executor import Executor
-from .game import GameHost
+from .game import GameHost, LOOP_STALL_SECONDS
 from .intents import DecisionLog
 from .match import MatchRoster
 from .micro import MicroLayer
@@ -183,6 +184,8 @@ class GameSession:
         self._commander = None
         self._log = None
         self._observation = None
+        #: 上一次 `game status` 看到的帧与时刻，用来判主循环到底有没有在跑。
+        self._frame_sample = None
         self._stop = threading.Event()
         self._thread = None
         self._last_error = ""
@@ -253,6 +256,9 @@ class GameSession:
         aliases = attach_type_aliases(observer.types, self.aliases_path)
         if aliases == 0:
             self._emit(f"没读到 {self.aliases_path}，技法里只能用显示名指代类型")
+        # 可造目录：与别名同一份文件。缺它只是少一段「可造」与前提条件，
+        # 不影响对局，故不报错。
+        observer.catalogue = Catalogue.load(self.aliases_path)
         registry = TacticRegistry(TacticPolicy.load("config/tactics.json")).load_builtin()
         log = DecisionLog(self.log_path) if self.log_path else None
         executor = Executor(client, observer.identity, types=observer.types,
@@ -315,11 +321,15 @@ class GameSession:
             if name == "status":
                 return self._commander.status(self._observation).render()
             if name == "tactics":
-                cards = self._commander.tactics(arguments.get("query"),
-                                                self._observation)
+                with self._lock:
+                    observation = self._observation
+                cards = self._commander.tactics(arguments.get("query"), observation)
                 if not cards:
                     return "此刻没有可用技法"
-                return "\n".join(card.text() for card in cards)
+                # 带上帧号：卡片是按**那一刻**的局面筛的，不带帧号就没法回答
+                # 「为什么上一拍看不见、这一拍又出现了」这类对不上的争论。
+                stamp = "" if observation is None else f"帧 {observation.frame}｜"
+                return stamp + "\n".join(card.text() for card in cards)
             if name == "call":
                 return self._call(arguments)
             if name == "cancel":
@@ -351,9 +361,32 @@ class GameSession:
         if observation is not None and observation.state is not None:
             lines.append(f"对局：帧 {observation.frame}，stage={observation.state.stage}，"
                          f"阵营 {observation.house.name}")
+            lines.append(self._loop_line(observation.frame))
         elif state.listening:
             lines.append("对局：端口通但还没连上——调一次 status 就会连。")
         return "\n".join(lines)
+
+    def _loop_line(self, frame) -> str:
+        """主循环有没有在跑：**按帧号推进判，不按前台窗口标题**。
+
+        窗口在不在前台与主循环跑不跑是两件事。同桌面开着两个同名实例时，按前台
+        标题判必然对至少一方为假——实测两个测试 agent 都收到过「窗口失焦，主循环
+        暂停」，而同期帧号一直在涨，差点让他们去抢焦点（抢到对手那个等于替对方
+        按暂停）。
+        """
+        now = time.monotonic()
+        last, self._frame_sample = self._frame_sample, (frame, now)
+        if last is None:
+            return "主循环：首次采样，再读一次就能判"
+        previous, at = last
+        elapsed = max(0.0, now - at)
+        if frame > previous:
+            return f"主循环：在跑（帧 {previous}→{frame}，{elapsed:.1f} 秒）"
+        if elapsed < LOOP_STALL_SECONDS:
+            return (f"主循环：帧没变（{elapsed:.1f} 秒，不到 "
+                    f"{LOOP_STALL_SECONDS:.0f} 秒的判定阈值）")
+        return (f"主循环：疑似暂停——帧 {frame} 已 {elapsed:.1f} 秒没动，"
+                f"用 game focus 抢回焦点")
 
     def _game_start(self) -> str:
         """起游戏。已经在跑就不重复起；起之前先丢掉可能陈旧的会话。"""
@@ -380,12 +413,25 @@ class GameSession:
         return f"已停止游戏（PID {killed}），会话已丢弃，下次调用重建。"
 
     def _game_focus(self) -> str:
-        """抢回焦点。失焦时主循环暂停，帧号不涨但连接还在。"""
+        """抢回焦点。
+
+        失焦**可能**让主循环暂停，但两件事得分开说：先看帧号有没有在涨（`game
+        status` 会报），再决定要不要抢。同桌面两个同名实例时按标题找窗口本身就有
+        歧义，故这里把「找到几个、置前成没成」一起报出来，不给一句含糊的「没找到？」。
+        """
         if not self.game_host.processes():
             return "游戏没在跑，无法抢焦点。用 game start 启动。"
+        windows = list(self.game_host.window_probe())
         if self.game_host.focus_game():
-            return "已把游戏窗口置前。"
-        return "没能置前——游戏窗口没找到？"
+            note = (f"（同名窗口有 {len(windows)} 个，按标题取了第一个——"
+                    f"多实例同桌面时请用 game status 的帧号确认是不是你要的那个）"
+                    if len(windows) > 1 else "")
+            return f"已把游戏窗口置前{note}。"
+        if not windows:
+            return "没能置前——没找到标题含游戏名的窗口。"
+        return (f"没能置前（找到 {len(windows)} 个同名窗口，置前失败）——"
+                f"可能是 Windows 的前台限制；先看 game status 的帧号还在不在涨，"
+                f"别反复重试。")
 
     def _in_match(self):
         """当前是否已进对局。没连上或还在载入都算没进。"""

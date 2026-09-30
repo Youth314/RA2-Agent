@@ -27,6 +27,8 @@ NOTES = REPO / "corpus" / "notes"
 
 #: 单位与建筑的名字来源是英文，这里只把「类别」说成中文。
 KIND_LABEL = {"infantry": "步兵", "vehicle": "载具", "aircraft": "飞行器"}
+#: 窃取科技的三方说法（`RequiresStolen*Tech`），与 `catalogue.STOLEN_TECH` 一致。
+STOLEN_LABEL = {"allied": "盟军", "soviet": "苏军", "third": "尤里"}
 
 #: `GDI`/`Nod` 是西木从泰伯利亚之日留下的名字，实际就是盟军与苏军。
 #: 阵营归属不写死在这里——`rulesmd.ini` 各国家节的 `Side=` 就是答案。
@@ -105,6 +107,8 @@ def unit_line(rules, unit, names, effects=None):
     if unit.prerequisite:
         fields.append("前提 " + ",".join(unit.prerequisite))
     fields.append(f"等级 {unit.tech_level}")
+    if getattr(unit, "stolen_tech", ""):
+        fields.append(f"需窃取{STOLEN_LABEL.get(unit.stolen_tech, '')}科技")
     if unit.passengers:
         fields.append(f"载员 {unit.passengers}")
     if house_note(unit):
@@ -126,6 +130,8 @@ def building_line(rules, building, names, effects=None):
     if building.prerequisite:
         fields.append("前提 " + ",".join(building.prerequisite))
     fields.append(f"等级 {building.tech_level}")
+    if getattr(building, "water_bound", False):
+        fields.append("临水（基地附近要有水面）")
     if building.special:
         fields.append(" ".join(building.special))
     if house_note(building):

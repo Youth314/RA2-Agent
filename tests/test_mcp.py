@@ -5,6 +5,7 @@
 """
 import io
 import json
+import time
 import unittest
 from types import SimpleNamespace
 
@@ -214,14 +215,17 @@ class TestGameSession(unittest.TestCase):
 class FakeHost(GameHost):
     """离线替身：外部调用全换掉，只留 `inspect`/`describe` 的真实拼装。"""
 
-    def __init__(self, processes=(), listening=False, focused=True, crash_age=None):
+    def __init__(self, processes=(), listening=False, focused=True, crash_age=None,
+                 windows=(), focus_ok=True):
         super().__init__(runner=lambda argv, timeout=None: None,
                          focus_probe=lambda: focused,
-                         focus_reset=lambda: True,
+                         focus_reset=lambda: focus_ok,
+                         window_probe=lambda: tuple(windows),
                          crash_report="/nonexistent")
         self._processes = processes
         self._listening = listening
         self._crash_age = crash_age
+        self._focus_ok = focus_ok
         self.launched = False
         self.terminated = False
         self.focus_calls = 0
@@ -244,7 +248,7 @@ class FakeHost(GameHost):
 
     def focus_game(self):
         self.focus_calls += 1
-        return True
+        return self._focus_ok
 
 
 def game_session(**host_kwargs):
@@ -283,8 +287,25 @@ class TestGameTool(unittest.TestCase):
             listening=True, focused=False)
         text = session.call_tool("game", {"action": "status"})
         self.assertIn("1234", text)
-        self.assertIn("失焦", text)
-        self.assertIn("game focus", text)
+        self.assertIn("窗口不在前台", text)
+        self.assertNotIn("主循环暂停", text)      # 前台判据推不出暂停
+
+    def test_loop_line_reports_advancing_frames(self):
+        """主循环按**帧号推进**判，而不是按窗口在不在前台。"""
+        session, _ = game_session()
+        session._frame_sample = (100, time.monotonic())
+        line = session._loop_line(150)
+        self.assertIn("在跑", line)
+        self.assertIn("100→150", line)
+
+    def test_loop_line_reports_a_stall_only_after_the_threshold(self):
+        session, _ = game_session()
+        session._frame_sample = (100, time.monotonic())
+        self.assertIn("没变", session._loop_line(100))       # 还没到阈值
+        session._frame_sample = (100, time.monotonic() - 30.0)
+        stalled = session._loop_line(100)
+        self.assertIn("疑似暂停", stalled)
+        self.assertIn("game focus", stalled)
 
     def test_status_appends_the_match_line_when_connected(self):
         session, _ = game_session(listening=True)
@@ -299,6 +320,21 @@ class TestGameTool(unittest.TestCase):
         session._broken = True
         self.assertNotIn("帧 812", session.call_tool("game", {"action": "status"}))
 
+    def test_tactics_stamps_the_frame(self):
+        """卡片是按**那一刻**的局面筛的，故输出带帧号。
+
+        不带帧号，「上一拍还看不见、这一拍又出现了」这种争论就永远说不清
+        （实测卡过一次：一方说没建造厂时卡片就在，另一方怎么都复现不出来）。
+        """
+        session, _ = game_session()
+        session.ensure = lambda: session
+        session._observation = in_match(frame=333)
+        session._commander = SimpleNamespace(
+            tactics=lambda query, observation: (
+                SimpleNamespace(text=lambda: "推进卡片"),))
+        text = session.call_tool("tactics", {})
+        self.assertIn("帧 333", text)
+        self.assertIn("推进卡片", text)
     def test_status_reports_crash_evidence(self):
         session, _ = game_session(crash_age=2820)
         self.assertIn("崩溃报告 47 分钟前",
@@ -358,6 +394,30 @@ class TestGameTool(unittest.TestCase):
         self.assertIn("已把游戏窗口置前",
                       session.call_tool("game", {"action": "focus"}))
         self.assertEqual(host.focus_calls, 1)
+
+    def test_focus_says_how_many_same_named_windows_it_saw(self):
+        """两个同名实例同桌面时，按标题找窗口有歧义——得说清找了个几个。"""
+        session, _ = game_session(
+            processes=(ProcessInfo("gamemd-spawn-ra2yrcpp.exe", 7),),
+            windows=((11, "Yuri's Revenge"), (22, "Yuri's Revenge")))
+        text = session.call_tool("game", {"action": "focus"})
+        self.assertIn("已把游戏窗口置前", text)
+        self.assertIn("同名窗口有 2 个", text)
+
+    def test_focus_failure_says_what_it_found(self):
+        """置前失败时别只说「没找到？」——找到几个、成没成要分开说。"""
+        session, _ = game_session(
+            processes=(ProcessInfo("gamemd-spawn-ra2yrcpp.exe", 7),),
+            windows=((11, "Yuri's Revenge"),), focus_ok=False)
+        text = session.call_tool("game", {"action": "focus"})
+        self.assertIn("找到 1 个同名窗口", text)
+        self.assertNotIn("没找到", text)
+
+    def test_focus_failure_without_any_window_says_not_found(self):
+        session, _ = game_session(
+            processes=(ProcessInfo("gamemd-spawn-ra2yrcpp.exe", 7),),
+            windows=(), focus_ok=False)
+        self.assertIn("没找到", session.call_tool("game", {"action": "focus"}))
 
     def test_unknown_action_is_a_value_error(self):
         session, _ = game_session()

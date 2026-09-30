@@ -12,15 +12,49 @@
 from dataclasses import dataclass, field
 
 from .autopilot import Autopilot
-from .constants import LandType, PLACE_QUERY_MAX_LENGTH
+from .catalogue import (MAX_BUILDABLE_BUILDINGS, MAX_BUILDABLE_UNITS,
+                        own_building_cells, owned_building_ids, stolen_labels,
+                        water_nearby)
+from .constants import (LandType, PLACE_QUERY_MAX_LENGTH, PLACE_SITE_RADIUS)
 from .errors import Ra2Error, TacticError
 from .events import summarize
+from .formation import place_candidates
 from .intents import Scope, TacticCall
 from .state import cell_center
 from .tactics import Mode
+from .tactics.conditions import explain
 
 #: 撤销不了的返回文案。
 UNKNOWN_INTENT = "没有这条在管任务：可能已结束或被撤销"
+
+
+#: 引擎原文 → 给模型的一句「可能是什么原因」。
+#:
+#: 引擎拒得含糊（`unbuildable object_type { pointer_self: 288526200 … }`——那串每次
+#: 都不同的数字是内存地址），我们改不了它，但可以让模型知道该往哪儿查，而不是
+#: 对着这句话发愣、拿同一条废单反复试。
+REASON_HINTS = (
+    ("unbuildable",
+     "引擎没说原因。常见三种：前提没到（矿厂/兵营/重工等）、钱不够、科技等级不够"
+     "——用 status 的「可造」段逐项核对，别重复下同一单"),
+    ("not found from any factory",
+     "这栋建筑已经不在任何工厂里了：多半是同一栋楼被两条放置任务抢着放，先看"
+     "status 的「待放置」还在不在"),
+    ("proximity check failed",
+     "落点被引擎判为放不下：别自己猜格，用 status 的「可选落点」里的一格，或直接"
+     "不给 cell 让 L0 问引擎要"),
+    ("invalid cell",
+     "目标格不可通行（水/岩石/墙）或在地图外——收手就行，换一格"),
+)
+
+
+def reason_hint(reason) -> str:
+    """按引擎原文给一句排查方向；认不出来就给空串。"""
+    text = (reason or "").lower()
+    for needle, hint in REASON_HINTS:
+        if needle in text:
+            return hint
+    return ""
 
 
 def is_notable(record) -> bool:
@@ -77,7 +111,11 @@ def describe_map(map_data):
 
 
 def describe_houses(state):
-    """参战各方：国家名、是不是你、人类还是电脑、出局没有。"""
+    """参战各方：名字、是不是你、**国家**、出局没有。
+
+    国家取 `House.faction`（探针给的是引擎的 HouseType ID，如 `Americans`）——
+    它决定特有兵种与建筑，此前只是没渲染出来，模型只能从 `side` 猜。
+    """
     parts = []
     for house in state.houses:
         if house.is_neutral:
@@ -85,7 +123,8 @@ def describe_houses(state):
         who = "你" if house.current_player else ("人类" if house.is_human_player else "电脑")
         if house.defeated:
             who += "，已出局"
-        parts.append(f"{house.name}（{who}）")
+        country = f"，{house.faction}" if house.faction else ""
+        parts.append(f"{house.name}（{who}{country}）")
     return f"参战 {len(parts)} 方｜" + " · ".join(parts) if parts else ""
 
 
@@ -101,9 +140,6 @@ MAX_LISTED_SITES = 12
 #: 落点集缓存多少帧。`PlaceQuery` 是一次真机往返，不该每次读局势都查。
 PLACE_SITES_TTL_FRAMES = 22
 
-#: 候选落点相对基地中心向外的搜索半径（格）。
-PLACE_SITE_RADIUS = 10
-
 
 def describe_production(factory, state, types) -> str:
     """一条生产记录：在造什么、进度、是否完工待放、是否暂停。
@@ -117,6 +153,14 @@ def describe_production(factory, state, types) -> str:
         queued = state.object(pointer) if state is not None else None
         names.append(types.name(queued, "?") if types is not None and queued
                      else "?")
+    if not names and state is not None and types is not None:
+        # 建造厂造建筑时 `queued_objects` **一直是空的**：产出物只挂在 limbo 里。
+        # 不回查它，这一行就会写成「队列为空｜进度 54/54（完工待放置）」，自相矛盾，
+        # 实测两个测试员都把它当成了「队列显示不全」。只在确实有 limbo 产出物时补，
+        # 免得把单位工厂的闲置状态误报成在造它自己。
+        pending = state.object(factory.object)
+        if pending is not None and pending.in_limbo:
+            names.append(types.name(pending, "?"))
     what = "、".join(names) if names else "队列为空"
     progress = f"{factory.progress_timer}/{PRODUCTION_STEPS}"
     marks = []
@@ -129,12 +173,15 @@ def describe_production(factory, state, types) -> str:
 
 
 def describe_placement(agent_id, factory, state, types) -> str:
-    """一行说清「手上有一栋待放置的建筑」。"""
+    """一行说清「手上有一栋待放置的建筑」。
+
+    **不报坐标**：建筑还没落地，它自己报的格是 `(0,0)` 或建造厂的位置（实测两种
+    都出现过，还会在两拍之间自己漂），与「该放哪儿」无关。写上去只会被读成落点
+    ——真正的落点在下面的「可选落点」里。
+    """
     building = state.object(factory.object) if state is not None else None
     name = types.name(building, "?") if types is not None and building else "?"
-    where = building.coordinates.cell if building is not None else None
-    at = f"（格 {where[0]},{where[1]}）" if where else ""
-    return f"- #{agent_id}｜{name}{at}｜等待放置"
+    return f"- #{agent_id}｜{name}｜等待放置"
 
 
 def _unit_line(item) -> str:
@@ -257,6 +304,8 @@ class StatusReport:
     placement_note: str = ""
     #: 当前可选落点（格坐标）。由模型挑一个，作为 `place_ready_building` 的参数。
     sites: tuple = ()
+    #: 「现在能造什么、还缺什么」。每行一类（建筑 / 单位）。空表示目录没读到。
+    buildable: tuple = ()
     notices: tuple = ()
 
     def render(self) -> str:
@@ -290,6 +339,9 @@ class StatusReport:
                              "（参数 cell，形如 [x,y]）")
             elif self.placement_note:
                 lines.append(f"- 落点未知：{self.placement_note}")
+        if self.buildable:
+            lines.append("可造（✓ 现在就能造；✗ 后面是还缺的前提）：")
+            lines.extend(self.buildable)
         if self.units:
             lines.append(f"己方单位 {len(self.units)}：")
             for unit in self.units[:MAX_LISTED_UNITS]:
@@ -322,6 +374,9 @@ class StatusReport:
                 if event.get("reason"):
                     # 只有失败了才值得说原因；成功的那一行不塞噪声
                     line += f"｜原因：{event['reason']}"
+                    hint = reason_hint(event["reason"])
+                    if hint:
+                        line += f"｜{hint}"
                 lines.append(line)
         if self.notices:
             lines.append(f"告警 {len(self.notices)} 条：")
@@ -361,29 +416,38 @@ class Commander:
         """读局势：一行摘要、在管任务、以及上次读过之后的新结果与告警。
 
         新结果只报一次：读走即清空，免得模型每拍都重看同一批。
+
+        **游标最后才推**：上面任何一步抛了，这批新结果仍在游标之后，下次读还能拿到。
+        先前是先推游标再渲染，于是渲染路上崩一次（实测 `int(House)`）就把那批结果
+        永久吞掉——「只报一次」不该变成「不报也不留」。
         """
         observation = observation if observation is not None else self.observer.poll()
         completed = self.layer.completed[self._seen_completed:]
         notices = self.layer.notices[self._seen_notices:]
-        self._seen_completed = len(self.layer.completed)
-        self._seen_notices = len(self.layer.notices)
         match, brief = self._match_info(observation)
-        new_events, self._seen_events = observation_events(self.observer, self._seen_events)
-        auto, self._seen_auto = self.auto_records(self._seen_auto)
-        wakes, self._seen_wakes = self.wake_records(self._seen_wakes)
+        new_events, seen_events = observation_events(self.observer, self._seen_events)
+        auto, seen_auto = self.auto_records(self._seen_auto)
+        wakes, seen_wakes = self.wake_records(self._seen_wakes)
         pool = self._pool(observation)
         placement, placement_note, sites = self._placement(observation, pool)
-        return StatusReport(frame=observation.frame, summary=observation.summary(),
-                            match=match, brief=brief, events=new_events, auto=auto,
-                            wakes=wakes,
-                            power=self._power(observation),
-                            production=self._production(observation),
-                            placement=placement, placement_note=placement_note,
-                            sites=sites,
-                            units=self._own_units(observation),
-                            enemies=self._enemy_units(observation),
-                            running=self.layer.progress(), results=tuple(completed),
-                            notices=tuple(notices))
+        report = StatusReport(
+            frame=observation.frame, summary=observation.summary(),
+            match=match, brief=brief, events=new_events, auto=auto, wakes=wakes,
+            power=self._power(observation),
+            production=self._production(observation),
+            placement=placement, placement_note=placement_note,
+            sites=sites,
+            buildable=self._buildable(observation),
+            units=self._own_units(observation),
+            enemies=self._enemy_units(observation),
+            running=self.layer.progress(), results=tuple(completed),
+            notices=tuple(notices))
+        self._seen_completed = len(self.layer.completed)
+        self._seen_notices = len(self.layer.notices)
+        self._seen_events = seen_events
+        self._seen_auto = seen_auto
+        self._seen_wakes = seen_wakes
+        return report
 
     # ------------------------------------------------------------ 电力与生产
     @staticmethod
@@ -444,14 +508,60 @@ class Commander:
         try:
             self._sites = self._query_sites(observation, factories[0], pool)
             self._sites_note = "" if self._sites else "引擎未返回任何合法格"
-        except Ra2Error as error:
+        except Exception as error:
             # 查不到不是读局势的失败：报一句说明，任务照旧跑。
-            # 失败同样被缓存一个 TTL——否则引擎持续出错时会每拍重试一次
+            # 失败同样被缓存一个 TTL——否则引擎持续出错时会每拍重试一次。
+            # 兜底面放宽到 `Exception`：这里一冒泡，整个 `status` 就不可用，而模型
+            # 恰恰是在「有建筑待放置」时最需要它（实测被 `int(House)` 整死过）。
+            # 出错这件事本身仍然报出来，不是静默吞掉。
             self._sites = ()
             self._sites_note = f"查询失败（{error}）"
         self._sites_signature = signature
         self._sites_frame = frame
         return self._sites, self._sites_note
+
+    def _buildable(self, observation) -> tuple:
+        """「现在能造什么、还缺什么」，每类一行。读不到目录时给空。
+
+        引擎只在真下单之后才回 `unbuildable object_type {…}`，既不说是缺前提还是
+        缺钱、也不说缺哪一条；而前提链完全由规则决定，本地就能算。这一段让模型
+        在发单之前就把顺序排对（实测两个测试员都为「先造矿厂还是兵营」白花过 call）。
+        """
+        catalogue = (getattr(observation, "catalogue", None)
+                     or getattr(self.observer, "catalogue", None))
+        state = observation.state
+        types = getattr(self.observer, "types", None)
+        if catalogue is None or state is None or not len(catalogue):
+            return ()
+        owned = owned_building_ids(state, types, catalogue)
+        house = observation.house
+        faction = getattr(house, "faction", "") if house is not None else ""
+        money = house.money if house is not None else None
+        tech = state.tech_level or None
+        # 两条不在 `Prerequisite` 里、引擎却会卡的门：要不要偷到某方科技、基地旁
+        # 有没有水面（临水建筑）。实测「标 ✓ 却被 unbuildable 拒」正是这两条。
+        stolen = stolen_labels(house)
+        water_near = water_nearby(getattr(self.observer, "map_data", None),
+                                  own_building_cells(state))
+        lines = []
+        for is_building, label, limit in ((True, "建筑", MAX_BUILDABLE_BUILDINGS),
+                                          (False, "单位", MAX_BUILDABLE_UNITS)):
+            found = catalogue.candidates(owned, money=money, tech=tech,
+                                         faction=faction, buildings=is_building,
+                                         limit=limit, stolen=stolen,
+                                         water_near=water_near)
+            if not found:
+                continue
+            parts = []
+            for entry, missing in found:
+                text = f"{'✓' if not missing else '✗'} {entry.id} {entry.cost}"
+                if missing:
+                    text += " 缺 " + "、".join(missing)
+                if money is not None and entry.cost > money:
+                    text += "（钱不够）"
+                parts.append(text)
+            lines.append(f"- {label}：" + "｜".join(parts))
+        return tuple(lines)
 
     def _forget_sites(self) -> None:
         """手上没有待放置建筑时丢掉缓存。"""
@@ -479,26 +589,10 @@ class Commander:
         centers = [obj.coordinates.cell for obj in pool.buildings()] \
             or [building.coordinates.cell]
         map_data = getattr(self.observer, "map_data", None)
-        candidates = []
-        seen = set()
-        for base_x, base_y in centers:
-            # 由近及远铺开：先给引擎的候选先被返回，故最靠基地的合法格排在最前
-            for radius in range(PLACE_SITE_RADIUS + 1):
-                for dy in range(-radius, radius + 1):
-                    for dx in range(-radius, radius + 1):
-                        if max(abs(dx), abs(dy)) != radius:
-                            continue
-                        x, y = base_x + dx, base_y + dy
-                        if (x, y) in seen:
-                            continue
-                        if map_data is not None and not map_data.in_bounds(x, y):
-                            # 坐标越界会崩游戏，故在地图外的候选一律不发出去
-                            continue
-                        seen.add((x, y))
-                        candidates.append(cell_center(x, y))
+        candidates = place_candidates(centers, map_data, radius=PLACE_SITE_RADIUS,
+                                      limit=PLACE_QUERY_MAX_LENGTH)
         found = client.place_query(
-            entry, state.player_house(),
-            candidates[:PLACE_QUERY_MAX_LENGTH])
+            entry, state.player_house(), candidates)
         return tuple(coord.cell for coord in found[:MAX_LISTED_SITES])
 
     # ------------------------------------------------------------ 自动触发
@@ -607,10 +701,15 @@ class Commander:
 
     # ------------------------------------------------------------ 工具四：撤销
     def cancel(self, intent_ids) -> tuple:
-        """撤销在管任务，交还它占用的单位。"""
+        """撤销在管任务，交还它占用的单位。
+
+        id 收两种写法：`status` 打印的整串（`技法名#hash`）与裸 hash。打印给人看的
+        那一串照抄回来必须能用——实测只认裸 hash，模型照抄必失败，而这句话本身
+        还长得像「任务已结束」，很难看出是格式问题。
+        """
         out = []
         for intent_id in intent_ids:
-            ok = self.layer.cancel(intent_id)
+            ok = self.layer.cancel(str(intent_id).split("#")[-1])
             out.append({"intent_id": intent_id, "cancelled": ok,
                         "note": "" if ok else UNKNOWN_INTENT})
         return tuple(out)
@@ -644,7 +743,7 @@ class Commander:
                                                        params)
             if missing:
                 return CallResult(False, request.tactic,
-                                  error=f"此刻用不上：{'、'.join(missing)}")
+                                  error=f"此刻用不上：{explain(missing)}")
         except TacticError as error:
             return CallResult(False, request.tactic, error=str(error))
 
@@ -653,8 +752,16 @@ class Commander:
             return CallResult(False, request.tactic, error=problem)
         taken = self._taken(units)
         if taken:
+            # 说清「谁忙、谁还空着」：模型据此重新分配（改点空闲的那几个，或先撤销
+            # 再改派），而不是只看到一句「被拒了」就整条放弃。
+            free = [unit for unit in units if unit not in taken]
+            if free:
+                hint = (f"空闲可用的还有 {list(free)}——可以只点它们重新下单，"
+                        f"或先撤销再改派")
+            else:
+                hint = "点名的单位都在忙；先撤销再改派，或换别的单位"
             return CallResult(False, request.tactic,
-                              error=f"这些单位已在其它任务里：{list(taken)}；先撤销再改派")
+                              error=f"这些单位已在其它任务里：{list(taken)}。{hint}")
 
         call = TacticCall(tactic=request.tactic, params=params,
                           scope=Scope(objects=units), issuer="model",

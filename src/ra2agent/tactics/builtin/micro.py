@@ -131,7 +131,7 @@ TACTICS = (
                   is_stance),
             Param("spread", 1, "队形展开；0 表示全去中心格", is_non_negative_int),
         ),
-        requires=("has_units", "has_map"),
+        requires=("has_units", "has_map", "cell_passable"),
     ), _advance_to_cell),
 
     Tactic(TacticInfo(
@@ -158,6 +158,6 @@ TACTICS = (
             Param("stance", Stance.AGGRESSIVE, "推进姿态", is_stance),
             Param("spread", 1, "队形展开；0 表示全去中心格", is_non_negative_int),
         ),
-        requires=("has_units", "has_map"),
+        requires=("has_units", "has_map", "cell_passable"),
     ), _advance_covering),
 )

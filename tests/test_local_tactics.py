@@ -191,7 +191,11 @@ class TestBuildChain(unittest.TestCase):
                          ())
 
     def test_cell_may_be_omitted(self):
-        """`cell` 现在是可选的：不给就走兜底落点，技法自己围着待放建筑找一格。"""
+        """`cell` 可省：意图带 `cell=None`，由 L0 问 `PlaceQuery` 要一格合法落点。
+
+        以前是技法自己围着待放建筑猜一格，猜出来的格引擎未必认（`CanPlaceHere` /
+        `Proximity check failed`），故现在一律交给能问引擎的 L0。
+        """
         dataset = self.registry.run("place_ready_building",
                                     observation=self.observation,
                                     subject=self._pool(),
@@ -199,8 +203,7 @@ class TestBuildChain(unittest.TestCase):
         self.assertEqual(len(dataset), 1)
         self.assertIsInstance(dataset[0], Place)
         self.assertEqual(dataset[0].building, self._agent())
-        # 兜底不会选待放建筑自己报的那一格
-        self.assertNotEqual(dataset[0].cell, (3, 3))
+        self.assertIsNone(dataset[0].cell)
 
     def test_bad_cell_shape_is_rejected_by_the_registry(self):
         """形状不对的参数当场报错，不要等技法里抛 KeyError。"""
@@ -223,6 +226,38 @@ class TestBuildChain(unittest.TestCase):
         self.assertEqual(plan.command, "PlaceBuilding")
         self.assertEqual(plan.pointers, (PENDING,))
         self.assertEqual(plan.coordinates, cell_center(4, 3))
+
+    def _executor(self):
+        from ra2agent.validate import Validator
+        return Executor(self.client, self.observer.identity,
+                        types=self.observer.types,
+                        validator=Validator(MAP),
+                        read_state=lambda: self.state)
+
+    def test_executor_asks_the_engine_when_no_cell_is_given(self):
+        """`cell=None`：L0 用 `PlaceQuery` 要一格，模型不必自己算坐标。
+
+        这条链以前是技法自己猜格，猜出来的格引擎未必认——实测给出 `格=(1,0)` 被
+        `Proximity check failed` 拒。合法性只有引擎说了算，故问它的动作放在 L0。
+        """
+        intent = Place(building=self._agent(), cell=None,
+                       created_frame=self.state.frame)
+        plan = self._executor().plan(intent, self.state)
+        self.assertEqual(plan.command, "PlaceBuilding")
+        self.assertEqual(plan.coordinates, cell_center(4, 3))
+        # 确实问过引擎，且用的是引擎返回的那一格
+        self.assertEqual(len(self.client.queries), 1)
+        self.assertEqual(self.client.queries[0]["house"].pointer, PLAYER_HOUSE)
+
+    def test_executor_reports_when_the_engine_offers_no_site(self):
+        """引擎一个合法格都不给：报清楚的话，不发一条注定的命令。"""
+        from ra2agent.errors import InvalidCommand
+        self.client.legal = ()
+        intent = Place(building=self._agent(), cell=None,
+                       created_frame=self.state.frame)
+        with self.assertRaises(InvalidCommand) as caught:
+            self._executor().plan(intent, self.state)
+        self.assertIn("合法落点", str(caught.exception))
 
     # ------------------------------------------------------------ 辅助
     def _pool(self, state=None):

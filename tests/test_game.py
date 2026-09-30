@@ -246,11 +246,18 @@ class TestInspect(unittest.TestCase):
                           crash_age=None, focused=True)
         self.assertIn("窗口在前台", host.describe(state)[0])
 
-    def test_running_and_blurred_points_at_focus(self):
+    def test_running_and_blurred_does_not_claim_the_loop_paused(self):
+        """窗口不在前台 ≠ 主循环暂停。
+
+        旧文案把两件事混成一句，实测让两个测试 agent 收到假告警，差点去抢焦点
+        （两个同名实例同桌面时，抢到对手那个等于替对方按暂停）。
+        """
         host, _ = make_host(CSV_ROW)
         state = HostState(processes=(ProcessInfo(GAME_EXE, 1),), listening=True,
                           crash_age=None, focused=False)
-        self.assertIn("game focus", host.describe(state)[0])
+        line = host.describe(state)[0]
+        self.assertIn("窗口不在前台", line)
+        self.assertNotIn("主循环暂停", line)
 
     def test_crash_evidence_is_reported(self):
         with tempfile.TemporaryDirectory() as tmp:

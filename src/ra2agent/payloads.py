@@ -184,7 +184,17 @@ def inspect_configuration(update=False, **fields) -> bytes:
 
 
 def _pointer_of(obj) -> int:
-    """接受对象或裸指针。"""
+    """接受对象或裸指针。
+
+    凡带 `pointer` 字段的都算对象：除了 `GameObject`/`ObjectType`，还有 `House`
+    （`state.player_house()` 给的就是它，`PlaceQuery` 正需要它的指针）。少认一种
+    就会落到 `int(obj)` 上抛 `TypeError`，而调用点多半在「读局势」的路径里——
+    实测一次 `int(House)` 能让整个 `status` 不可用。写法与 `identity._pointer_of`
+    保持一致。
+    """
     if isinstance(obj, (GameObject, ObjectType)):
         return obj.pointer
+    pointer = getattr(obj, "pointer", None)
+    if pointer is not None:
+        return int(pointer)
     return int(obj)

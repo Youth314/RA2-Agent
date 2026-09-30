@@ -32,7 +32,7 @@ CAHOSP(Old Civilian Hospital) CAEAST01(Easter Island Statue)
 - **GAWEAP** Allied War Factory（盟军兵工厂） · 造价 2000 · 血 1000 · wood · 电力 -25 · 前提 PROC,GAPILE,GACNST · 等级 2
 - **GAWALL** Allied Wall（盟军围墙） · 造价 100 · 血 300 · concrete · 前提 GAPILE · 等级 1
 - **NASAM** Allied Patriot Missile（爱国者飞弹） · 造价 1000 · 血 900 · steel · 电力 -50 · 前提 BARRACKS,GACNST · 等级 4 · RedEye2(75伤/55帧/射程12 弹头SAMWH) · 每发 → none,flak,plate,light,medium,heavy,special_1,special_2=75 wood,steel,concrete=0
-- **GAYARD** Allied Shipyard（盟军船厂） · 造价 1000 · 血 1500 · concrete · 电力 -25 · 前提 PROC,POWER,GACNST · 等级 4 · repairs_units naval_dock
+- **GAYARD** Allied Shipyard（盟军船厂） · 造价 1000 · 血 1500 · concrete · 电力 -25 · 前提 PROC,POWER,GACNST · 等级 4 · 临水（基地附近要有水面） · repairs_units naval_dock
 - **GACSPH** Allied Chrono Sphere（超时空传送仪） · 造价 2500 · 血 750 · concrete · 电力 -200 · 前提 GATECH,GACNST · 等级 10
 - **GAWEAT** Allied Weather Controller（天气控制器） · 造价 5000 · 血 1000 · concrete · 电力 -200 · 前提 GATECH,GACNST · 等级 10
 - **ATESLA** Allied Prism Cannon（光棱塔） · 造价 1500 · 血 600 · steel · 电力 -75 · 前提 POWER,RADAR,GACNST · 等级 6 · PrismShot(120伤/45帧/射程8 弹头PrismWarhead) · 每发 → none,special_1=240 flak,plate,light,medium,heavy,special_2=120 wood,steel,concrete=60
@@ -57,7 +57,7 @@ CAHOSP(Old Civilian Hospital) CAEAST01(Easter Island Statue)
 - **NADEPT** Soviet Service Depot（苏军维修厂） · 造价 800 · 血 1200 · wood · 电力 -20 · 前提 NAWEAP,NACNST · 等级 6 · repairs_units naval_dock
 - **TESLA** Soviet Tesla Coil（磁暴线圈） · 造价 1500 · 血 600 · steel · 电力 -75 · 前提 POWER,RADAR,NACNST · 等级 5 · CoilBolt(200伤/80帧/射程7 弹头Electric) · 每发 → none,flak,plate,medium,heavy,special_2=200 light=170 wood,steel,concrete=100 special_1=400
 - **NAMISL** Soviet Nuclear Missile Silo（核弹发射井） · 造价 5000 · 血 1000 · concrete · 电力 -200 · 前提 NATECH,NACNST · 等级 10
-- **NAYARD** Soviet Shipyard（苏军造船厂） · 造价 1000 · 血 1500 · concrete · 电力 -20 · 前提 PROC,POWER,NACNST · 等级 2 · repairs_units naval_dock
+- **NAYARD** Soviet Shipyard（苏军造船厂） · 造价 1000 · 血 1500 · concrete · 电力 -20 · 前提 PROC,POWER,NACNST · 等级 2 · 临水（基地附近要有水面） · repairs_units naval_dock
 - **NANRCT** Soviet Nuclear Reactor（核子反应堆） · 造价 1000 · 血 1000 · concrete · 电力 +2000 · 前提 NATECH,NACNST · 等级 9
 - **NAFLAK** Soviet Flak Cannon（防空炮） · 造价 1000 · 血 900 · steel · 电力 -50 · 前提 BARRACKS,NACNST · 等级 4 · FlakWeapon(40伤/20帧/射程12 弹头FlakWH) · 每发 → none=60 flak=32 plate=20 light,medium,special_1,special_2=40 heavy=8 wood,steel,concrete=0
 - **NAINDP** Soviet Industrial Plant（工业工厂） · 造价 2500 · 血 1000 · wood · 电力 -200 · 前提 NATECH,PROC,NACNST · 等级 10
@@ -70,7 +70,7 @@ CAHOSP(Old Civilian Hospital) CAEAST01(Easter Island Statue)
 - **YAPOWR** Yuri Bio Reactor（生化反应炉） · 造价 600 · 血 700 · wood · 电力 +150 · 前提 YACNST · 等级 1 · extra_power
 - **YABRCK** Yuri Barracks（尤里兵营） · 造价 500 · 血 500 · steel · 电力 -10 · 前提 POWER,YACNST · 等级 2
 - **YAWEAP** Yuri War Factory（尤里兵工厂） · 造价 2000 · 血 1000 · wood · 电力 -25 · 前提 PROC,YABRCK,YACNST · 等级 2
-- **YAYARD** Yuri Submarine Pen（尤里船厂） · 造价 1000 · 血 1500 · concrete · 电力 -25 · 前提 YACNST,POWER,PROC · 等级 4 · repairs_units naval_dock
+- **YAYARD** Yuri Submarine Pen（尤里船厂） · 造价 1000 · 血 1500 · concrete · 电力 -25 · 前提 YACNST,POWER,PROC · 等级 4 · 临水（基地附近要有水面） · repairs_units naval_dock
 - **YATECH** Yuri Battle Lab（尤里实验室） · 造价 2000 · 血 500 · wood · 电力 -100 · 前提 YAWEAP,YACNST,RADAR · 等级 8
 - **GAFWLL** Yuri Citadel Wall（尤里围墙） · 造价 100 · 血 300 · concrete · 前提 YABRCK · 等级 2
 - **YAGGUN** Yuri Gattling Cannon（盖特机炮） · 造价 1000 · 血 810 · steel · 电力 -50 · 前提 BARRACKS,YACNST · 等级 4

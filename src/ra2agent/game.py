@@ -34,6 +34,9 @@ COMMAND_TIMEOUT = 30.0
 PROBE_TIMEOUT = 1.0
 #: 起游戏后端口多久还没在听就值得怀疑。实测约 3 秒起来，留足余量。
 STARTUP_GRACE = 60.0
+#: 判「主循环暂停」要帧号停住多少秒。**按帧号判，不按前台窗口标题**：同桌面两个
+#: 同名实例时前台判据必然对至少一方为假。
+LOOP_STALL_SECONDS = 2.0
 
 
 @dataclass(frozen=True)
@@ -107,7 +110,7 @@ class GameHost:
     def __init__(self, runner=None, host=DEFAULT_HOST, port=DEFAULT_PORT,
                  game_dir=GAME_DIR, game_dir_wsl=GAME_DIR_WSL, exe=GAME_EXE,
                  crash_report=None, focus_probe=None, focus_reset=None,
-                 port_probe=None, now=time.time):
+                 window_probe=None, port_probe=None, now=time.time):
         self.runner = runner or default_runner
         self.host = host
         self.port = port
@@ -117,6 +120,8 @@ class GameHost:
         self.crash_report = CRASH_REPORT if crash_report is None else crash_report
         self.focus_probe = focus_probe or winfocus.is_game_foreground
         self.focus_reset = focus_reset or winfocus.reset
+        #: 标题含游戏名的窗口清单。报「置前失败」时要能说清找到了几个。
+        self.window_probe = window_probe or winfocus.game_windows
         self.port_probe = port_probe or self._probe_over_socket
         self.now = now
         #: 本进程最近一次 `launch()` 的时刻；用于判断留证是不是这次的事。
@@ -224,7 +229,7 @@ class GameHost:
                                  f"可能卡住或起崩了。")
             else:
                 focus = ("窗口在前台" if state.focused
-                         else "窗口失焦，主循环暂停——用 game focus 抢回焦点")
+                         else "窗口不在前台（主循环未必停——看帧号是否推进）")
                 lines.append(f"游戏：运行中（PID {pids}），服务在听，{focus}")
         if state.crash_age is not None:
             lines.append(f"留证：崩溃报告 {describe_age(state.crash_age)}（{self.crash_report}）")

@@ -97,6 +97,38 @@ class TestRegistration(unittest.TestCase):
         registry = TacticRegistry().load_builtin()
         self.assertEqual([t.info.name for t in registry.automatic()], ["deploy_mcv"])
 
+    def test_param_conditions_do_not_hide_cards(self):
+        """读参数的条件在「没有参数」时跳过，不判否。
+
+        `tactics` 这个工具不带参数，`can_afford` 之类拿不到参数只能判否，于是
+        `build_structure`、`train_unit` 从卡片上消失，模型只能读源码才知道有它们
+        （两个测试 agent 都栽在这里）。跳过才是对的：判不出真假就不该藏。
+        """
+        registry = TacticRegistry().load_builtin()
+        observation, subject = make_observation(), FakeSubject()
+        for name in ("build_structure", "train_unit"):
+            info = registry.get(name).info
+            self.assertIn("can_afford", info.requires)
+            self.assertNotIn(
+                "can_afford",
+                registry.missing_conditions(info, observation, subject),
+                f"没有参数时不该把 {name} 的 can_afford 判掉")
+        # `train_unit` 只挂这一条条件：没有参数时整条都跳过，卡片因此照常出现
+        self.assertEqual(registry.missing_conditions(
+            registry.get("train_unit").info, None, None), ())
+        # 给了参数（哪怕不完整）就照判：受理时的拒绝仍要诚实
+        self.assertIn("can_afford", registry.missing_conditions(
+            registry.get("train_unit").info, observation, subject, {}))
+
+    def test_non_param_conditions_still_filter_cards(self):
+        """不读参数的条件照旧筛卡片——「跳过」只针对读参数的。"""
+        registry = TacticRegistry().load_builtin()
+        info = registry.get("engage_nearest").info
+        self.assertIn("has_enemies", info.requires)
+        self.assertEqual(
+            registry.missing_conditions(info, make_observation(), FakeSubject()),
+            ("has_enemies",))
+
 
 # ---------------------------------------------------------------- 参数
 class TestParameters(unittest.TestCase):

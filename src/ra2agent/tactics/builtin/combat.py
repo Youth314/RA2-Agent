@@ -15,7 +15,7 @@
 任务结算后单位交还，后者只负责开火，不会再让它们挪窝。
 """
 from ...intents import Attack, Hold
-from ..core import Param, Tactic, TacticInfo, is_positive_number
+from ..core import REQUIRED, Param, Tactic, TacticInfo, is_positive_number
 
 
 def _distance_sq(one, other):
@@ -96,7 +96,10 @@ TACTICS = (
         name="focus_fire",
         summary="集火指定的敌方 id；半径外或目标已消失的单位原地驻守",
         params=(
-            Param("target", 0, "要打的敌方单位 id，取自 status 的可见敌方", None),
+            # 必填：`target` 默认 0 时是「所有人都驻守」，任务还记成 satisfied——
+            # 模型少写一个参数却拿到「成功」，看不出自己其实什么都没打。
+            Param("target", REQUIRED, "要打的敌方单位 id，取自 status 的可见敌方",
+                  is_positive_number),
             Param("radius", 12, "只在目标这么近时才开火（格）", is_positive_number),
         ),
         requires=("has_units",),
@@ -112,5 +115,8 @@ TACTICS = (
                   is_positive_number),
         ),
         requires=("has_units",),
+        # 自带生命周期：没目标时不下令、等下一拍，到期（`max_frames`）自己转驻守
+        # 收工。故不套框架的等待上限，由它自己负责收尾。
+        wait_grace_frames=None,
     ), _guard_area),
 )

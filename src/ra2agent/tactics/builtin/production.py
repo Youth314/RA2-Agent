@@ -49,7 +49,7 @@ TACTICS = (
         summary="让某个厂开始生产一种单位；units 点名哪个厂，params.type 用注册名",
         params=(Param("type", REQUIRED, "单位的注册名或显示名，如 MTNK",
                       is_non_empty_str),),
-        requires=("can_afford",),
+        requires=("can_afford", "prereq_met"),
     ), _produce),
 
     Tactic(TacticInfo(
@@ -57,6 +57,6 @@ TACTICS = (
         summary="让建造厂开始生产一栋建筑；造好后还要 place_ready_building 放下",
         params=(Param("type", REQUIRED, "建筑的注册名或显示名，如 GAPOWR",
                       is_non_empty_str),),
-        requires=("can_afford", "has_construction_yard"),
+        requires=("can_afford", "has_construction_yard", "prereq_met"),
     ), _produce),
 )

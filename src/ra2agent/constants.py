@@ -22,6 +22,11 @@ LEPTONS_PER_CELL = 256
 PRODUCTION_STEPS = 54
 #: `PlaceQuery` 一次能接受的候选坐标上限，超出静默截断
 PLACE_QUERY_MAX_LENGTH = 1024
+#: 建筑放置的候选落点相对中心向外的搜索半径（格）
+PLACE_SITE_RADIUS = 10
+#: 一条任务「等局面变化」最多等多少帧。等满就收工交还单位，不许永久占着。
+#: 建一栋楼约 540-950 帧，故留约两个周期；技法可用 `wait_grace_frames=None` 豁免。
+WAIT_GRACE_FRAMES = 2400
 
 
 class UnitAction(IntEnum):

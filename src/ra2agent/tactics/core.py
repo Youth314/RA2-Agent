@@ -16,9 +16,10 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Callable
 
+from ..constants import WAIT_GRACE_FRAMES
 from ..errors import TacticDenied, TacticError, TacticFailed
 from ..intents import Intent, Layer, Scope
-from .conditions import check_conditions
+from .conditions import NEEDS_PARAMS, check_conditions, explain
 
 
 class Level(StrEnum):
@@ -170,6 +171,17 @@ class TacticInfo:
     source: str = "builtin"         # builtin / model / human
     version: int = 1
     trigger: Trigger = field(default_factory=Trigger)   # 何时自己跑
+    #: 这一拍产不出意图时，任务**当场收工**还是继续等下一拍。
+    #:
+    #: 两种情况代码上一样（`run` 返回空元组），语义却不同：`deploy_mcv` 对一台已
+    #: 展开的建造厂是「没事可做」，该把单位交还；`guard_area` 没目标时是「等下一
+    #: 拍」，收工就改掉了它的语义。默认继续等（保守），一次性技法自己标 True。
+    idle_ends_task: bool = False
+    #: 继续等的时候最多等多少帧，等满收工交还单位。`None` 表示不设上限。
+    #:
+    #: 默认取自 `constants.WAIT_GRACE_FRAMES`（约两栋楼的建造周期）。自带生命周期
+    #: 的技法（`guard_area` 有 `max_frames`）可以豁免，自己负责收尾。
+    wait_grace_frames: int | None = WAIT_GRACE_FRAMES
 
 
 @dataclass(frozen=True)
@@ -550,7 +562,7 @@ class TacticRegistry:
             return f"等级 {info.level} 超出门槛，或已被停用"
         missing = self.missing_conditions(info, observation, subject, params)
         if missing:
-            return f"此刻用不上：{'、'.join(missing)}"
+            return f"此刻用不上：{explain(missing)}"
         return ""
 
     def automatic(self) -> tuple:
@@ -564,17 +576,27 @@ class TacticRegistry:
         **参数要传进来**：`can_afford`、`cell_explored` 这类条件读 `context.params`，
         探针不给参数时它们必然为假，挂进 `requires` 等于把技法藏起来。
 
+        `params=None` 表示**没有参数可给**（卡片筛选就是这种），此时读参数的条件
+        一律**跳过**：它们判不出真假，判否只会让 `build_structure`、`train_unit`
+        这类技法在卡片上消失，模型只能读源码才知道有它们。给了 `params`（哪怕是
+        空字典，表示「这次调用就是这么调的」）就全部照判。
+
         `params` 可能是**未经 `check_params` 的原始请求**（受理点为了不改变拒因次序
         而先判条件），故条件要自己容忍缺项与缺默认值。
         """
         if not info.requires:
             return ()
+        names = info.requires
+        if params is None:
+            names = tuple(name for name in names if name not in NEEDS_PARAMS)
+            if not names:
+                return ()
         probe = TacticContext(
             registry=self, tactic=Tactic(info=info, run=lambda context: ()),
             observation=observation, subject=subject, params=dict(params or {}),
             frame=0, memo={}, log=None, chain=(info.name,), attempt=0,
             budget=_Budget(0))
-        return check_conditions(info.requires, probe)
+        return check_conditions(names, probe)
 
     def check_params(self, name, params) -> dict:
         """按声明的参数表校验并补默认值。

@@ -47,8 +47,10 @@ from enum import IntEnum
 from typing import Callable
 
 from .client import CommandResult
-from .constants import Mission, NetworkEvent, UnitAction
+from .constants import (Mission, NetworkEvent, PLACE_QUERY_MAX_LENGTH,
+                        PLACE_SITE_RADIUS, UnitAction)
 from .errors import CommandFailed, GameNotResponding, InvalidCommand, Timeout
+from .formation import place_candidates
 from .intents import (Attack, Deploy, Hold, Intent, MoveTo, Place, Produce, Sell,
                       Stance)
 from .state import Coordinates, GameState, ObjectType, cell_center
@@ -433,13 +435,42 @@ class Executor:
 
     def _plan_place(self, intent, state) -> CommandPlan:
         building = self._pointer(intent.building, state)
-        coordinates = cell_center(*intent.cell)
+        cell = intent.cell
+        if cell is None:
+            cell = self._nearest_place_cell(building, state)
+            if cell is None:
+                raise InvalidCommand(
+                    "引擎没给出任何合法落点，这栋建筑暂时放不下")
+        coordinates = cell_center(*cell)
         self.validator.check_place(coordinates)
-        cell = tuple(intent.cell)
+        cell = tuple(cell)
         return CommandPlan(
             kind=intent.kind, command="PlaceBuilding", action=None,
             pointers=(building,), coordinates=coordinates,
             facts=self._facts(state, (building,)), verify=_placed(building, cell))
+
+    def _nearest_place_cell(self, building, state):
+        """替模型问引擎要一格合法落点：最近的优先，问不到给 `None`。
+
+        合法性只有引擎说了算，故这里拿己方建筑当中心由近及远铺候选，交给
+        `PlaceQuery` 筛——它返回的第一格就是离基地最近的合法格。这一步是 I/O，
+        所以归 L0：技法层不许问引擎。
+        """
+        if self.types is None or state is None:
+            return None
+        obj = state.object(building)
+        if obj is None:
+            return None
+        entry = self.types.info(obj)
+        if entry is None:
+            return None
+        centers = [o.coordinates.cell for o in state.own_objects() if o.is_building] \
+            or [obj.coordinates.cell]
+        map_data = getattr(self.validator, "map_data", None)
+        candidates = place_candidates(centers, map_data, radius=PLACE_SITE_RADIUS,
+                                     limit=PLACE_QUERY_MAX_LENGTH)
+        found = self.client.place_query(entry, state.player_house(), candidates)
+        return tuple(found[0].cell) if found else None
 
     # ------------------------------------------------------------ 解析与日志
     def _pointers(self, agent_ids) -> tuple[int, ...]:

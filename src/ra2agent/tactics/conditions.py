@@ -15,19 +15,32 @@
 
 **二、参数可能缺。** 受理点在 `check_params` 之前就判条件（为了不改变拒因次序），
 故探针里的 `params` 是**原始请求**，默认值尚未补上：条件要按 `.get()` 取并自行容忍
-缺项。卡片筛选时更是完全没有参数，故参数型条件不会让卡片消失，只影响 `call` 受理
-与技法真跑。
+缺项。
+
+**三、读参数的条件要申报 `needs_params=True`。** 卡片筛选（`tactics` 工具）不带参数，
+注册表据此**跳过**这类条件，而不是把它判否——判否会把 `build_structure`、`train_unit`
+这类 `requires=("can_afford",)` 的技法永久藏起来，模型只能读源码才知道它们存在。
 """
 from ..errors import TacticError
+from ..formation import IMPASSABLE
 
 #: 条件名到判据。
 CONDITIONS: dict = {}
 
+#: 需要调用参数才判得出来的条件名。卡片筛选没有参数，故跳过它们。
+NEEDS_PARAMS: set = set()
 
-def condition(name):
-    """把判据登记为条件。"""
+
+def condition(name, *, needs_params=False):
+    """把判据登记为条件。
+
+    `needs_params=True` 用于读 `context.params` 的条件：没有参数时它判不出真假，
+    只能跳过（见模块开头契约三）。
+    """
     def decorate(function):
         CONDITIONS[name] = function
+        if needs_params:
+            NEEDS_PARAMS.add(name)
         return function
     return decorate
 
@@ -42,6 +55,21 @@ def check_conditions(names, context) -> tuple:
         if not check(context):
             missing.append(name)
     return tuple(missing)
+
+
+#: 条件名 → 给模型看的人话。只写「光看名字等于没说」的那几条：拒因要能指导下一步，
+#: 否则模型只知道「此刻用不上」，不知道该补什么。
+HINTS = {
+    "prereq_met": "建造前提没满足，或这个类型不在可造清单里（见 status 的「可造」段）",
+    "cell_passable": "目标格不可通行或在地图外（水、岩石、墙）",
+    "can_afford": "钱不够",
+}
+
+
+def explain(names) -> str:
+    """把不满足的条件名渲染成人话；没写提示的保留原名。"""
+    return "、".join(f"{name}（{HINTS[name]}）" if name in HINTS else name
+                     for name in names)
 
 
 @condition("has_units")
@@ -81,7 +109,7 @@ def has_pending_building(context) -> bool:
     return any(obj.in_limbo for obj in state.own_objects())
 
 
-@condition("cell_explored")
+@condition("cell_explored", needs_params=True)
 def cell_explored(context) -> bool:
     """参数里的目标格已探索。只用于确实需要已知地形的技法。"""
     cell = context.params.get("cell")
@@ -91,13 +119,13 @@ def cell_explored(context) -> bool:
     return map_data.in_bounds(cell[0], cell[1]) and not map_data.shrouded(*cell)
 
 
-@condition("cell_unknown")
+@condition("cell_unknown", needs_params=True)
 def cell_unknown(context) -> bool:
     """参数里的目标格**还没**探索过。侦察技法用它，不必自己取反。
 
     参数相关的条件依赖注册表把调用参数带进探针（`missing_conditions` 已支持）。
-    **但卡片筛选拿不到参数**（`tactics` 工具不带参数），故参数型条件只在 `call`
-    受理与技法真跑时生效，不会让卡片提前消失。
+    卡片筛选拿不到参数，故注册表对这类条件（`needs_params`）**跳过**，只在 `call`
+    受理与技法真跑时生效——这样卡片不会提前消失，受理时的拒绝又是诚实的。
     """
     return not cell_explored(context)
 
@@ -120,15 +148,36 @@ def _param_type(context):
     return None
 
 
-@condition("can_afford")
+def _catalogue(context):
+    """本次观测带下来的可造目录；没有则 `None`（缺它只是少了前提判断）。"""
+    return getattr(context.observation, "catalogue", None)
+
+
+def _catalogue_entry(context):
+    """参数点名的类型在目录里的条目。"""
+    catalogue = _catalogue(context)
+    name = _param_type(context)
+    if catalogue is None or name is None:
+        return None
+    return catalogue.entry(name)
+
+
+def _owned_building_ids(context):
+    """己方已在地图上的建筑注册名——实现共用 `catalogue.owned_building_ids`。"""
+    from ..catalogue import owned_building_ids
+    return owned_building_ids(context.observation.state, context.types,
+                              _catalogue(context))
+
+
+@condition("can_afford", needs_params=True)
 def can_afford(context) -> bool:
     """参数点名的类型买得起。
 
     价格只从类型表取；类型解析不出、或拿不到钱数时**判否**——宁可不让这条技法
     跑，也不要先下单再让引擎因钱不够拒绝。
 
-    与 `cell_unknown` 同理：**卡片筛选拿不到参数**，故它只能让 `call` 被拒得有理有据，
-    不会让卡片提前消失。
+    `needs_params=True`：卡片筛选拿不到参数，注册表据此跳过它，故这条条件不会让
+    卡片消失，只在 `call` 受理与技法真跑时生效。
     """
     name = _param_type(context)
     types = context.types
@@ -159,6 +208,55 @@ def has_construction_yard(context) -> bool:
         if entry is not None and "construction yard" in (entry.name or "").lower():
             return True
     return False
+
+
+@condition("prereq_met", needs_params=True)
+def prereq_met(context) -> bool:
+    """参数点名的类型，**建造前提是否已经满足**。
+
+    引擎只在真下单之后才回一句 `unbuildable object_type {…}`——既不说是缺前提还是
+    缺钱，也不说缺哪个。这条条件把那份判断提前到受理点：满足不了就当场拒绝，模型
+    不必用一次 call 与几拍去换拒绝原因。
+
+    目录来自 `corpus/derived/rules.json`（`ra2agent.catalogue`），随观测下发。**读不到
+    目录时判真**（放行）：缺一份数据不该让模型连电厂都造不出来——那种情况下退回
+    原来的行为（真下单、让引擎拒），比全面禁建安全得多。目录在手而类型不在清单里
+    才是判否，那说明它本来就不是能造的东西。
+    """
+    catalogue = _catalogue(context)
+    if catalogue is None:
+        return True
+    entry = _catalogue_entry(context)
+    if entry is None or not entry.buildable:
+        return False
+    from ..catalogue import own_building_cells, stolen_labels, water_nearby
+    observation = context.observation
+    # 两条引擎的额外门也要算：要偷到的科技、临水建筑有没有水面。少算它们，模型
+    # 就会拿到「本地说能造、引擎说 unbuildable」的假 ✓（实测超时空突击队与船厂）。
+    return not entry.missing(
+        _owned_building_ids(context),
+        stolen=stolen_labels(observation.house),
+        water_near=water_nearby(observation.map_data,
+                                own_building_cells(observation.state)))
+
+
+@condition("cell_passable", needs_params=True)
+def cell_passable(context) -> bool:
+    """参数里的目标格站得住人：在图内，且地形不是水 / 岩石 / 墙。
+
+    `invalid cell` 是引擎对这类格的回话，但只在真下令之后才说；把它提到受理点，
+    模型就不必靠一次次被拒去试出哪格能走（实测两个测试员都为这个白烧过 call）。
+
+    **不判「已探索」**：往未探索处推进是正常玩法，无权拦。
+    """
+    cell = context.params.get("cell")
+    map_data = context.observation.map_data
+    if map_data is None or not isinstance(cell, (tuple, list)) or len(cell) != 2:
+        return False
+    x, y = cell
+    if not map_data.in_bounds(x, y):
+        return False
+    return map_data.land_type(x, y) not in IMPASSABLE
 
 
 @condition("has_factory")

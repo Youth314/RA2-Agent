@@ -118,6 +118,16 @@ def find_window(substring):
     return None
 
 
+def game_windows(substring=GAME_TITLE):
+    """标题含游戏名的窗口 `[(handle, title)]`。
+
+    同桌面起两个实例时这里会有两个——**按标题找窗口本身就有歧义**，故调用方该把
+    「找到几个」报出来，而不是假装只有一个。
+    """
+    return [(handle, title) for handle, title in list_windows()
+            if substring.lower() in title.lower()]
+
+
 def focus_handle(handle):
     """还原并置前指定窗口。"""
     return _run(f'[W]::Focus({handle})').strip().lower() == "true"

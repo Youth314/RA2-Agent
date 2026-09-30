@@ -36,6 +36,8 @@ class Observation:
     map_data: MapData | None = field(default=None, repr=False)
     #: 对象类型表。不随迷雾变化（类型定义是公开知识），故整局共用一份。
     types: TypeTable | None = field(default=None, repr=False)
+    #: 可造目录（前提 / 造价 / 科技等级）。同样是公开知识，整局共用一份。
+    catalogue: object | None = field(default=None, repr=False)
 
     @property
     def units(self) -> tuple[GameObject, ...]:
@@ -57,7 +59,8 @@ class Observation:
 
     def summary(self) -> str:
         """一行摘要，用于日志与人工检查。"""
-        return (f"帧 {self.frame}｜{self.house.name}｜金 {self.house.money}｜"
+        country = f"（{self.house.faction}）" if self.house.faction else ""
+        return (f"帧 {self.frame}｜{self.house.name}{country}｜金 {self.house.money}｜"
                 f"己方 {len(self.own)}（载具 {len(self.units)} 步兵 "
                 f"{len(self.infantry)} 建筑 {len(self.buildings)}）｜"
                 f"可见敌方 {len(self.visible_enemies)}")
@@ -69,11 +72,14 @@ class Observer:
     用法：先 `bootstrap()` 取底图与类型表，之后每次 `poll()` 读一帧。
     """
 
-    def __init__(self, client, identity=None, map_data=None, types=None):
+    def __init__(self, client, identity=None, map_data=None, types=None,
+                 catalogue=None):
         self.client = client
         self.identity = identity or IdentityTable()
         self.map_data = map_data
         self.types = types
+        #: 可造目录。`mcp` 起服务时挂上，条件与 `status` 都读它。
+        self.catalogue = catalogue
         self.last_state: GameState | None = None
         #: 事件队列。挂在 `poll()` 上，故 `tick()` 与 `status()` 共享同一份。
         self.events = EventLog()
@@ -125,7 +131,8 @@ class Observer:
                 enemies.append(obj)
         return Observation(frame=state.frame, house=house, own=tuple(own),
                            visible_enemies=tuple(enemies), neutral=tuple(neutral),
-                           state=state, map_data=self.map_data, types=self.types)
+                           state=state, map_data=self.map_data, types=self.types,
+                           catalogue=self.catalogue)
 
     # ------------------------------------------------------------ 可见性
     def is_visible(self, obj: GameObject) -> bool:

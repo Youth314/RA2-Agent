@@ -159,13 +159,18 @@ class TestReplay(unittest.TestCase):
         self.assertEqual(report.plan_errors, ())
         self.assertIn("只产出 0 条意图", "；".join(report.failures))
 
-    def test_out_of_map_cell_is_caught_by_precheck(self):
-        # 越界坐标真机会崩；回放要在发出去之前抓住
+    def test_out_of_map_cell_is_caught_before_any_command(self):
+        """越界坐标真机会崩：一条命令都不许发出去。
+
+        现在这道闸比原来更早——`cell_passable` 是**技法条件**，在产出意图之前就
+        判否，故不经过执行器、`plan_errors` 为空；拦下的方式从「命令没过前置校验」
+        变成「一条意图都产不出」。
+        """
         report = replay(self.scenario, "advance_to_cell", (self.agent,),
                         {"cell": (999, 999)}, ticks=3)
-        self.assertTrue(report.plan_errors)
-        self.assertIn("InvalidCommand", report.plan_errors[0])
+        self.assertEqual(report.plan_errors, ())
         self.assertFalse(report.ok)
+        self.assertIn("0 条意图", "；".join(report.failures))
 
     def test_unknown_unit_gives_a_verdict_not_a_crash(self):
         report = replay(self.scenario, "advance_to_cell", (999999,),

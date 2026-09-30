@@ -456,6 +456,75 @@ class TestExpiry(Case):
         self.assertEqual(self.layer.squads(), (squad,))
 
 
+class TestIdleAndWaiting(Case):
+    """「技法这一拍不产意图」的两种语义，以及等待的上限与告警限频。
+
+    以前两种都只会挂住：任务不结算、单位被占死，而每拍还发一条同样的告警
+    （实测 `deploy_mcv` 挂过两千多帧、单次 `status` 堆过 20 条「等待」）。
+    """
+
+    def test_idle_ends_task_settles_and_releases_the_unit(self):
+        """标了 `idle_ends_task` 的技法：没事可做就当场收工交还单位。"""
+        state = make_state(objects=[tank(ALLY_A, (1, 1))])   # 一辆坦克，不是基地车
+        self.build(state)
+        squad, call = self.assign(state, "deploy_mcv")
+        self.tick(state)
+        self.assertEqual(self.layer.squads(), ())
+        self.assertEqual(call.state, IntentState.IDLE)
+        self.assertEqual(self.layer.completed[0]["state"], "idle")
+        self.assertIn("无事可做", self.layer.completed[0]["reason"])
+        # 单位交还：它不再属于任何在管任务
+        self.assertEqual(self.layer.progress(), ())
+
+    def test_conditions_unmet_waits_instead_of_settling(self):
+        """条件不满足是「等局面变化」，不是「没事可做」——不该当场收工。"""
+        state = make_state(objects=[tank(ALLY_A, (1, 1))])
+        self.build(state)
+        squad, call = self.assign(state, "engage_nearest", {"radius": 8})
+        self.tick(state)                       # 场上没有敌人
+        self.assertEqual(self.layer.squads(), (squad,))
+        self.assertEqual(call.state, IntentState.ACTIVE)
+
+    def test_waiting_notice_is_throttled(self):
+        """同类等待告警按帧限频，不能每拍一条。"""
+        state = make_state(objects=[tank(ALLY_A, (1, 1))])
+        self.build(state)
+        self.assign(state, "engage_nearest", {"radius": 8})
+        for frame in range(100, 400, 11):      # 二十多拍
+            self.tick(make_state(frame=frame, objects=[tank(ALLY_A, (1, 1))]))
+        self.assertEqual(len(self.layer.notices), 1)
+
+    def test_waiting_for_too_long_settles_with_a_reason(self):
+        """等太久就收工：单位不能被一条任务永久占着。"""
+        from ra2agent.micro import WAIT_GRACE_FRAMES
+        state = make_state(objects=[tank(ALLY_A, (1, 1))])
+        self.build(state)
+        squad, call = self.assign(state, "engage_nearest", {"radius": 8})
+        self.tick(state)
+        self.tick(make_state(frame=100 + WAIT_GRACE_FRAMES,
+                             objects=[tank(ALLY_A, (1, 1))]))
+        self.assertEqual(self.layer.squads(), ())
+        self.assertEqual(call.state, IntentState.FAILED)
+        self.assertIn("局面没变", self.layer.completed[0]["reason"])
+
+    def test_a_wait_that_keeps_changing_its_reason_is_not_reaped(self):
+        """等待的理由一变就重新计时：正在等的前提不该被当成死等清掉。
+
+        `place_ready_building` 抢跑是等 `has_pending_building`，而这条理由在
+        「还没开始造」与「造好了待放」之间会变——故只有同一个理由连续超时才收。
+        """
+        from ra2agent.micro import WAIT_GRACE_FRAMES
+        state = make_state(objects=[tank(ALLY_A, (1, 1))])
+        self.build(state)
+        squad, call = self.assign(state, "engage_nearest", {"radius": 8})
+        self.tick(state)
+        self.assertEqual(self.layer.squads(), (squad,))
+        # 还没到上限：仍在等
+        self.tick(make_state(frame=100 + WAIT_GRACE_FRAMES - 1,
+                             objects=[tank(ALLY_A, (1, 1))]))
+        self.assertEqual(self.layer.squads(), (squad,))
+
+
 class TestCards(Case):
     def test_cards_reflect_the_situation(self):
         state = make_state(objects=[tank(ALLY_A, (1, 1))])

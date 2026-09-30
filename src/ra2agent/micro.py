@@ -10,6 +10,7 @@ import time
 from dataclasses import dataclass
 from enum import StrEnum
 
+from .constants import WAIT_GRACE_FRAMES
 from .errors import (CommandFailed, GameNotResponding, InvalidCommand, Timeout,
                      TacticDenied, TacticError)
 from .executor import Executor
@@ -27,6 +28,9 @@ DEFAULT_ARRIVE_RADIUS = 1
 DEFAULT_STUCK_FRAMES = 90
 #: 一条命令最多重试几次。
 DEFAULT_MAX_RETRIES = 3
+#: 同类运行时告警最短间隔（帧）。每拍都发同一条只会把 `status` 撑爆
+#: （实测单次堆过 20 条「等待」）。
+NOTICE_EVERY_FRAMES = 600
 
 
 class UnitMode(StrEnum):
@@ -69,6 +73,11 @@ class Squad:
         self.origin = origin
         self._active: tuple = tuple(unit.agent_id for unit in self.units)
         self._observation: Observation | None = None
+        #: 从哪一帧起连续等同一个理由；理由一变就重新计时。
+        self.wait_since: int | None = None
+        self.wait_key: str = ""
+        #: 每类告警上次发出的帧，用于限频（见 `_notify_once`）。
+        self.notice_frames: dict = {}
 
     # -------------------------------------------------- 技法看到的视图
     def agents(self) -> tuple:
@@ -317,21 +326,61 @@ class MicroLayer:
                 params=squad.intent.params, frame=observation.frame,
                 memo=squad.memo, log=self.log, attempt=attempt)
         except TacticDenied as error:
-            # 条件不满足：本拍什么都不做，等局面变化
-            self._record(observation.frame, "squad_waiting", squad.intent,
-                         {"tactic": squad.intent.tactic, "reason": str(error)})
-            self._notify("waiting", observation.frame, squad.intent.tactic,
-                         str(error))
+            # 条件不满足：等局面变化，但**有上限**（见 `_wait`）
+            self._wait(squad, observation, outcomes, str(error))
             return
         except TacticError as error:
             self._fail_squad(squad, observation, outcomes, str(error))
             return
         # `Wake` 不落到引擎——它往上走，交给唤醒桥
         engine, wakes = split_wakes(intents)
+        if not engine:
+            # 条件过了却一条意图都没有：要么这条技法本就「无事可做」（展开基地车
+            # 打非基地车），要么它在等下一拍（区域防守等目标、建筑还在造时还不够
+            # 放下）。前者当场收工；后者也算「等局面变化」，**同样有上限**——
+            # 否则一条等楼完工的任务会在楼烂尾时永久占着单位。
+            if self.registry.get(squad.intent.tactic).info.idle_ends_task:
+                self._idle_squad(squad, observation, outcomes)
+            else:
+                self._wait(squad, observation, outcomes,
+                           "技法此刻没有可执行的（条件成立但无事可做）")
+            return
+        squad.wait_since = None            # 又动起来了，等待计时归零
+        squad.wait_key = ""
         for intent in wakes:
             self._request_wake(intent, observation, squad.intent.tactic)
         for intent in engine:
             self._dispatch(squad, active, intent, observation, outcomes)
+
+    def _wait(self, squad, observation, outcomes, reason) -> None:
+        """条件没满足时的一次等待：记日志、限频告警、等太久就收工。
+
+        旧写法只记不结：一条「等建筑完工」的任务能永久占着单位（实测 `deploy_mcv`
+        挂过两千多帧），而每拍都发同一条告警——单次 `status` 堆过 20 条。等的前提
+        变了就重新计时，故正常等待（造楼那几百帧）不会被误收。
+        """
+        frame = observation.frame
+        if squad.wait_since is None or squad.wait_key != reason:
+            squad.wait_since = frame
+            squad.wait_key = reason
+        self._record(frame, "squad_waiting", squad.intent,
+                     {"tactic": squad.intent.tactic, "reason": reason})
+        self._notify_once(squad, "waiting", frame, squad.intent.tactic, reason)
+        grace = self.registry.get(squad.intent.tactic).info.wait_grace_frames
+        waited = frame - squad.wait_since
+        if grace is not None and waited >= grace:
+            self._fail_squad(squad, observation, outcomes,
+                             f"等了 {waited} 帧局面没变：{reason}")
+
+    def _idle_squad(self, squad, observation, outcomes) -> None:
+        """技法明说此刻无事可做：当场收工，把单位交还。
+
+        **不算失败**：单位没出错，只是这条技法对它们没有可做的事（例如对一台已经
+        展开的建造厂再喊 `deploy_mcv`）。单位状态不动，故结算里也不会记到位。
+        """
+        squad.intent.state = IntentState.IDLE
+        self._finish(squad, observation, outcomes, IntentState.IDLE,
+                     reason="此刻无事可做，已交还单位")
 
     def _request_wake(self, intent, observation, tactic) -> None:
         """把一条 `Wake` 意图投给桥。投递失败不改任务状态——它是旁路，不是命令。"""
@@ -346,8 +395,8 @@ class MicroLayer:
             # 失焦不是命令失败：整拍挂起，等帧恢复
             self._record(observation.frame, "command_paused", squad.intent,
                          {"intent": intent.kind, "reason": str(error)})
-            self._notify("paused", observation.frame, squad.intent.tactic,
-                         str(error))
+            self._notify_once(squad, "paused", observation.frame,
+                              squad.intent.tactic, str(error))
             for unit in active:
                 unit.goal = None
             return
@@ -431,6 +480,22 @@ class MicroLayer:
         """记一条运行时告警，等着指挥层报给模型。"""
         self.notices.append({"kind": kind, "frame": frame, "tactic": tactic,
                              "detail": detail})
+
+    def _notify_once(self, squad, kind, frame, tactic, detail, *,
+                     every=NOTICE_EVERY_FRAMES) -> None:
+        """同一类告警按帧限频：局面没变就别每拍说一遍。
+
+        理由变了立刻放行（那是新信息）；否则最快 `every` 帧一条。告警是给模型看的
+        信号，不是日志——重复的告警只会把真有事的那几条淹掉。
+        """
+        key = f"{kind}:{detail}"
+        last = squad.notice_frames.get(kind)
+        if last is not None and key == squad.notice_frames.get(f"{kind}:key"):
+            if frame - last < every:
+                return
+        squad.notice_frames[kind] = frame
+        squad.notice_frames[f"{kind}:key"] = key
+        self._notify(kind, frame, tactic, detail)
 
     def _record(self, frame, event, intent, detail) -> None:
         """写决策日志。"""

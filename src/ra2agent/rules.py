@@ -43,8 +43,19 @@ _SECTION = re.compile(r"^\[([^\]]+)\]\s*$")
 
 
 def strip_comment(line):
-    """去掉 INI 的 `;` 注释并去空白。"""
-    return line.split(";")[0].strip()
+    """去掉 INI 注释（`;` 与 `//`）并去空白。
+
+    **`//` 也是原版 `rulesmd.ini` 的注释写法**，不能只认分号：`[MirageWH]` 那个节头
+    就写成 `[MirageWH]\t// Supposed to be a heat ray.`。只认分号时这一行匹配不上
+    节头正则，整节（含 `Verses=`）被并进上一节——幻影坦克的武器伤害因此一路缺到
+    `codex/units.md`，测试员只能回原始 ini 手查。
+    """
+    cut = len(line)
+    for mark in (";", "//"):
+        found = line.find(mark)
+        if found != -1:
+            cut = min(cut, found)
+    return line[:cut].strip()
 
 
 def as_bool(value, default=False):
@@ -67,6 +78,24 @@ def as_list(value):
     if not value:
         return ()
     return tuple(part.strip() for part in value.split(",") if part.strip())
+
+
+#: 窃取科技的三方。键是 INI 里的旗标，值是给模型看的说法。
+STOLEN_TECH_KEYS = (("allied", "RequiresStolenAlliedTech"),
+                    ("soviet", "RequiresStolenSovietTech"),
+                    ("third", "RequiresStolenThirdTech"))
+
+
+def stolen_tech_of(data) -> str:
+    """这条单位/建筑要偷到哪一方的科技才造得了；不需要则给空串。
+
+    引擎会拿它当额外门（实测：超时空突击队 `RequiresStolenAlliedTech=yes`，
+    光看 `Prerequisite=BARRACKS` 判成「现在就能造」，下单后被 `unbuildable` 拒）。
+    """
+    for side, key in STOLEN_TECH_KEYS:
+        if as_bool(data.get(key)):
+            return side
+    return ""
 
 
 def load_sections(text):
@@ -223,6 +252,8 @@ class UnitType:
     required_houses: tuple = ()
     #: 这些阵营不能造；空表示不设限。
     forbidden_houses: tuple = ()
+    #: 要偷到哪一方科技才造得了（`RequiresStolen*Tech`）；空表示不需要。
+    stolen_tech: str = ""
 
 
 @dataclass(frozen=True)
@@ -247,6 +278,8 @@ class BuildingType:
     secondary: str = ""
     required_houses: tuple = ()
     forbidden_houses: tuple = ()
+    #: `WaterBound=yes`：只能建在水边（船厂那类）。能不能造由引擎按地形判。
+    water_bound: bool = False
 
 
 @dataclass
@@ -337,7 +370,8 @@ def parse_rules(text):
                 prerequisite=as_list(data.get("Prerequisite")), owners=owners_of(data),
                 primary=data.get("Primary", ""), secondary=data.get("Secondary", ""),
                 passengers=as_int(data.get("Passengers")),
-                required_houses=required_of(data), forbidden_houses=forbidden_of(data)))
+                required_houses=required_of(data), forbidden_houses=forbidden_of(data),
+                stolen_tech=stolen_tech_of(data)))
             holders.append((data.get("Primary", ""), data.get("Secondary", "")))
 
     for identifier in collect_ids(sections, "BuildingTypes"):
@@ -355,7 +389,8 @@ def parse_rules(text):
             max_occupants=as_int(data.get("MaxNumberOccupants")),
             special=_building_special(data), foundation=data.get("Foundation", ""),
             primary=data.get("Primary", ""), secondary=data.get("Secondary", ""),
-            required_houses=required_of(data), forbidden_houses=forbidden_of(data)))
+            required_houses=required_of(data), forbidden_houses=forbidden_of(data),
+            water_bound=as_bool(data.get("WaterBound"))))
         holders.append((data.get("Primary", ""), data.get("Secondary", "")))
 
     weapons, warheads = {}, {}

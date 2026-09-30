@@ -45,6 +45,8 @@ class IntentState(StrEnum):
 
     ACTIVE = "active"
     SATISFIED = "satisfied"
+    #: 技法明说此刻无事可做（不是出错）：单位交还，状态不动。
+    IDLE = "idle"
     FAILED = "failed"
     EXPIRED = "expired"
     SUPERSEDED = "superseded"
@@ -52,7 +54,7 @@ class IntentState(StrEnum):
 
 #: 终态，不再接受更新。
 TERMINAL_STATES = frozenset({
-    IntentState.SATISFIED, IntentState.FAILED,
+    IntentState.SATISFIED, IntentState.IDLE, IntentState.FAILED,
     IntentState.EXPIRED, IntentState.SUPERSEDED,
 })
 
@@ -254,10 +256,15 @@ class Produce(Intent):
 @register("place")
 @dataclass
 class Place(Intent):
-    """把已完工的建筑放到指定格。"""
+    """把已完工的建筑放到指定格。
+
+    `cell` 可以**不给**：建筑能不能放在某格只有引擎说了算（本地算出来的「空地」
+    会被 `CanPlaceHere` 拦下），故 `None` 表示「交给 L0 问 `PlaceQuery` 要一格
+    最近的合法落点」。模型因此不必自己算坐标，也不必猜。
+    """
 
     building: int = 0
-    cell: tuple[int, int] = (0, 0)
+    cell: tuple[int, int] | None = None
 
 
 @register("sell")

@@ -200,14 +200,21 @@ class TestPlaceReadyBuilding(unittest.TestCase):
         self.assertEqual(intents[0].building, 900)
         self.assertEqual(tuple(intents[0].cell), (21, 21))
 
-    def test_picks_a_cell_when_none_given(self):
+    def test_leaves_the_cell_to_l0_when_none_given(self):
+        """不给落点就交给 L0 去问引擎——技法自己不再猜格。
+
+        猜出来的「空地」会被引擎以 `CanPlaceHere` / `Proximity check failed` 拒
+        （实测兜底格给出过 `格=(1,0)`），故合法落点这件事只能在能问引擎的那一层做。
+        """
         intents = self.run_({}, map_data=make_map())
         self.assertEqual([i.kind for i in intents], ["place"])
-        # 兜底落点围着待放建筑找，不会选到建筑自己占的格
-        self.assertNotEqual(tuple(intents[0].cell), (20, 20))
+        self.assertIsNone(intents[0].cell)
 
-    def test_without_map_and_without_cell_it_does_nothing(self):
-        self.assertEqual(self.run_({}), ())
+    def test_without_map_and_without_cell_it_still_places(self):
+        """没有地图也照产意图：落点合法性由引擎说了算，不需要本地地图。"""
+        intents = self.run_({})
+        self.assertEqual([i.kind for i in intents], ["place"])
+        self.assertIsNone(intents[0].cell)
 
     def test_no_pending_building_is_denied(self):
         with self.assertRaises(TacticDenied):
@@ -218,9 +225,10 @@ class TestPlaceReadyBuilding(unittest.TestCase):
             self.run_({"cell": [1, 2, 3]})
 
     def test_explicit_none_means_pick_one(self):
-        # `cell: None` 等于「没给」，走兜底；有地图时应当照放不误
+        # `cell: None` 等于「没给」，同样交给 L0 找
         intents = self.run_({"cell": None}, map_data=make_map())
         self.assertEqual([i.kind for i in intents], ["place"])
+        self.assertIsNone(intents[0].cell)
 
 
 # ---------------------------------------------------------------- 接战
@@ -244,6 +252,15 @@ class TestCombat(unittest.TestCase):
             name,
             observation=observation(state_=state(), enemies=([scene_enemy] if enemy else [])),
             subject=subject, params=params, frame=100)
+
+    def test_focus_fire_needs_a_target(self):
+        """`target` 必填。
+
+        原先默认 0，等于「所有人都驻守」，任务还记成 `satisfied`——模型少写一个
+        参数却拿到「成功」，看不出自己什么都没打。
+        """
+        with self.assertRaises(TacticError):
+            self.run_("focus_fire", {})
 
     def test_focus_fire_attacks_the_named_target(self):
         intents = self.run_("focus_fire", {"target": 501})

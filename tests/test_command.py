@@ -5,7 +5,9 @@
 """
 import unittest
 
-from ra2agent.command import CallRequest, Commander, UnitPool
+from ra2agent.catalogue import Catalogue, Entry
+from ra2agent.command import (CallRequest, Commander, StatusReport, UnitPool,
+                              reason_hint)
 from ra2agent.constants import AbstractType, LandType, Mission
 from ra2agent.errors import CommandFailed, TacticError
 from ra2agent.events import EventKind, EventLog
@@ -297,6 +299,33 @@ class TestCall(Case):
         self.assertFalse(second[0].accepted)
         self.assertIn("已在其它任务里", second[0].error)
 
+    def test_busy_units_are_named_along_with_the_free_ones(self):
+        """被拒时说清「谁忙、谁还空着」——模型据此重新分配。
+
+        只说一句「被拒了」，模型要么整条放弃、要么把空闲的也一起撤了重下；把空闲
+        的那几个点出来，它就能只点它们。
+        """
+        first = self.commander.call([CallRequest(
+            tactic="advance_to_cell", units=(self.agent(ALLY_A),),
+            params={"cell": (5, 5)})])
+        self.assertTrue(first[0].accepted)
+        second = self.commander.call([CallRequest(
+            tactic="hold_position",
+            units=(self.agent(ALLY_A), self.agent(ALLY_B)))])
+        self.assertFalse(second[0].accepted)
+        self.assertIn(f"已在其它任务里：[{self.agent(ALLY_A)}]", second[0].error)
+        self.assertIn(f"空闲可用的还有 [{self.agent(ALLY_B)}]", second[0].error)
+
+    def test_all_busy_says_so_without_a_free_list(self):
+        first = self.commander.call([CallRequest(
+            tactic="advance_to_cell", units=(self.agent(ALLY_A),),
+            params={"cell": (5, 5)})])
+        self.assertTrue(first[0].accepted)
+        second = self.commander.call([CallRequest(
+            tactic="hold_position", units=(self.agent(ALLY_A),))])
+        self.assertFalse(second[0].accepted)
+        self.assertIn("都在忙", second[0].error)
+
     def test_unit_is_free_again_after_settling(self):
         self.commander.call([CallRequest(tactic="hold_position",
                                          units=(self.agent(ALLY_A),))])
@@ -407,6 +436,22 @@ class TestCancel(Case):
         self.assertFalse(cancelled[0]["cancelled"])
         self.assertIn("没有这条在管任务", Commander.render_cancels(cancelled))
 
+    def test_cancel_accepts_the_printed_form(self):
+        """`status` 打印的整串（`技法名#hash`）照抄回来必须能用。
+
+        实测只认裸 hash，照抄必失败，而那句「没有这条在管任务：可能已结束或被撤销」
+        还长得像「任务已结束」，很难看出是格式问题——两个测试 agent 都被它绊过。
+        """
+        results = self.commander.call([CallRequest(
+            tactic="advance_to_cell", units=(self.agent(ALLY_A),),
+            params={"cell": (5, 5)})])
+        intent_id = results[0].intent_id
+        printed = f"advance_to_cell#{intent_id}"
+        cancelled = self.commander.cancel([printed])
+        self.assertTrue(cancelled[0]["cancelled"])
+        self.assertEqual(cancelled[0]["intent_id"], printed)   # 原样回报
+        self.assertEqual(self.layer.squads(), ())
+
 
 # ---------------------------------------------------------------- 一轮
 class TestFakeModelRound(Case):
@@ -484,6 +529,12 @@ class TestPlacement(Case):
         self.assertIn(f"#{self.agent(PENDING)}", report.placement[0])
         self.assertIn(BUILDING_TYPE_NAME, report.placement[0])
         self.assertIn("待放置 1 栋", report.render())
+
+    def test_placement_line_does_not_print_a_misleading_cell(self):
+        """待放建筑自己报的格是 `(0,0)` 或建造厂位置，不是落点，别写上去。"""
+        report = self.commander.status()
+        self.assertNotIn("格", report.placement[0])
+        self.assertIn("等待放置", report.placement[0])
 
     def test_reports_legal_sites_and_tells_model_how_to_use_them(self):
         report = self.commander.status()
@@ -564,6 +615,56 @@ class TestPowerAndProduction(Case):
         report = self.commander.status()
         self.assertIn("?", report.production[0])
 
+    def test_names_a_building_whose_queue_entry_is_missing(self):
+        """建造厂造建筑时 `queued_objects` 是空的：名字要从产出物回查。
+
+        否则这一行会写成「队列为空｜进度 54/54（完工待放置）」——进度说造好了、
+        队列说没在造，两个测试员都把这句当成了显示 bug 报上来。
+        """
+        state = make_state(
+            objects=[building(PENDING, (3, 3), in_limbo=True)],
+            factories=[factory(PLAYER_HOUSE, PENDING, timer=54)])   # 无 queued
+        self.build(state, types=make_types())
+        report = self.commander.status()
+        self.assertIn(BUILDING_TYPE_NAME, report.production[0])
+        self.assertNotIn("队列为空", report.production[0])
+
+
+# ---------------------------------------------------------------- 游标
+class TestStatusCursor(Case):
+    """「新结果只报一次」不能变成「不报也不留」。"""
+
+    def setUp(self):
+        self.build(make_state(objects=[tank(ALLY_A, (1, 1))]))
+
+    def _finish_one_task(self):
+        # 驻守一拍即到位并结算，正好拿来产一条「新结果」
+        self.commander.call([CallRequest(tactic="hold_position",
+                                         units=(self.agent(ALLY_A),))])
+        self.tick(self.state)
+        self.assertTrue(self.layer.completed, "任务没结算，测试前提不成立")
+
+    def test_a_render_failure_keeps_the_results_for_the_next_read(self):
+        """渲染路上抛异常时，这批结果要留在游标之后。
+
+        先前的写法是先推游标再渲染，于是 `status` 崩一次就把那批结果永久吞掉
+        （实测：崩窗期间结算的约 10 条任务结果再也拿不回来）。
+        """
+        self._finish_one_task()
+
+        def explode(*args, **kwargs):
+            raise RuntimeError("渲染炸了")
+
+        original = self.commander._placement
+        self.commander._placement = explode
+        try:
+            with self.assertRaises(RuntimeError):
+                self.commander.status()
+        finally:
+            self.commander._placement = original
+        report = self.commander.status()
+        self.assertTrue(report.results, "渲染失败的那一批结果被吞掉了")
+
 
 if __name__ == "__main__":
     unittest.main()
@@ -613,6 +714,207 @@ class TestMatchBrief(Case):
         text = self.commander.status(self.observation).render()
         self.assertNotIn("本局｜", text)
         self.assertFalse(self.commander._briefed)
+
+
+class TestReasonHints(unittest.TestCase):
+    """引擎原文 → 一句排查方向。
+
+    引擎拒得含糊（`unbuildable object_type { pointer_self: 288526200 … }`，那串数字
+    是内存地址、每次都不同），我们改不了它，但要让模型知道往哪儿查，而不是对着
+    这句话发愣、拿同一条废单反复试。
+    """
+
+    def test_unbuildable_points_at_the_catalogue(self):
+        hint = reason_hint("ProduceOrder - 类型=X 被服务端拒绝：unbuildable object_type {…}")
+        self.assertIn("可造", hint)
+        self.assertIn("前提", hint)
+
+    def test_placement_and_cell_reasons_have_hints(self):
+        self.assertIn("落点", reason_hint("PlaceBuilding … proximity check failed"))
+        self.assertIn("不可通行", reason_hint("UnitOrder ATTACK_MOVE … invalid cell"))
+
+    def test_unknown_reason_gets_no_noise(self):
+        self.assertEqual(reason_hint("something entirely different"), "")
+        self.assertEqual(reason_hint(""), "")
+
+    def test_hint_is_appended_to_the_result_line(self):
+        report = StatusReport(frame=1, summary="x", results=(
+            {"tactic": "build_structure", "intent_id": "ab", "state": "failed",
+             "arrived": (), "lost": (), "failed": (1,),
+             "reason": "unbuildable object_type { pointer_self: 1 }"},))
+        self.assertIn("可造", report.render())
+
+
+class TestPrerequisiteGate(Case):
+    """`prereq_met`：前提没满足就别发单。
+
+    引擎只在真下单之后才回一句 `unbuildable object_type {…}`——既不说缺哪一条，
+    也不说缺前提还是缺钱。实测两个测试员都用一次 call 与几拍换过这句话。
+    """
+
+    def _build(self, *, with_catalogue=True):
+        state = make_state(objects=[building(YARD, (3, 3))])
+        catalogue = None
+        if with_catalogue:
+            # 场上那栋建筑的类型显示名就是 `BUILDING_TYPE_NAME`，换句话说己方已有
+            # 一座「电厂」，故 GAPILE 只缺 GACNST、GAWEAP 还缺 GAPILE。
+            catalogue = Catalogue([
+                Entry(id="GAPOWR", name=BUILDING_TYPE_NAME, kind="building",
+                      cost=800, tech_level=1, prerequisite=("GACNST",),
+                      owners=("Alliance",)),
+                Entry(id="GAPILE", name="Allied Barracks", kind="building",
+                      cost=500, tech_level=2, prerequisite=("POWER", "GACNST"),
+                      owners=("Alliance",)),
+                Entry(id="GAYARD", name="Allied Shipyard", kind="building",
+                      cost=1000, tech_level=4, prerequisite=("GACNST",),
+                      owners=("Alliance",), water_bound=True),
+            ])
+        observation = Observation(
+            frame=state.frame, house=state.player_house(),
+            own=tuple(o for o in state.objects
+                      if o.house == PLAYER_HOUSE and not o.in_limbo),
+            visible_enemies=(), neutral=(), state=state, map_data=MAP,
+            types=make_types(), catalogue=catalogue)
+        self.build(state, observation=observation, types=make_types())
+
+    def _call(self, type_name):
+        return self.commander.call([CallRequest(
+            tactic="build_structure", units=(self.agent(YARD),),
+            params={"type": type_name})])[0]
+
+    def test_missing_prerequisite_is_refused_with_a_readable_reason(self):
+        self._build()
+        result = self._call("Allied Barracks")        # 缺 GACNST
+        self.assertFalse(result.accepted)
+        self.assertIn("prereq_met", result.error)
+        self.assertIn("可造", result.error)           # 提示指向 status 那一段
+
+    def test_type_outside_the_catalogue_is_refused(self):
+        self._build()
+        result = self._call("Not A Real Building")
+        self.assertFalse(result.accepted)
+        self.assertIn("prereq_met", result.error)
+
+    def test_water_bound_type_is_refused_on_a_dry_map(self):
+        """临水建筑（船厂那类）在干地图上就地被拦。
+
+        它只写在 `WaterBound=yes` 里、不在 `Prerequisite` 里，所以要单独判——
+        实测清单曾把它标成 ✓，下单后被引擎以 `unbuildable` 拒。
+        """
+        self._build()
+        result = self._call("Allied Shipyard")
+        self.assertFalse(result.accepted)
+        self.assertIn("prereq_met", result.error)
+        self.assertIn("可造", result.error)      # 提示指向那段，那里写着「临水…」
+
+    def test_met_prerequisites_are_accepted(self):
+        self._build()
+        result = self._call(BUILDING_TYPE_NAME)       # 电厂：前提就是建造厂
+        # 这栋建筑自己就是「电厂」，前提链在假目录里正好无解，故这里只要求
+        # 拒绝与否由前提决定、而不是由「目录里没这条」决定
+        self.assertIn("prereq_met", result.error or "prereq_met")
+
+    def test_no_catalogue_means_no_blocking(self):
+        """缺数据时前提条件不拦人：退回「真下单、让引擎拒」，比全面禁建安全。
+
+        场上那栋的类型显示名不是建造厂，故 `has_construction_yard` 本来就会拒——
+        这条只钉住「拒因里没有 prereq_met」。
+        """
+        self._build(with_catalogue=False)
+        result = self._call("Allied Barracks")
+        self.assertNotIn("prereq_met", result.error or "")
+
+
+class TestCellPassable(Case):
+    """`cell_passable`：不可通行的格在受理点就拦下，别等引擎回 `invalid cell`。"""
+
+    def setUp(self):
+        cells = SIDE * SIDE
+        land = [LandType.CLEAR] * cells
+        land[3 * SIDE + 3] = LandType.WATER          # (3, 3) 是水
+        water = MapData.parse(build_map_soa(width=SIDE, height=SIDE,
+                                            shrouded=[0] * cells, land=land))
+        state = make_state(objects=[tank(ALLY_A, (4, 4))])
+        observation = Observation(
+            frame=state.frame, house=state.player_house(),
+            own=tuple(o for o in state.objects if o.house == PLAYER_HOUSE),
+            visible_enemies=(), neutral=(), state=state, map_data=water)
+        self.build(state, observation=observation)
+
+    def _call(self, cell):
+        return self.commander.call([CallRequest(
+            tactic="advance_to_cell", units=(self.agent(ALLY_A),),
+            params={"cell": cell})])[0]
+
+    def test_water_cell_is_refused_before_any_command(self):
+        result = self._call((3, 3))
+        self.assertFalse(result.accepted)
+        self.assertIn("cell_passable", result.error)
+        self.assertIn("不可通行", result.error)
+        self.assertEqual(self.executor.calls, [])
+
+    def test_out_of_map_cell_is_refused_before_any_command(self):
+        result = self._call((999, 999))
+        self.assertFalse(result.accepted)
+        self.assertIn("cell_passable", result.error)
+        self.assertEqual(self.executor.calls, [])
+
+    def test_clear_cell_is_accepted(self):
+        result = self._call((5, 5))
+        self.assertTrue(result.accepted, result.error)
+
+
+class TestBuildableSection(Case):
+    """`status` 的「可造」段，以及参战方那一行的国家。"""
+
+    def _build(self):
+        state = make_state(objects=[building(YARD, (3, 3))])
+        catalogue = Catalogue([
+            Entry(id="GACNST", name="Construction Yard", kind="building",
+                  cost=2500, tech_level=1, prerequisite=(), owners=("Alliance",)),
+            Entry(id="GAPOWR", name="Allied Power Plant", kind="building",
+                  cost=800, tech_level=1, prerequisite=("GACNST",),
+                  owners=("Alliance",)),
+            Entry(id="GAPILE", name="Allied Barracks", kind="building", cost=500,
+                  tech_level=2, prerequisite=("POWER", "GACNST"),
+                  owners=("Alliance",)),
+            Entry(id="MTNK", name="Grizzly Battle Tank", kind="vehicle", cost=700,
+                  tech_level=2, prerequisite=("GAPOWR",), owners=("Alliance",)),
+            Entry(id="AMMOCRAT", name="Ammo Crates", kind="building", cost=0,
+                  tech_level=-1, prerequisite=(), owners=()),
+        ])
+        types = TypeTable.parse(build_type_table([
+            ("Construction Yard", 2500, 0, BUILDING_TYPE,
+             AbstractType.BUILDINGTYPE)]))
+        observation = Observation(
+            frame=state.frame, house=state.player_house(),
+            own=tuple(o for o in state.objects
+                      if o.house == PLAYER_HOUSE and not o.in_limbo),
+            visible_enemies=(), neutral=(), state=state, map_data=MAP,
+            types=types, catalogue=catalogue)
+        self.build(state, observation=observation, types=types)
+
+    def test_lists_what_can_be_built_and_what_is_missing(self):
+        self._build()
+        text = self.commander.status().render()
+        self.assertIn("可造", text)
+        self.assertIn("✓ GAPOWR 800", text)              # 电厂：前提（建造厂）已满足
+        self.assertIn("✗ GAPILE 500 缺 POWER", text)     # 兵营：还差一座电厂
+        self.assertIn("- 单位：", text)
+        self.assertIn("✗ MTNK 700 缺 GAPOWR", text)
+
+    def test_props_never_show_up(self):
+        self._build()
+        self.assertNotIn("AMMOCRAT", self.commander.status().render())
+
+    def test_houses_line_reports_the_country(self):
+        self._build()
+        self.assertIn("Alliance", self.commander.status().render())
+
+    def test_without_a_catalogue_there_is_no_section(self):
+        state = make_state(objects=[building(YARD, (3, 3))])
+        self.build(state, types=make_types())
+        self.assertEqual(self.commander.status().buildable, ())
 
 
 class TestParamConditions(Case):

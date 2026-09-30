@@ -17,6 +17,11 @@ def _deploy_mcv(context):
     """把还没展开的基地车就地展开。
 
     已经在展开或已收起的跳过——不给这两项，会对正在展开的基地车重复下令。
+
+    **已展开的基地车在观测里是建筑**（建造厂），故也按建筑跳过：引擎对它再收一次
+    `Deploy` 不会有任何变化，那条「等待变身」的判据永远不成立，任务就一直挂在
+    「在管」占着那栋建造厂（实测：显式调用后基地被占死，对同单位下别的技法一律
+    被拒「这些单位已在其它任务里」）。
     """
     wanted = {context.type_pointer(name) for name in CONSTRUCTION_VEHICLES}
     wanted.discard(None)
@@ -25,7 +30,7 @@ def _deploy_mcv(context):
     units = []
     for agent in context.subject.agents():
         found = context.subject.object_of(agent)
-        if found is None or found.in_limbo:
+        if found is None or found.in_limbo or found.is_building:
             continue
         if found.type_pointer not in wanted or found.deployed or found.deploying:
             continue
@@ -41,5 +46,8 @@ TACTICS = (
         summary="把还没展开的基地车就地展开；开局自己跑，不必等模型下令",
         requires=("has_units",),
         trigger=Trigger.every(CHECK_EVERY_FRAMES),
+        # 没有该展开的基地车就是「没事可做」：模型误对建造厂或别的单位调用时，
+        # 任务当场收工交还单位，而不是挂成永久僵尸（实测挂过两千多帧）。
+        idle_ends_task=True,
     ), _deploy_mcv),
 )

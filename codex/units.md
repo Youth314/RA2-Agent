@@ -25,7 +25,7 @@
 - **DLPH** Dolphin（海豚） · 载具 · 造价 500 · 血 200 · light · 速 8 · 视野 4 · 前提 GAYARD,GATECH · 等级 5 · SonicZap(4伤/120帧/射程6 弹头SonicWarhead) · 每发 → none,flak,plate,light,wood,special_1,special_2=4 medium,heavy=3.2 steel,concrete=2.4
 - **CMIN** Chrono Miner（超时空矿车） · 载具 · 造价 1400 · 血 1000 · medium · 速 4 · 视野 4 · 前提 GAWEAP,PROC · 等级 1
 - **SREF** Prism Tank（光陵坦克） · 载具 · 造价 1200 · 血 150 · light · 速 4 · 视野 8 · 前提 GAWEAP,GATECH · 等级 8
-- **MGTK** Mirage Tank（幻影坦克） · 载具 · 造价 1000 · 血 200 · light · 速 7 · 视野 9 · 前提 GAWEAP,GATECH · 等级 9
+- **MGTK** Mirage Tank（幻影坦克） · 载具 · 造价 1000 · 血 200 · light · 速 7 · 视野 9 · 前提 GAWEAP,GATECH · 等级 9 · MirageGun(100伤/70帧/射程7 弹头MirageWH) · 每发 → none,flak,light,medium,heavy,special_1,special_2=100 plate=80 wood=30 steel,concrete=20
 - **FV** IFV（多功能步兵车） · 载具 · 造价 600 · 血 200 · light · 速 10 · 视野 8 · 前提 GAWEAP · 等级 3 · 载员 1 · HoverMissile(25伤/50帧/射程6 弹头HE) · 每发 → none,flak,plate,special_2=25 light,medium=17.5 heavy=8.75 wood=18.75 steel=10 concrete=5 special_1=20
 - **BFRT** Battle Fortress（战斗要塞） · 载具 · 造价 2000 · 血 600 · heavy · 速 4 · 视野 6 · 前提 GAWEAP,GATECH · 等级 10 · 载员 5 · 20mmRapid(30伤/20帧/射程0 弹头HARVWH) · 每发 → none,special_2=30 flak=24 plate=21 light=15 medium,heavy,wood=6 steel=4.5 concrete=3 special_1=120
 - **ROBO** Robot Tank（机器人坦克） · 载具 · 造价 600 · 血 180 · heavy · 速 10 · 视野 6 · 前提 GAWEAP,GAROBO · 等级 2 · Robogun(65伤/60帧/射程5 弹头AP) · 每发 → none,flak=16.25 plate=9.75 light=48.75 medium,heavy,special_2=65 wood=42.25 steel=29.25 concrete,special_1=39
@@ -74,9 +74,9 @@
 - **ENGINEER** Engineer（盟军工程师） · 步兵 · 造价 500 · 血 75 · none · 速 4 · 视野 4 · 前提 Barracks · 等级 1 · 禁 Russians,Confederation,Africans,Arabs,YuriCountry · DefuseKit(1伤/20帧/射程0 弹头BombDisarm) · 每发 → none,flak,plate,light,medium,heavy,wood,steel,concrete,special_1,special_2=1
 - **YURI** Yuri Clone（克隆尤里） · 步兵 · 造价 800 · 血 100 · none · 速 4 · 视野 12 · 前提 YABRCK,NAPSIS · 等级 10 · MindControl(1伤/200帧/射程7 弹头Controller) · 每发 → none,flak,plate,light,medium,heavy,special_1,special_2=1 wood,steel,concrete=0
 - **DOG** Attack Dog（苏军警犬） · 步兵 · 造价 200 · 血 100 · none · 速 8 · 视野 9 · 前提 Barracks · 等级 2 · 禁 British,French,Germans,Americans,Alliance,YuriCountry · BadTeeth(30伤/30帧/射程0 弹头ParasiteDog) · 每发 → none,flak,plate=30 light,medium,heavy,wood,steel,concrete,special_1,special_2=0
-- **CCOMAND** Chrono Commando（超时空突击队） · 步兵 · 造价 2000 · 血 100 · none · 速 5 · 视野 8 · 前提 BARRACKS · 等级 9 · ChronoMP5(125伤/10帧/射程6 弹头HollowPointNoBuilding) · 每发 → none=250 flak,special_2=125 plate,special_1=93.75 light,medium,heavy=1.25 wood,steel,concrete=0
-- **PTROOP** Psi-Corp Trooper（心灵突击队） · 步兵 · 造价 1000 · 血 100 · none · 速 5 · 视野 8 · 前提 BARRACKS · 等级 9 · MindControl(1伤/200帧/射程7 弹头Controller) · 每发 → none,flak,plate,light,medium,heavy,special_1,special_2=1 wood,steel,concrete=0
-- **CIVAN** Chrono Ivan（超时空伊文） · 步兵 · 造价 1750 · 血 100 · none · 速 6 · 视野 8 · 前提 BARRACKS · 等级 9 · IvanBomber(400伤/50帧/射程0 弹头IvanBomb) · 每发 → none,flak,plate,light,medium,heavy,wood,steel,concrete,special_1,special_2=400
+- **CCOMAND** Chrono Commando（超时空突击队） · 步兵 · 造价 2000 · 血 100 · none · 速 5 · 视野 8 · 前提 BARRACKS · 等级 9 · 需窃取盟军科技 · ChronoMP5(125伤/10帧/射程6 弹头HollowPointNoBuilding) · 每发 → none=250 flak,special_2=125 plate,special_1=93.75 light,medium,heavy=1.25 wood,steel,concrete=0
+- **PTROOP** Psi-Corp Trooper（心灵突击队） · 步兵 · 造价 1000 · 血 100 · none · 速 5 · 视野 8 · 前提 BARRACKS · 等级 9 · 需窃取尤里科技 · MindControl(1伤/200帧/射程7 弹头Controller) · 每发 → none,flak,plate,light,medium,heavy,special_1,special_2=1 wood,steel,concrete=0
+- **CIVAN** Chrono Ivan（超时空伊文） · 步兵 · 造价 1750 · 血 100 · none · 速 6 · 视野 8 · 前提 BARRACKS · 等级 9 · 需窃取苏军科技 · IvanBomber(400伤/50帧/射程0 弹头IvanBomb) · 每发 → none,flak,plate,light,medium,heavy,wood,steel,concrete,special_1,special_2=400
 - **FLAKT** Flak Trooper（防空步兵） · 步兵 · 造价 300 · 血 100 · none · 速 4 · 视野 5 · 前提 NAHAND,NARADR · 等级 1 · FlakGuyGun(20伤/20帧/射程5 弹头FlakTWH) · 每发 → none=30 flak=25 plate,special_1,special_2=20 light=12 medium,heavy,concrete=2 wood=6 steel=4
 - **SENGINEER** Soviet Engineer（苏军工程师） · 步兵 · 造价 500 · 血 75 · none · 速 4 · 视野 4 · 前提 Barracks · 等级 1 · 禁 British,French,Germans,Americans,Alliance,YuriCountry · DefuseKit(1伤/20帧/射程0 弹头BombDisarm) · 每发 → none,flak,plate,light,medium,heavy,wood,steel,concrete,special_1,special_2=1
 - **ADOG** Allied Attack Dog（盟军警犬） · 步兵 · 造价 200 · 血 100 · none · 速 8 · 视野 9 · 前提 Barracks · 等级 2 · 禁 Russians,Confederation,Africans,Arabs,YuriCountry · GoodTeeth(30伤/30帧/射程0 弹头ParasiteDog) · 每发 → none,flak,plate=30 light,medium,heavy,wood,steel,concrete,special_1,special_2=0
@@ -162,7 +162,7 @@
 
 科技等级超过 10，正常对战里造不出来。
 
-- **LUNR** Lunar Infantry（月球飞行兵） · 步兵 · 造价 600 · 血 125 · none · 速 9 · 视野 8 · 前提 NAPILE,RADAR · 等级 11 · Lunarlaser(25伤/20帧/射程7 弹头LUNARWH) · 每发 → none,flak,light,medium,heavy,special_1,special_2=25 plate=20 wood=7.5 steel,concrete=5
+- **LUNR** Lunar Infantry（月球飞行兵） · 步兵 · 造价 600 · 血 125 · none · 速 9 · 视野 8 · 前提 NAPILE,RADAR · 等级 11 · Lunarlaser(25伤/20帧/射程7 弹头LUNARWH) · 每发 → none,flak,plate,wood,steel,concrete,special_1,special_2=25 light=18.75 medium,heavy=12.5
 
 ## 未使用（6）
 
