@@ -107,7 +107,7 @@ class GameHost:
     def __init__(self, runner=None, host=DEFAULT_HOST, port=DEFAULT_PORT,
                  game_dir=GAME_DIR, game_dir_wsl=GAME_DIR_WSL, exe=GAME_EXE,
                  crash_report=None, focus_probe=None, focus_reset=None,
-                 now=time.time):
+                 port_probe=None, now=time.time):
         self.runner = runner or default_runner
         self.host = host
         self.port = port
@@ -117,6 +117,7 @@ class GameHost:
         self.crash_report = CRASH_REPORT if crash_report is None else crash_report
         self.focus_probe = focus_probe or winfocus.is_game_foreground
         self.focus_reset = focus_reset or winfocus.reset
+        self.port_probe = port_probe or self._probe_over_socket
         self.now = now
         #: 本进程最近一次 `launch()` 的时刻；用于判断留证是不是这次的事。
         self.launched_at = None
@@ -130,6 +131,14 @@ class GameHost:
 
     def port_open(self):
         """服务端口是否在听。"""
+        return self.port_probe()
+
+    def _probe_over_socket(self):
+        """真去连一次服务端口。
+
+        这是默认实现；**测试必须换掉它**——否则游戏真在跑时，用例会因为本机
+        14521 有人在听而得出截然不同的结论。
+        """
         try:
             with socket.create_connection((self.host, self.port), timeout=PROBE_TIMEOUT):
                 return True

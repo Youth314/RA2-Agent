@@ -54,11 +54,16 @@ class Clock:
 
 
 def make_host(stdout="", error=None, **kwargs):
-    """一个外部调用全部换掉的宿主。"""
+    """一个外部调用全部换掉的宿主。
+
+    端口探针默认返回「没在听」：下面几条断言的是「进程在、端口还没通」，而真去连
+    会连到本机正在跑的那一局（14521），结论随游戏开关而变。
+    """
     runner = Runner(stdout, error)
     kwargs.setdefault("focus_probe", lambda: True)
     kwargs.setdefault("focus_reset", lambda: True)
     kwargs.setdefault("crash_report", "/nonexistent")
+    kwargs.setdefault("port_probe", lambda: False)
     return GameHost(runner=runner, **kwargs), runner
 
 
@@ -136,14 +141,15 @@ class TestCommands(unittest.TestCase):
 # ---------------------------------------------------------------- 端口与留证
 class TestProbes(unittest.TestCase):
     def test_port_open_against_a_real_listener(self):
+        # 唯一一处要真连的：探针传 None，回到 socket 实现（`make_host` 默认给它假的）
         with socket.socket() as server:
             server.bind(("127.0.0.1", 0))
             server.listen(1)
             port = server.getsockname()[1]
-            host, _ = make_host(port=port)
+            host, _ = make_host(port=port, port_probe=None)
             self.assertTrue(host.port_open())
         # 端口 1 上不会有服务在听
-        closed, _ = make_host(port=1)
+        closed, _ = make_host(port=1, port_probe=None)
         self.assertFalse(closed.port_open())
 
     def test_crash_report_age_reads_mtime(self):
@@ -198,6 +204,11 @@ class TestInspect(unittest.TestCase):
         self.assertNotIn("可能卡住", "\n".join(host.describe(host.inspect())))
         clock.advance(60)
         self.assertIn("可能卡住", "\n".join(host.describe(host.inspect())))
+
+    def test_port_probe_is_injectable(self):
+        # 真去连会连到本机正在跑的那一局，结论随游戏开关而变；故探针必须能换掉
+        host, _ = make_host(CSV_ROW, port_probe=lambda: True)
+        self.assertIn("服务在听", "\n".join(host.describe(host.inspect())))
 
     def test_crash_report_from_before_this_launch_is_hidden(self):
         # 刚起游戏那几秒提一份旧报告，模型会把「正在启动」读成「崩过」
