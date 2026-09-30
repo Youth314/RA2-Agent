@@ -379,8 +379,14 @@ class MicroLayer:
 
         不能记到本次调用的全部单位：一条命令只针对一个对象时，记错会把别的单位
         的目标格覆盖掉。
+
+        `Produce` / `Place` / `Sell` 不针对对象，**没有 `units` 字段**：它们的归属
+        在信封的 `scope` 里。不退回 `scope` 的话，这三种意图一执行成功就抛
+        `AttributeError`，整拍崩掉——而「命令生效即算到位」本来也正是要把这次点名
+        的单位交还出去。
         """
-        covered = set(intent.units)
+        units = getattr(intent, "units", None)
+        covered = set(intent.scope.objects if units is None else units)
         affected = [unit for unit in squad.units if unit.agent_id in covered]
         if intent.kind == "move_to":
             for unit in affected:

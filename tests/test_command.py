@@ -897,3 +897,68 @@ class TestWakeRequests(Case):
         text = self.commander.status(self.observation).render()
         self.assertIn("唤醒未送达", text)
         self.assertIn("连接被拒绝", text)
+
+
+# ---------------------------------------------------------------- 动作类技法走 call
+
+#: 我的测试用的单位类型（注册名与显示名各一条路径）。
+MTNK_TYPE = 0xD1
+MTNK_NAME = "Grizzly Battle Tank"
+
+
+def make_action_types():
+    """含一个单位类型与一个建筑类型的类型表，注册名走别名。"""
+    table = TypeTable.parse(build_type_table([
+        (MTNK_NAME, 700, 1, MTNK_TYPE, AbstractType.UNIT),
+        (BUILDING_TYPE_NAME, 800, 0, BUILDING_TYPE,
+         AbstractType.BUILDINGTYPE)]))
+    table.add_aliases({"MTNK": MTNK_TYPE, "GAPOWR": BUILDING_TYPE})
+    return table
+
+
+class TestActionTacticsThroughCall(Case):
+    """新动作类技法至少走一次真实的 `Commander.call`。
+
+    `registry.run` 是直调：绕过卡片筛选、`_check_units`、租约与参数次序，而
+    「受理通过、真跑起来却永远调不动」这类问题**只在这条路上暴露**。
+    """
+
+    def test_train_unit_is_accepted_and_dispatches_produce(self):
+        state = make_state(money=5000, objects=[building(YARD, (3, 3))])
+        self.build(state, types=make_action_types())
+        result = self.commander.call([CallRequest(
+            tactic="train_unit", units=(self.agent(YARD),),
+            params={"type": "MTNK"})])[0]
+        self.assertTrue(result.accepted, result.error)
+        self.tick(state)
+        self.assertEqual([call.kind for call in self.executor.calls], ["produce"])
+        self.assertEqual(self.executor.calls[0].type_pointer, MTNK_TYPE)
+
+    def test_train_unit_is_rejected_when_money_is_short(self):
+        # 参数型条件在受理点就能判：钱不够，模型当场拿到拒绝而不是一拍之后才失败
+        state = make_state(money=100, objects=[building(YARD, (3, 3))])
+        self.build(state, types=make_action_types())
+        result = self.commander.call([CallRequest(
+            tactic="train_unit", units=(self.agent(YARD),),
+            params={"type": "MTNK"})])[0]
+        self.assertFalse(result.accepted)
+        self.assertIn("can_afford", result.error)
+
+    def test_place_ready_building_survives_both_subject_forms(self):
+        """受理时问 `UnitPool`、运行时问 `Squad`——两处都要成立。
+
+        只认 `UnitPool` 的写法会让这条技法受理通过、运行时被判条件不满足，
+        任务于是永远停在「等待条件」里。
+        """
+        state = make_state(objects=[building(YARD, (3, 3)),
+                                    building(PENDING, (3, 3), in_limbo=True)],
+                           factories=[factory(PLAYER_HOUSE, PENDING)])
+        self.build(state, types=make_types())
+        result = self.commander.call([CallRequest(
+            tactic="place_ready_building", units=(self.agent(YARD),),
+            params={})])[0]
+        self.assertTrue(result.accepted, result.error)
+        self.tick(state)
+        placed = [call for call in self.executor.calls if call.kind == "place"]
+        self.assertEqual(len(placed), 1)
+        self.assertEqual(placed[0].building, self.agent(PENDING))
