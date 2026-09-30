@@ -22,7 +22,7 @@
 这类 `requires=("can_afford",)` 的技法永久藏起来，模型只能读源码才知道它们存在。
 """
 from ..errors import TacticError
-from ..formation import IMPASSABLE
+from ..runtime.formation import IMPASSABLE
 
 #: 条件名到判据。
 CONDITIONS: dict = {}
@@ -166,7 +166,7 @@ def _catalogue_entry(context):
 
 def _owned_building_ids(context):
     """己方已在地图上的建筑注册名——实现共用 `catalogue.owned_building_ids`。"""
-    from ..catalogue import owned_building_ids
+    from ..data.catalogue import owned_building_ids
     return owned_building_ids(context.observation.state, context.types,
                               _catalogue(context))
 
@@ -220,7 +220,7 @@ def prereq_met(context) -> bool:
     缺钱，也不说缺哪个。这条条件把那份判断提前到受理点：满足不了就当场拒绝，模型
     不必用一次 call 与几拍去换拒绝原因。
 
-    目录来自 `corpus/derived/rules.json`（`ra2agent.catalogue`），随观测下发。**读不到
+    目录来自 `corpus/derived/rules.json`（`ra2agent.data.catalogue`），随观测下发。**读不到
     目录时判真**（放行）：缺一份数据不该让模型连电厂都造不出来——那种情况下退回
     原来的行为（真下单、让引擎拒），比全面禁建安全得多。目录在手而类型不在清单里
     才是判否，那说明它本来就不是能造的东西。
@@ -231,7 +231,7 @@ def prereq_met(context) -> bool:
     entry = _catalogue_entry(context)
     if entry is None or not entry.buildable:
         return False
-    from ..catalogue import own_building_cells, stolen_labels, water_nearby
+    from ..data.catalogue import own_building_cells, stolen_labels, water_nearby
     observation = context.observation
     # 两条引擎的额外门也要算：要偷到的科技、临水建筑有没有水面。少算它们，模型
     # 就会拿到「本地说能造、引擎说 unbuildable」的假 ✓（实测超时空突击队与船厂）。

@@ -5,16 +5,16 @@
 """
 import unittest
 
-from ra2agent.client import CommandResult
+from ra2agent.engine.client import CommandResult
 from ra2agent.constants import AbstractType, LandType, Mission
 from ra2agent.errors import (CommandFailed, GameNotResponding, InvalidCommand,
                              TacticError, Timeout)
-from ra2agent.executor import CommandPlan, ExecutionOutcome
-from ra2agent.identity import IdentityTable
-from ra2agent.intents import IntentState, Scope, TacticCall
-from ra2agent.micro import MicroLayer, UnitMode
-from ra2agent.observation import Observation
-from ra2agent.state import GameState, MapData
+from ra2agent.runtime.executor import CommandPlan, ExecutionOutcome
+from ra2agent.engine.identity import IdentityTable
+from ra2agent.runtime.intents import IntentState, Scope, TacticCall
+from ra2agent.runtime.micro import MicroLayer, UnitMode
+from ra2agent.engine.observation import Observation
+from ra2agent.engine.state import GameState, MapData
 from ra2agent.tactics import TacticRegistry
 from tests.fixtures import (ENEMY_HOUSE, PLAYER_HOUSE, build_game_state,
                             build_house, build_map_soa, build_object)
@@ -149,7 +149,7 @@ class TestAssign(Case):
             self.assign(state, "no_such_tactic")
 
     def test_only_command_intents_are_accepted(self):
-        from ra2agent.intents import Hold
+        from ra2agent.runtime.intents import Hold
         state = make_state(objects=[tank(ALLY_A, (1, 1))])
         self.build(state)
         with self.assertRaises(TacticError):
@@ -496,7 +496,7 @@ class TestIdleAndWaiting(Case):
 
     def test_waiting_for_too_long_settles_with_a_reason(self):
         """等太久就收工：单位不能被一条任务永久占着。"""
-        from ra2agent.micro import WAIT_GRACE_FRAMES
+        from ra2agent.runtime.micro import WAIT_GRACE_FRAMES
         state = make_state(objects=[tank(ALLY_A, (1, 1))])
         self.build(state)
         squad, call = self.assign(state, "engage_nearest", {"radius": 8})
@@ -513,7 +513,7 @@ class TestIdleAndWaiting(Case):
         `place_ready_building` 抢跑是等 `has_pending_building`，而这条理由在
         「还没开始造」与「造好了待放」之间会变——故只有同一个理由连续超时才收。
         """
-        from ra2agent.micro import WAIT_GRACE_FRAMES
+        from ra2agent.runtime.micro import WAIT_GRACE_FRAMES
         state = make_state(objects=[tank(ALLY_A, (1, 1))])
         self.build(state)
         squad, call = self.assign(state, "engage_nearest", {"radius": 8})

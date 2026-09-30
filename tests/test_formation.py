@@ -5,8 +5,8 @@
 import unittest
 
 from ra2agent.constants import AbstractType, LandType, Mission
-from ra2agent.formation import blocked_cells, formation_cells
-from ra2agent.state import GameState, MapData
+from ra2agent.runtime.formation import blocked_cells, formation_cells
+from ra2agent.engine.state import GameState, MapData
 from tests.fixtures import (PLAYER_HOUSE, build_game_state, build_house,
                             build_map_soa, build_object)
 

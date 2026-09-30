@@ -15,21 +15,21 @@ import threading
 import time
 
 from . import __version__
-from .client import Client
+from .engine.client import Client
 from .command import CallRequest, Commander
-from .catalogue import Catalogue
+from .data.catalogue import Catalogue
 from .constants import DEFAULT_HOST, DEFAULT_PORT, LoadStage
 from .errors import ConnectionLost, Ra2Error
-from .executor import Executor
-from .game import GameHost, LOOP_STALL_SECONDS
-from .intents import DecisionLog
-from .match import MatchRoster
-from .micro import MicroLayer
-from .observation import Observer
-from .rules import attach_type_aliases
+from .runtime.executor import Executor
+from .deploy.game import GameHost, LOOP_STALL_SECONDS
+from .runtime.intents import DecisionLog
+from .deploy.match import MatchRoster
+from .runtime.micro import MicroLayer
+from .engine.observation import Observer
+from .data.rules import attach_type_aliases
 from .wake import WakeBridge, WakePolicy
 from .tactics import TacticPolicy, TacticRegistry
-from .validate import Validator
+from .engine.validate import Validator
 
 #: 本服务认得的协议版本，第一条为最新。客户端报了认得的版本就照它回。
 #: DSH 用的 SDK 只认 2026-07-28 与 2025-11-25；它走 legacy 握手时 offer 后者，

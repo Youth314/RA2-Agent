@@ -5,7 +5,7 @@
 """
 import unittest
 
-from ra2agent.catalogue import Catalogue, Entry
+from ra2agent.data.catalogue import Catalogue, Entry
 
 
 def entry(identifier, *, name=None, kind="building", cost=100, tech=1,

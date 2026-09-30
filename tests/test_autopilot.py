@@ -5,12 +5,12 @@
 """
 import unittest
 
-from ra2agent.autopilot import Autopilot, kind_of
+from ra2agent.runtime.autopilot import Autopilot, kind_of
 from ra2agent.errors import CommandFailed, TacticError
-from ra2agent.events import Event, EventKind, Subject
-from ra2agent.intents import Deploy, Wake
-from ra2agent.observation import Observation
-from ra2agent.state import GameState
+from ra2agent.engine.events import Event, EventKind, Subject
+from ra2agent.runtime.intents import Deploy, Wake
+from ra2agent.engine.observation import Observation
+from ra2agent.engine.state import GameState
 from ra2agent.tactics import (Level, Param, Tactic, TacticInfo, TacticPolicy,
                               TacticRegistry, Trigger)
 from ra2agent.wake import WakeBridge
@@ -246,7 +246,7 @@ class TestAdmissionIsShared(AutopilotCase):
         self.assertIn("停用", records[0]["skipped"])
 
     def test_level_ceiling_applies(self):
-        from ra2agent.intents import Layer
+        from ra2agent.runtime.intents import Layer
         # NORMAL 的技法在 CHEAT 门槛下也允许，故把门槛压到最低的那一档来验拦截
         policy = TacticPolicy(max_level={Layer.L1_TACTIC: Level.NORMAL})
         self.registry = TacticRegistry(policy=policy).load(

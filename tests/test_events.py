@@ -5,10 +5,10 @@
 """
 import unittest
 
-from ra2agent.events import (MAX_LISTED_PER_KIND, Event, EventKind, EventLog,
+from ra2agent.engine.events import (MAX_LISTED_PER_KIND, Event, EventKind, EventLog,
                              Policy, Subject, detect, summarize)
-from ra2agent.observation import Observation
-from ra2agent.state import GameState
+from ra2agent.engine.observation import Observation
+from ra2agent.engine.state import GameState
 from tests.fixtures import (ENEMY_HOUSE, NEUTRAL_HOUSE, PLAYER_HOUSE,
                             build_game_state, build_house)
 

@@ -13,7 +13,7 @@
 """
 from dataclasses import dataclass, field
 
-from .constants import AbstractType
+from ..constants import AbstractType
 from .events import EventLog
 from .identity import IdentityTable
 from .state import GameObject, GameState, House, MapData, TypeTable

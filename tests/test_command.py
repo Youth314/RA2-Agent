@@ -5,19 +5,19 @@
 """
 import unittest
 
-from ra2agent.catalogue import Catalogue, Entry
+from ra2agent.data.catalogue import Catalogue, Entry
 from ra2agent.command import (CallRequest, Commander, StatusReport, UnitPool,
                               reason_hint)
 from ra2agent.constants import AbstractType, LandType, Mission
 from ra2agent.errors import CommandFailed, TacticError
-from ra2agent.events import EventKind, EventLog
-from ra2agent.executor import CommandPlan, ExecutionOutcome
-from ra2agent.client import CommandResult
-from ra2agent.identity import IdentityTable
-from ra2agent.intents import IntentState, Scope, TacticCall
-from ra2agent.micro import MicroLayer, UnitMode
-from ra2agent.observation import Observation
-from ra2agent.state import GameState, MapData, TypeTable, cell_center
+from ra2agent.engine.events import EventKind, EventLog
+from ra2agent.runtime.executor import CommandPlan, ExecutionOutcome
+from ra2agent.engine.client import CommandResult
+from ra2agent.engine.identity import IdentityTable
+from ra2agent.runtime.intents import IntentState, Scope, TacticCall
+from ra2agent.runtime.micro import MicroLayer, UnitMode
+from ra2agent.engine.observation import Observation
+from ra2agent.engine.state import GameState, MapData, TypeTable, cell_center
 from ra2agent.tactics import (Level, Mode, Tactic, TacticInfo, TacticPolicy,
                               TacticRegistry)
 from ra2agent.tactics.core import (REQUIRED, Param, is_non_empty_str,
@@ -1079,7 +1079,7 @@ class TestStatusEvents(Case):
     """游戏事件走 `status` 的「读走即清空」——与任务结果同一套语义。"""
 
     def _event(self):
-        from ra2agent.events import Event, EventKind, Subject
+        from ra2agent.engine.events import Event, EventKind, Subject
         return Event(kind=EventKind.LOW_POWER, frame=self.state.frame,
                      subject=Subject("house", 0, "me"),
                      data={"drain": 150, "output": 100})
@@ -1142,7 +1142,7 @@ class TestAutoTriggeredTactics(Case):
         return state
 
     def test_layer_tick_drives_the_autopilot(self):
-        from ra2agent.intents import Deploy
+        from ra2agent.runtime.intents import Deploy
         from ra2agent.tactics import Trigger
         self.build_with([self._tactic("auto", lambda ctx: (ctx.intent(Deploy, units=(1,)),),
                                       Trigger.every(10))])
@@ -1150,7 +1150,7 @@ class TestAutoTriggeredTactics(Case):
         self.assertEqual([i.kind for i in self.executor.calls], ["deploy"])
 
     def test_status_reports_what_the_autopilot_did(self):
-        from ra2agent.intents import Deploy
+        from ra2agent.runtime.intents import Deploy
         from ra2agent.tactics import Trigger
         self.build_with([self._tactic("auto", lambda ctx: (ctx.intent(Deploy, units=(1,)),),
                                       Trigger.every(10))])
@@ -1160,7 +1160,7 @@ class TestAutoTriggeredTactics(Case):
         self.assertIn("auto", text)
 
     def test_it_is_reported_only_once(self):
-        from ra2agent.intents import Deploy
+        from ra2agent.runtime.intents import Deploy
         from ra2agent.tactics import Trigger
         self.build_with([self._tactic("auto", lambda ctx: (ctx.intent(Deploy, units=(1,)),),
                                       Trigger.every(10))])
@@ -1176,8 +1176,8 @@ class TestAutoTriggeredTactics(Case):
         self.assertNotIn("自动层", self.commander.status(self.observation).render())
 
     def test_event_triggered_tactic_runs(self):
-        from ra2agent.events import Event, EventKind, Subject
-        from ra2agent.intents import Deploy
+        from ra2agent.engine.events import Event, EventKind, Subject
+        from ra2agent.runtime.intents import Deploy
         from ra2agent.tactics import Trigger
         self.build_with([self._tactic("on_low_power",
                                       lambda ctx: (ctx.intent(Deploy, units=(1,)),),
@@ -1215,7 +1215,7 @@ class TestWakeRequests(Case):
         return state
 
     def test_wake_goes_to_the_bridge_not_the_executor(self):
-        from ra2agent.intents import Wake
+        from ra2agent.runtime.intents import Wake
         self._build(lambda ctx: (ctx.intent(Wake, text="基地被打"),))
         self.layer.tick(self.observation)
         self.assertEqual(self.executor.calls, [], "没有引擎命令")
@@ -1223,7 +1223,7 @@ class TestWakeRequests(Case):
         self.assertIn("基地被打", self.posts[0]["text"])
 
     def test_wake_can_accompany_engine_intents(self):
-        from ra2agent.intents import Deploy, Wake
+        from ra2agent.runtime.intents import Deploy, Wake
         self._build(lambda ctx: (ctx.intent(Deploy, units=(1,)),
                                  ctx.intent(Wake, text="顺手说一声")))
         self.layer.tick(self.observation)
@@ -1232,13 +1232,13 @@ class TestWakeRequests(Case):
 
     def test_successful_wakes_are_not_reported(self):
         # 那条消息本身就是通知，再在 status 里说一遍是重复
-        from ra2agent.intents import Wake
+        from ra2agent.runtime.intents import Wake
         self._build(lambda ctx: (ctx.intent(Wake, text="基地被打"),))
         self.layer.tick(self.observation)
         self.assertNotIn("唤醒未送达", self.commander.status(self.observation).render())
 
     def test_undelivered_wakes_are_reported(self):
-        from ra2agent.intents import Wake
+        from ra2agent.runtime.intents import Wake
         from ra2agent.wake import WakeBridge, WakePolicy
         self._build(lambda ctx: (ctx.intent(Wake, text="基地被打"),))
         self.layer.wake = WakeBridge(policy=WakePolicy(min_frames=1),

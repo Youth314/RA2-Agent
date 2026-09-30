@@ -8,8 +8,8 @@ import unittest
 from ra2agent.constants import (LEPTONS_PER_CELL, AbstractType, LandType,
                                 Mission, UnitAction)
 from ra2agent.errors import InvalidCommand
-from ra2agent.state import GameState, MapData, cell_center
-from ra2agent.validate import Validator
+from ra2agent.engine.state import GameState, MapData, cell_center
+from ra2agent.engine.validate import Validator
 from tests.fixtures import (ENEMY_HOUSE, NEUTRAL_HOUSE, PLAYER_HOUSE,
                             build_game_state, build_house, build_map_soa,
                             build_object)
@@ -65,19 +65,19 @@ class TestCoordinates(unittest.TestCase):
 
     def test_rejects_negative(self):
         # -1 会被 Coord2Cell 截断成格 0，即地图内，故必须显式拒绝
-        from ra2agent.state import Coordinates
+        from ra2agent.engine.state import Coordinates
         with self.assertRaises(InvalidCommand):
             self.validator.check_coordinates(Coordinates(-1, 100))
         with self.assertRaises(InvalidCommand):
             self.validator.check_coordinates(Coordinates(100, -1))
 
     def test_rejects_huge(self):
-        from ra2agent.state import Coordinates
+        from ra2agent.engine.state import Coordinates
         with self.assertRaises(InvalidCommand):
             self.validator.check_coordinates(Coordinates(10_000_000, 100))
 
     def test_rejects_without_map(self):
-        from ra2agent.state import Coordinates
+        from ra2agent.engine.state import Coordinates
         with self.assertRaises(InvalidCommand):
             Validator().check_coordinates(Coordinates(100, 100))
 
@@ -166,7 +166,7 @@ class TestActions(unittest.TestCase):
         self.assertIn("mission", str(ctx.exception))
 
     def test_rejects_out_of_map_coordinates(self):
-        from ra2agent.state import Coordinates
+        from ra2agent.engine.state import Coordinates
         with self.assertRaises(InvalidCommand):
             self.validator.check_unit_order(
                 self.state, [CLEAR_OBJECT], UnitAction.MOVE,
@@ -247,7 +247,7 @@ class TestSellCell(unittest.TestCase):
             self.validator.check_unit_order(self.state, [], UnitAction.SELL_CELL)
 
     def test_rejects_out_of_map(self):
-        from ra2agent.state import Coordinates
+        from ra2agent.engine.state import Coordinates
         with self.assertRaises(InvalidCommand):
             self.validator.check_unit_order(self.state, [],
                                             UnitAction.SELL_CELL,
@@ -289,7 +289,7 @@ class TestClickEvent(unittest.TestCase):
 
 class TestPlace(unittest.TestCase):
     def test_rejects_out_of_map(self):
-        from ra2agent.state import Coordinates
+        from ra2agent.engine.state import Coordinates
         validator = Validator(make_map())
         with self.assertRaises(InvalidCommand):
             validator.check_place(Coordinates(0, 999_999))

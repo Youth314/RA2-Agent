@@ -46,15 +46,15 @@ from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import Callable
 
-from .client import CommandResult
-from .constants import (Mission, NetworkEvent, PLACE_QUERY_MAX_LENGTH,
+from ..engine.client import CommandResult
+from ..constants import (Mission, NetworkEvent, PLACE_QUERY_MAX_LENGTH,
                         PLACE_SITE_RADIUS, UnitAction)
-from .errors import CommandFailed, GameNotResponding, InvalidCommand, Timeout
+from ..errors import CommandFailed, GameNotResponding, InvalidCommand, Timeout
 from .formation import place_candidates
 from .intents import (Attack, Deploy, Hold, Intent, MoveTo, Place, Produce, Sell,
                       Stance)
-from .state import Coordinates, GameState, ObjectType, cell_center
-from .validate import Validator
+from ..engine.state import Coordinates, GameState, ObjectType, cell_center
+from ..engine.validate import Validator
 
 #: 命令生效的默认帧数上限。实测移动 4 帧、生产 14 帧、部署 17 帧，故留出余量。
 DEFAULT_MAX_WAIT_FRAMES = 45

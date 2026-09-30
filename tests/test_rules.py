@@ -1,11 +1,11 @@
-"""`ra2agent.rules` 的测试。
+"""`ra2agent.data.rules` 的测试。
 
 用一小段合成 INI，不依赖 `corpus/raw/`（那份不入库）。
 """
 import pathlib
 import unittest
 
-from ra2agent.rules import (
+from ra2agent.data.rules import (
     ARMOR_TYPES,
     Rules,
     Warhead,
@@ -326,7 +326,7 @@ class TestTypeAliases(unittest.TestCase):
         self.assertEqual(load_ids_by_name(path)["Civilian"], "CIV1")
 
     def test_attach_matches_by_display_name(self):
-        from ra2agent.state import ObjectType, TypeTable
+        from ra2agent.engine.state import ObjectType, TypeTable
         path = self.write({"units": [{"id": "MTNK", "name": "Grizzly Battle Tank"}]})
         table = TypeTable([ObjectType(name="Grizzly Battle Tank", cost=700,
                                       array_index=1, pointer=0x900, type=0)])
@@ -334,10 +334,10 @@ class TestTypeAliases(unittest.TestCase):
         self.assertEqual(table.resolve("MTNK").pointer, 0x900)
 
     def test_types_absent_from_the_table_are_skipped(self):
-        from ra2agent.state import TypeTable
+        from ra2agent.engine.state import TypeTable
         path = self.write({"units": [{"id": "MTNK", "name": "Grizzly Battle Tank"}]})
         self.assertEqual(attach_type_aliases(TypeTable(), path), 0)
 
     def test_no_file_attaches_nothing(self):
-        from ra2agent.state import TypeTable
+        from ra2agent.engine.state import TypeTable
         self.assertEqual(attach_type_aliases(TypeTable(), "/nonexistent/rules.json"), 0)

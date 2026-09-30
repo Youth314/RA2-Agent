@@ -19,8 +19,8 @@ import time
 from pathlib import Path
 
 import batchkit
-from ra2agent import payloads
-from ra2agent.client import Client
+from ra2agent.engine import payloads
+from ra2agent.engine.client import Client
 from ra2agent.constants import AbstractType, Mission, NetworkEvent, UnitAction
 
 OUT_DIR = Path(__file__).resolve().parent.parent / ".agents" / "tmp"

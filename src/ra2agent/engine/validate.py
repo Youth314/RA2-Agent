@@ -6,10 +6,10 @@
 
 本模块只拒绝；不做任何修补或降级——能否换一条路走由调用方决定。
 """
-from .constants import (LEPTONS_PER_CELL, MISSIONS_ILLEGAL_FOR_UNIT_ORDER,
+from ..constants import (LEPTONS_PER_CELL, MISSIONS_ILLEGAL_FOR_UNIT_ORDER,
                         UNIT_ACTIONS_IMPLEMENTED, UNIT_ACTIONS_NEED_CELL,
                         UNIT_ACTIONS_NEED_TARGET, UnitAction)
-from .errors import InvalidCommand
+from ..errors import InvalidCommand
 from .state import Coordinates, GameObject, GameState, MapData
 
 

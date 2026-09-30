@@ -8,11 +8,11 @@ import unittest
 from ra2agent.command import Commander
 from ra2agent.constants import AbstractType, LandType, Mission
 from ra2agent.errors import CommandFailed
-from ra2agent.executor import Executor
-from ra2agent.identity import IdentityTable
-from ra2agent.intents import Place
-from ra2agent.observation import Observation
-from ra2agent.state import GameState, MapData, TypeTable, cell_center
+from ra2agent.runtime.executor import Executor
+from ra2agent.engine.identity import IdentityTable
+from ra2agent.runtime.intents import Place
+from ra2agent.engine.observation import Observation
+from ra2agent.engine.state import GameState, MapData, TypeTable, cell_center
 from ra2agent.tactics import TacticRegistry
 from ra2agent.tactics.conditions import check_conditions
 from ra2agent.wake import WakeBridge
@@ -85,7 +85,7 @@ class FakeClient:
             raise CommandFailed("proximity check failed",
                                 command_type="PlaceBuilding",
                                 reason="placement_blocked")
-        from ra2agent.client import CommandResult
+        from ra2agent.engine.client import CommandResult
         return CommandResult(type="PlaceBuilding", payload=b"", code=None,
                              error="")
 
@@ -216,7 +216,7 @@ class TestBuildChain(unittest.TestCase):
 
     def test_executor_routes_the_place_intent(self):
         """L0 照旧只负责把意图翻成命令：不需要为放置新增任何选路。"""
-        from ra2agent.validate import Validator
+        from ra2agent.engine.validate import Validator
         executor = Executor(self.client, self.observer.identity,
                             types=self.observer.types,
                             validator=Validator(MAP),
@@ -229,7 +229,7 @@ class TestBuildChain(unittest.TestCase):
         self.assertEqual(plan.coordinates, cell_center(4, 3))
 
     def _executor(self):
-        from ra2agent.validate import Validator
+        from ra2agent.engine.validate import Validator
         return Executor(self.client, self.observer.identity,
                         types=self.observer.types,
                         validator=Validator(MAP),

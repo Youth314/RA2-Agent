@@ -6,7 +6,7 @@ import unittest
 
 from ra2agent.constants import AbstractType, LandType, Mission
 from ra2agent.errors import ProtocolError
-from ra2agent.state import (Coordinates, GameState, MapData, TypeTable,
+from ra2agent.engine.state import (Coordinates, GameState, MapData, TypeTable,
                             cell_center, parse_cell, parse_coordinates)
 from tests.fixtures import (ENEMY_HOUSE, NEUTRAL_HOUSE, PLAYER_HOUSE,
                             build_cell, build_coordinates, build_factory,
@@ -284,7 +284,7 @@ class TestTypeTableResolve(unittest.TestCase):
     """类型解析：技法按注册名说话，而引擎只给显示名。"""
 
     def table(self, aliases=None):
-        from ra2agent.state import ObjectType, TypeTable
+        from ra2agent.engine.state import ObjectType, TypeTable
         return TypeTable([
             ObjectType(name="Grizzly Battle Tank", cost=700, array_index=1,
                        pointer=0x900, type=AbstractType.UNIT),

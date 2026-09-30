@@ -18,7 +18,7 @@ from typing import Callable
 
 from ..constants import WAIT_GRACE_FRAMES
 from ..errors import TacticDenied, TacticError, TacticFailed
-from ..intents import Intent, Layer, Scope
+from ..runtime.intents import Intent, Layer, Scope
 from .conditions import NEEDS_PARAMS, check_conditions, explain
 
 
@@ -74,7 +74,7 @@ def is_cell(value) -> bool:
 
 def is_stance(value) -> bool:
     """是否是已知姿态。"""
-    from ..intents import Stance
+    from ..runtime.intents import Stance
     return value in tuple(Stance)
 
 

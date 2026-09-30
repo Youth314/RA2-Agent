@@ -12,7 +12,7 @@ build_codex = importlib.util.module_from_spec(spec)
 sys.modules["build_codex"] = build_codex
 spec.loader.exec_module(build_codex)
 
-from ra2agent.rules import ARMOR_TYPES  # noqa: E402
+from ra2agent.data.rules import ARMOR_TYPES  # noqa: E402
 
 
 class TestFormatDamage(unittest.TestCase):

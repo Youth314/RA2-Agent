@@ -11,8 +11,8 @@ import subprocess
 import time
 from dataclasses import dataclass
 
-from .constants import DEFAULT_HOST, DEFAULT_PORT
-from .errors import Ra2Error
+from ..constants import DEFAULT_HOST, DEFAULT_PORT
+from ..errors import Ra2Error
 from . import winfocus
 
 #: 探针游戏环境的 Windows 路径与 WSL 路径，见 `.agents/notes/开发环境.md`。

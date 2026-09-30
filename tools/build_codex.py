@@ -18,7 +18,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "src"))
 
-from ra2agent.rules import ARMOR_TYPES, parse_rules  # noqa: E402
+from ra2agent.data.rules import ARMOR_TYPES, parse_rules  # noqa: E402
 
 RAW = REPO / "corpus" / "raw" / "rulesmd.ini"
 DERIVED = REPO / "corpus" / "derived" / "rules.json"

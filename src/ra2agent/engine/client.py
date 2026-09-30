@@ -8,9 +8,9 @@ import time
 from dataclasses import dataclass
 
 from . import payloads
-from .constants import (CMD_CLIENT, CMD_POLL_BLOCKING, DEFAULT_HOST,
+from ..constants import (CMD_CLIENT, CMD_POLL_BLOCKING, DEFAULT_HOST,
                         DEFAULT_PORT, NS, PRODUCTION_STEPS, UnitAction)
-from .errors import CommandFailed, ProtocolError, Timeout
+from ..errors import CommandFailed, ProtocolError, Timeout
 from .proto import (any_unpack, fields, fmap, make_command, pb_bytes, pb_uint,
                     sub)
 from .state import Coordinates, GameState, MapData, TypeTable

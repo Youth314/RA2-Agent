@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 from ra2agent.errors import Ra2Error
-from ra2agent.intents import (TERMINAL_STATES, DecisionLog, Deploy, Hold,
+from ra2agent.runtime.intents import (TERMINAL_STATES, DecisionLog, Deploy, Hold,
                               Intent, IntentState, Layer, MoveTo, Place,
                               Produce, Scope, Sell, Stance, frames_for,
                               registered_kinds)

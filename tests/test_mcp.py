@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 from ra2agent.constants import LoadStage
 from ra2agent.errors import Ra2Error
-from ra2agent.game import GameHost, ProcessInfo
+from ra2agent.deploy.game import GameHost, ProcessInfo
 from ra2agent.mcp import (FALLBACK_PROTOCOL, INSTRUCTIONS, LATEST_PROTOCOL,
                           PROTOCOL_VERSIONS, TOOLS, GameSession, McpServer)
 

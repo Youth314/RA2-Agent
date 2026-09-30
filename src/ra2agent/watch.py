@@ -21,11 +21,11 @@ import argparse
 import sys
 import time
 
-from .autopilot import kind_of
-from .client import Client
-from .events import summarize
-from .match import MatchRoster
-from .observation import Observer
+from .runtime.autopilot import kind_of
+from .engine.client import Client
+from .engine.events import summarize
+from .deploy.match import MatchRoster
+from .engine.observation import Observer
 from .tactics.builtin.report import watched_only
 from .wake import WakeBridge, WakePolicy
 

@@ -26,16 +26,16 @@ import sys
 import time
 from dataclasses import dataclass, field
 
-from .client import Client, CommandResult
-from .executor import CommandPlan, ExecutionOutcome, Executor
-from .identity import IdentityTable
-from .intents import Scope, TacticCall
-from .micro import MicroLayer
-from .observation import Observer
-from .proto import pb_bytes
-from .state import GameState, MapData
+from .engine.client import Client, CommandResult
+from .runtime.executor import CommandPlan, ExecutionOutcome, Executor
+from .engine.identity import IdentityTable
+from .runtime.intents import Scope, TacticCall
+from .runtime.micro import MicroLayer
+from .engine.observation import Observer
+from .engine.proto import pb_bytes
+from .engine.state import GameState, MapData
 from .tactics import TacticPolicy, TacticRegistry
-from .validate import Validator
+from .engine.validate import Validator
 
 #: 场景文件的格式版本。
 SCENARIO_VERSION = 1

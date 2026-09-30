@@ -7,9 +7,9 @@ MCP 服务进程**，agent 一空闲就没了——所以「出事了叫模型�
 import unittest
 
 from ra2agent.constants import AbstractType, LandType, Mission
-from ra2agent.events import Event, EventKind, Subject
-from ra2agent.observation import Observation
-from ra2agent.state import GameState, MapData
+from ra2agent.engine.events import Event, EventKind, Subject
+from ra2agent.engine.observation import Observation
+from ra2agent.engine.state import GameState, MapData
 from ra2agent.watch import wake_text, watch
 from tests.fixtures import (PLAYER_HOUSE, build_game_state, build_house,
                             build_map_soa, build_object)

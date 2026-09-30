@@ -378,7 +378,7 @@ class MatchHost:
         @param participant: 要读的一方。
         @returns: `(stage, frame)`；连不上返回 `None`。
         """
-        from .client import Client
+        from ..engine.client import Client
 
         try:
             client = Client(port=participant.probe_port)

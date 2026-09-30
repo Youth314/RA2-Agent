@@ -16,7 +16,7 @@ from dataclasses import asdict, dataclass, field, fields
 from enum import IntEnum, StrEnum
 from typing import Any
 
-from .errors import Ra2Error
+from ..errors import Ra2Error
 
 #: TTL 用游戏帧计时。该常量仅在需要把人类口述的秒数换算成帧时使用，
 #: 取值来自测绘：44 fps 左右。

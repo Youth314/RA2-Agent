@@ -9,8 +9,8 @@ import tempfile
 import unittest
 
 from ra2agent.errors import TacticDenied, TacticError, TacticFailed
-from ra2agent.intents import Hold, Layer, MoveTo, Scope
-from ra2agent.observation import Observation
+from ra2agent.runtime.intents import Hold, Layer, MoveTo, Scope
+from ra2agent.engine.observation import Observation
 from ra2agent.tactics import (REQUIRED, Card, Level, Mode, Param, Tactic,
                               TacticInfo, TacticPolicy, TacticRegistry)
 from ra2agent.tactics.core import TacticContext
@@ -36,7 +36,7 @@ class FakeSubject:
 
 def make_observation(frame=100, map_data=None, enemies=()):
     """一帧最小观测；只放技法会读到的字段。"""
-    from ra2agent.state import House
+    from ra2agent.engine.state import House
     house = House(pointer=0x1000, array_index=0, name="me", faction="Alliance",
                   money=0, current_player=True, is_human_player=True,
                   defeated=False, is_winner=False, is_loser=False)
@@ -46,7 +46,7 @@ def make_observation(frame=100, map_data=None, enemies=()):
 
 def make_map(side=8, shrouded=None, land=None):
     from ra2agent.constants import LandType
-    from ra2agent.state import MapData
+    from ra2agent.engine.state import MapData
     from tests.fixtures import build_map_soa
     cells = side * side
     return MapData.parse(build_map_soa(
@@ -128,7 +128,7 @@ class TestRegistration(unittest.TestCase):
         这是「事件 → 唤醒」那条链的技法端：此前**没有任何技法发过 `Wake`**，
         整条路在实机上一次都没走通。
         """
-        from ra2agent.events import Event, EventKind, Subject
+        from ra2agent.engine.events import Event, EventKind, Subject
         registry = TacticRegistry().load_builtin()
         lost = Event(kind=EventKind.OBJECT_LOST, frame=100,
                      subject=Subject("house", 0, "me"),
@@ -553,8 +553,8 @@ class TestContextTypes(unittest.TestCase):
     """技法靠 `ctx.types` 把类型名解析成指针——`Produce` 一类意图需要它。"""
 
     def context(self, types=None):
-        from ra2agent.observation import Observation
-        from ra2agent.state import GameState
+        from ra2agent.engine.observation import Observation
+        from ra2agent.engine.state import GameState
         from tests.fixtures import build_game_state, build_house
         state = GameState.parse(build_game_state(
             houses=[build_house(0x1000, current_player=True)]))
@@ -565,7 +565,7 @@ class TestContextTypes(unittest.TestCase):
                              log=None, chain=(), attempt=0, budget=None)
 
     def table(self, aliases=None):
-        from ra2agent.state import ObjectType, TypeTable
+        from ra2agent.engine.state import ObjectType, TypeTable
         return TypeTable([ObjectType(name="Grizzly Battle Tank", cost=700,
                                      array_index=1, pointer=0x900, type=1)],
                          aliases=aliases)
@@ -593,8 +593,8 @@ class TestIntentScope(unittest.TestCase):
     """`ctx.intent` 的归属推导。阵营级动作不涉及对象，不该因此报错。"""
 
     def context(self, agents=()):
-        from ra2agent.observation import Observation
-        from ra2agent.state import GameState
+        from ra2agent.engine.observation import Observation
+        from ra2agent.engine.state import GameState
         from tests.fixtures import build_game_state, build_house
 
         class Subject:
@@ -610,13 +610,13 @@ class TestIntentScope(unittest.TestCase):
                              log=None, chain=(), attempt=0, budget=None)
 
     def test_units_become_the_scope(self):
-        from ra2agent.intents import Hold
+        from ra2agent.runtime.intents import Hold
         intent = self.context(agents=(7, 8)).intent(Hold, units=(7, 8))
         self.assertEqual(intent.scope.objects, (7, 8))
         self.assertFalse(intent.scope.is_empty)
 
     def test_no_units_gives_an_empty_scope_not_an_error(self):
         # 阵营级动作（造东西一类）本来就不涉及对象；自动触发的脉冲尤其如此
-        from ra2agent.intents import Produce
+        from ra2agent.runtime.intents import Produce
         intent = self.context().intent(Produce, type_pointer=0x900)
         self.assertTrue(intent.scope.is_empty)

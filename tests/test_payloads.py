@@ -13,8 +13,8 @@
 import unittest
 from types import SimpleNamespace
 
-from ra2agent.payloads import _pointer_of, place_query
-from ra2agent.state import House
+from ra2agent.engine.payloads import _pointer_of, place_query
+from ra2agent.engine.state import House
 
 
 def make_house(pointer=123456):

@@ -77,7 +77,7 @@ def water_nearby(map_data, centers, *, radius=WATER_NEAR_RADIUS):
     临水建筑（`WaterBound=yes`，船厂那类）能不能造由引擎按地形定；离线只能用这条
     近似：己方建筑周围 `radius` 格内有水就算有。
     """
-    from .constants import LandType
+    from ..constants import LandType
     if map_data is None or not centers:
         return None
     for base_x, base_y in centers:

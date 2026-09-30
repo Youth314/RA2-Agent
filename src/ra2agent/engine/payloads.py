@@ -6,7 +6,7 @@
 设计上刻意只暴露服务端真正读取的字段，避免传入被忽略的参数造成误解。例如
 `produce_order` 不接受 action，因为服务端从不读取它。
 """
-from .constants import LEPTONS_PER_CELL, PLACE_QUERY_MAX_LENGTH, UnitAction
+from ..constants import LEPTONS_PER_CELL, PLACE_QUERY_MAX_LENGTH, UnitAction
 from .proto import pb_bytes, pb_str, pb_uint
 from .state import Coordinates, GameObject, ObjectType
 
@@ -126,7 +126,7 @@ def add_event(event_type, production=None, cell=None, whom=None,
     `spoof=True` 时事件归属改用 `house_index` 而非当前玩家，帧号也会被取负
     以标记「已伪造」。该行为尚未充分验证。
     """
-    from .constants import NetworkEvent
+    from ..constants import NetworkEvent
 
     event = b""
     if spoof:

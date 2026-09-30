@@ -14,7 +14,7 @@
 先 `hold_position` 让它们停下、再 `guard_area` 守住，是这对技法的正常用法：前者的
 任务结算后单位交还，后者只负责开火，不会再让它们挪窝。
 """
-from ...intents import Attack, Hold
+from ...runtime.intents import Attack, Hold
 from ..core import REQUIRED, Param, Tactic, TacticInfo, is_positive_number
 
 

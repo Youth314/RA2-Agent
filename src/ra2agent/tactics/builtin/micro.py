@@ -3,8 +3,8 @@
 五条暴露给模型，一条只供组合调用。它们只做「按当前局面产出意图」这一件事：
 不记状态、不判失败、不重试——那些是运行时的活，见 `ra2agent/micro.py`。
 """
-from ...formation import blocked_cells, formation_cells
-from ...intents import Attack, Hold, MoveTo, Stance
+from ...runtime.formation import blocked_cells, formation_cells
+from ...runtime.intents import Attack, Hold, MoveTo, Stance
 from ..core import (REQUIRED, Param, Tactic, TacticInfo, is_cell,
                     is_non_negative_int, is_positive_number, is_stance)
 

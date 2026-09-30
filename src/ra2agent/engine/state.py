@@ -10,8 +10,8 @@
 from dataclasses import dataclass, field
 from typing import Iterator
 
-from .constants import LEPTONS_PER_CELL
-from .errors import ProtocolError
+from ..constants import LEPTONS_PER_CELL
+from ..errors import ProtocolError
 from .proto import fmap, one, repeated_ints, signed64, sub
 
 # ---------------------------------------------------------------- 基础类型
@@ -82,13 +82,13 @@ class GameObject:
     @property
     def is_building(self) -> bool:
         """对应 `AbstractType.BUILDING`。"""
-        from .constants import AbstractType
+        from ..constants import AbstractType
         return self.object_type == AbstractType.BUILDING
 
     @property
     def is_unit(self) -> bool:
         """对应 `AbstractType.UNIT`。"""
-        from .constants import AbstractType
+        from ..constants import AbstractType
         return self.object_type == AbstractType.UNIT
 
 
@@ -398,7 +398,7 @@ class MapData:
 
     def is_clear(self, cell_x, cell_y) -> bool:
         """已探索且地形为 `Clear`，可作为候选移动目标。"""
-        from .constants import LandType
+        from ..constants import LandType
         return (self.in_bounds(cell_x, cell_y)
                 and not self.shrouded(cell_x, cell_y)
                 and self.land_type(cell_x, cell_y) == LandType.CLEAR)

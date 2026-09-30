@@ -14,7 +14,7 @@
 「新结果」会带上这句原因，模型据此知道别重复下单。
 """
 from ...errors import TacticError
-from ...intents import Produce
+from ...runtime.intents import Produce
 from ..core import (REQUIRED, Param, Tactic, TacticInfo, is_non_empty_str)
 
 

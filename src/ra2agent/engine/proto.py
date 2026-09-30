@@ -3,7 +3,7 @@
 不依赖 protoc 生成的代码与 `google.protobuf` 运行时：本层只需读写固定字段，
 手写比引入代码生成链更省事。字段号取自 `proto/ra2yrproto/`。
 """
-from .errors import ProtocolError
+from ..errors import ProtocolError
 
 # ---------------------------------------------------------------- 编码
 def varint(value):

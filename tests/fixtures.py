@@ -3,7 +3,7 @@
 用 `proto` 的编码器手工拼装，使测试不依赖录制文件、可完全离线运行。
 """
 from ra2agent.constants import AbstractType, LandType, Mission
-from ra2agent.proto import pb_bytes, pb_str, pb_uint
+from ra2agent.engine.proto import pb_bytes, pb_str, pb_uint
 
 PLAYER_HOUSE = 0x1000
 ENEMY_HOUSE = 0x2000

@@ -9,17 +9,17 @@ import os
 import tempfile
 import unittest
 
-from ra2agent.client import CommandResult
+from ra2agent.engine.client import CommandResult
 from ra2agent.constants import (AbstractType, LandType, Mission, NetworkEvent,
                                 UnitAction)
 from ra2agent.errors import (CommandFailed, GameNotResponding, InvalidCommand,
                              Timeout)
-from ra2agent.executor import DEFAULT_MAX_WAIT_FRAMES, Executor, reason_for
-from ra2agent.identity import IdentityTable
-from ra2agent.intents import (Attack, DecisionLog, Deploy, Hold, Intent, MoveTo,
+from ra2agent.runtime.executor import DEFAULT_MAX_WAIT_FRAMES, Executor, reason_for
+from ra2agent.engine.identity import IdentityTable
+from ra2agent.runtime.intents import (Attack, DecisionLog, Deploy, Hold, Intent, MoveTo,
                               Place, Produce, Sell, Stance)
-from ra2agent.state import GameState, MapData, TypeTable, cell_center
-from ra2agent.validate import Validator
+from ra2agent.engine.state import GameState, MapData, TypeTable, cell_center
+from ra2agent.engine.validate import Validator
 from tests.fixtures import (ENEMY_HOUSE, PLAYER_HOUSE, build_factory,
                             build_game_state, build_house, build_map_soa,
                             build_object, build_type_table)

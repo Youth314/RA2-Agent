@@ -3,8 +3,8 @@
 纯计算，无状态，技法与运行时共用。只排除明显的不可站立格（越界、未探索、水、
 岩石、墙、已有建筑），具体能否走到由引擎寻路决定——技法只负责选目标格。
 """
-from .constants import LandType
-from .state import GameState, MapData, cell_center
+from ..constants import LandType
+from ..engine.state import GameState, MapData, cell_center
 
 #: 队形展开搜索的默认半径（格）。
 DEFAULT_SPREAD_RADIUS = 4

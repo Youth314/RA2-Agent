@@ -25,7 +25,7 @@ sys.path.insert(0, str(REPO / "src"))
 
 from dataclasses import replace  # noqa: E402
 
-from ra2agent.match import (MatchHost, MatchRoster,  # noqa: E402
+from ra2agent.deploy.match import (MatchHost, MatchRoster,  # noqa: E402
                             apply_rule_overrides)
 
 #: 名册位置。

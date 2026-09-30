@@ -3,7 +3,7 @@
 与 `micro.py` 的区别是这些**自己会跑**——名片里带 `trigger`。它们产出的是脉冲：
 跑一次、下发一次、不建编队，故不会占着单位的租约，也不会有每拍重发的风险。
 """
-from ...intents import Deploy
+from ...runtime.intents import Deploy
 from ..core import Tactic, TacticInfo, Trigger
 
 #: 基地车的注册名。显示名是「Construction Vehicle」，不含 MCV，故按注册名认。

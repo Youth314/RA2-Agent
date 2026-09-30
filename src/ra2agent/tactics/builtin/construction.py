@@ -14,7 +14,7 @@
 
 `units` 参数照旧要点名己方单位（框架要求），待放建筑自己不在池子里、点不了它。
 """
-from ...intents import Place
+from ...runtime.intents import Place
 from ..core import (Param, Tactic, TacticInfo, is_optional_cell)
 
 

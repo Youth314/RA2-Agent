@@ -1,4 +1,4 @@
-"""`ra2agent.match` 的测试。
+"""`ra2agent.deploy.match` 的测试。
 
 名册、整局起停与就绪判定全部离线：外部命令经 `runner`、探针经 `probe` 注入，
 不碰 Windows、不碰网络。
@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from types import SimpleNamespace
 
-from ra2agent.match import (STAGE_INGAME, MatchHost, MatchRoster, MatchRules,
+from ra2agent.deploy.match import (STAGE_INGAME, MatchHost, MatchRoster, MatchRules,
                             Participant, ParticipantStatus,
                             apply_rule_overrides, render_spawn_ini, wsl_path)
 

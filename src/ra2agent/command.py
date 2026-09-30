@@ -11,16 +11,16 @@
 """
 from dataclasses import dataclass, field
 
-from .autopilot import Autopilot
-from .catalogue import (MAX_BUILDABLE_BUILDINGS, MAX_BUILDABLE_UNITS,
+from .runtime.autopilot import Autopilot
+from .data.catalogue import (MAX_BUILDABLE_BUILDINGS, MAX_BUILDABLE_UNITS,
                         own_building_cells, owned_building_ids, stolen_labels,
                         water_nearby)
 from .constants import (LandType, PLACE_QUERY_MAX_LENGTH, PLACE_SITE_RADIUS)
 from .errors import Ra2Error, TacticError
-from .events import summarize
-from .formation import place_candidates
-from .intents import Scope, TacticCall
-from .state import cell_center
+from .engine.events import summarize
+from .runtime.formation import place_candidates
+from .runtime.intents import Scope, TacticCall
+from .engine.state import cell_center
 from .tactics import Mode
 from .tactics.conditions import explain
 

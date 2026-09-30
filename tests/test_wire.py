@@ -10,7 +10,7 @@ import threading
 import unittest
 
 from ra2agent.errors import ProtocolError
-from ra2agent.wire import OP_BIN, OP_PING, OP_TEXT, WebSocket
+from ra2agent.engine.wire import OP_BIN, OP_PING, OP_TEXT, WebSocket
 
 _GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 

@@ -7,9 +7,9 @@ import unittest
 
 from ra2agent.constants import AbstractType
 from ra2agent.errors import TacticDenied, TacticError
-from ra2agent.intents import Attack, Hold, Place, Produce
-from ra2agent.observation import Observation
-from ra2agent.state import (GameState, House, ObjectType, TypeTable, parse_object)
+from ra2agent.runtime.intents import Attack, Hold, Place, Produce
+from ra2agent.engine.observation import Observation
+from ra2agent.engine.state import (GameState, House, ObjectType, TypeTable, parse_object)
 from ra2agent.tactics import TacticRegistry
 from ra2agent.tactics.builtin import combat, construction, production
 from tests.fixtures import (build_factory, build_game_state, build_house,
@@ -85,7 +85,7 @@ def observation(*, state_=None, enemies=(), map_data=None, types=None):
 def make_map(side=48):
     """全 CLEAR、未遮蔽的地图。要盖得住 (20, 20) 附近的兜底落点。"""
     from ra2agent.constants import LandType
-    from ra2agent.state import MapData
+    from ra2agent.engine.state import MapData
     return MapData.parse(build_map_soa(
         width=side, height=side, shrouded=[0] * (side * side),
         land=[LandType.CLEAR] * (side * side)))

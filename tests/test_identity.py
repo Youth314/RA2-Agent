@@ -5,8 +5,8 @@
 import unittest
 
 from ra2agent.constants import AbstractType, Mission
-from ra2agent.identity import IdentityTable
-from ra2agent.state import GameState
+from ra2agent.engine.identity import IdentityTable
+from ra2agent.engine.state import GameState
 from tests.fixtures import (ENEMY_HOUSE, PLAYER_HOUSE, build_game_state,
                             build_house, build_object)
 

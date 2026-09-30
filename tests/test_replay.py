@@ -8,11 +8,11 @@ import tempfile
 import unittest
 
 from ra2agent.constants import AbstractType, LandType, Mission
-from ra2agent.formation import blocked_cells
-from ra2agent.intents import Stance
+from ra2agent.runtime.formation import blocked_cells
+from ra2agent.runtime.intents import Stance
 from ra2agent.replay import (Expectation, ReplayReport, Scenario, _parse_params,
                              replay)
-from ra2agent.state import GameState, MapData
+from ra2agent.engine.state import GameState, MapData
 from ra2agent.tactics import Tactic, TacticInfo, TacticPolicy, TacticRegistry
 from tests.fixtures import (ENEMY_HOUSE, PLAYER_HOUSE, build_game_state,
                             build_house, build_map_soa, build_object)
@@ -72,7 +72,7 @@ def scenario_with_enemy(cells, enemy_cell, start_frame=100):
 def agent_of(scenario, pointer=TANK):
     """场景第一帧里某对象的 agent id。"""
     identity_states = scenario.states()
-    from ra2agent.identity import IdentityTable
+    from ra2agent.engine.identity import IdentityTable
     table = IdentityTable()
     table.update(identity_states[0])
     return table.agent_id(pointer)

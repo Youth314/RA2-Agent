@@ -2,8 +2,8 @@
 import unittest
 
 from ra2agent.constants import AbstractType, LandType, Mission
-from ra2agent.observation import Observation, Observer
-from ra2agent.state import GameState, MapData, TypeTable
+from ra2agent.engine.observation import Observation, Observer
+from ra2agent.engine.state import GameState, MapData, TypeTable
 from tests.fixtures import (ENEMY_HOUSE, NEUTRAL_HOUSE, PLAYER_HOUSE,
                             build_cell, build_game_state, build_house,
                             build_map_soa, build_object, build_type_table)

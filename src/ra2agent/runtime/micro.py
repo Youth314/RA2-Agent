@@ -10,15 +10,15 @@ import time
 from dataclasses import dataclass
 from enum import StrEnum
 
-from .constants import WAIT_GRACE_FRAMES
-from .errors import (CommandFailed, GameNotResponding, InvalidCommand, Timeout,
+from ..constants import WAIT_GRACE_FRAMES
+from ..errors import (CommandFailed, GameNotResponding, InvalidCommand, Timeout,
                      TacticDenied, TacticError)
 from .executor import Executor
 from .intents import IntentState, TacticCall, split_wakes
-from .observation import Observation
-from .tactics import Mode, TacticRegistry
-from .validate import Validator
-from .wake import WakeBridge
+from ..engine.observation import Observation
+from ..tactics import Mode, TacticRegistry
+from ..engine.validate import Validator
+from ..wake import WakeBridge
 
 #: 每 tick 之间的默认帧数。44 fps 下约 0.5 秒。
 DEFAULT_TICK_FRAMES = 22

@@ -7,9 +7,9 @@
 **与模型调用共用同一道门槛**：`TacticRegistry.run` 里的策略闸与适用条件闸一项不少。
 触发层不是后门——等级门槛、停用名单、适用条件，自动触发一样要过。
 """
-from .errors import GameNotResponding, Ra2Error
+from ..errors import GameNotResponding, Ra2Error
 from .intents import split_wakes
-from .wake import WakeBridge
+from ..wake import WakeBridge
 
 #: 保留多少条自动执行记录给 `status` 查。
 DEFAULT_MAX_RECORDS = 64

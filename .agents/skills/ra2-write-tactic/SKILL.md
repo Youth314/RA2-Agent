@@ -53,7 +53,7 @@ TacticInfo(..., trigger=Trigger.automatic("low_power", every_frames=90))
 这笔钱怎么花），返回一条 `Wake`：
 
 ```python
-from ra2agent.intents import Wake
+from ra2agent.runtime.intents import Wake
 
 return (ctx.intent(Wake, text="基地被打了，3 个建筑在掉血"),)
 ```
@@ -74,7 +74,7 @@ return (ctx.intent(Wake, text="基地被打了，3 个建筑在掉血"),)
 ## 二、允许的 import
 
 白名单：`math`、`typing`、`dataclasses`、`enum`，以及本项目的
-`ra2agent.intents`、`ra2agent.formation`、`ra2agent.constants`、`ra2agent.state`。
+`ra2agent.runtime.intents`、`ra2agent.runtime.formation`、`ra2agent.constants`、`ra2agent.engine.state`。
 
 禁止：`os`、`sys`、`socket`、`subprocess`、`importlib`、`time`、`random`、
 `open`、`eval`、`exec`。要随机或计时就说明用法错了——技法必须是确定性的。

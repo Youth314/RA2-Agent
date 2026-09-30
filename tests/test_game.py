@@ -1,4 +1,4 @@
-"""`ra2agent.game` 的测试。
+"""`ra2agent.deploy.game` 的测试。
 
 宿主侧的外部调用全部经 `runner` 注入，故不碰 Windows、不碰网络（只有端口探测
 那两条用本地回环）。
@@ -11,7 +11,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from ra2agent.errors import Ra2Error
-from ra2agent.game import (GAME_ARG, GAME_DIR, GAME_EXE, POWERSHELL, TASKKILL,
+from ra2agent.deploy.game import (GAME_ARG, GAME_DIR, GAME_EXE, POWERSHELL, TASKKILL,
                            TASKLIST, GameHost, HostState, ProcessInfo,
                            describe_age, parse_processes)
 
@@ -75,7 +75,7 @@ class TestFocusTargetsTheRightInstance(unittest.TestCase):
     """
 
     def _host(self, paths, focused):
-        from ra2agent.game import GameHost, ProcessInfo
+        from ra2agent.deploy.game import GameHost, ProcessInfo
         host = GameHost(
             focus_reset=lambda: focused.append("reset") or True,
             path_probe=lambda pid: paths.get(pid, ""),

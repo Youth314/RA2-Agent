@@ -1,7 +1,7 @@
 """protobuf 最小编解码的测试。"""
 import unittest
 
-from ra2agent import proto
+from ra2agent.engine import proto
 from ra2agent.errors import ProtocolError
 
 

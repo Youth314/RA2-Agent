@@ -8,8 +8,8 @@
 `ra2agent.wake.WakeBridge`（`config/wake.json`：一局最多 30 次、两次至少隔 180 帧，
 被挡下的内容攒着下次并成一条投出去）。技法这一层只负责「确实出事了」这个判断。
 """
-from ...events import summarize
-from ...intents import Wake
+from ...engine.events import summarize
+from ...runtime.intents import Wake
 from ..core import Tactic, TacticInfo, Trigger
 
 #: 值得把模型叫回来的事。**常规失败原因不在此列**——那是每拍都算得出来的事实，
