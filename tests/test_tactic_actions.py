@@ -264,9 +264,16 @@ class TestCombat(unittest.TestCase):
 
     def test_focus_fire_attacks_the_named_target(self):
         intents = self.run_("focus_fire", {"target": 501})
-        self.assertEqual([i.kind for i in intents], ["attack", "hold"])
+        # 够得着的打、够不着的**开过去打**——点名的目标默认去追（实测旧实现把 4 台
+        # 坦克原地驻守，玩家不但没打成还整体后撤）
+        self.assertEqual([i.kind for i in intents], ["attack", "move_to"])
         self.assertEqual(intents[0].target, 501)
         self.assertEqual(intents[0].units, (1,))
+        self.assertEqual(intents[1].stance, "aggressive")
+
+    def test_focus_fire_can_stay_put_instead_of_chasing(self):
+        intents = self.run_("focus_fire", {"target": 501, "chase": False})
+        self.assertEqual([i.kind for i in intents], ["attack", "hold"])
 
     def test_focus_fire_holds_everyone_when_target_is_gone(self):
         intents = self.run_("focus_fire", {"target": 501}, enemy=False)

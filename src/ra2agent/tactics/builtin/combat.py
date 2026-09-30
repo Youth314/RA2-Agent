@@ -14,8 +14,9 @@
 先 `hold_position` 让它们停下、再 `guard_area` 守住，是这对技法的正常用法：前者的
 任务结算后单位交还，后者只负责开火，不会再让它们挪窝。
 """
-from ...runtime.intents import Attack, Hold
-from ..core import REQUIRED, Param, Tactic, TacticInfo, is_positive_number
+from ...runtime.intents import Attack, Hold, MoveTo, Stance
+from ..core import (REQUIRED, Param, Tactic, TacticInfo, is_bool,
+                    is_positive_number)
 
 
 def _distance_sq(one, other):
@@ -46,19 +47,32 @@ def _nearest(mine, enemies, radius):
 
 
 def _focus_fire(context):
-    """集火指定目标；够不着和目标没了的单位原地驻守，任务随之收尾。"""
+    """集火指定目标：够得着就打，够不着就**开过去打**（`chase`），目标没了则驻守。
+
+    实测一个玩家点了 15 格外的建筑，旧的实现把 4 台坦克**原地驻守**，他不但没打，
+    还整体后撤、白松了压力——「点名一个目标」的语义就是去打它，够不着时该走过去，
+    而不是站住。要「只打半径内的」就用 `chase=false`，或改用 `engage_nearest`。
+    """
     target = int(context.params["target"])
     radius = float(context.params["radius"])
+    chase = bool(context.params["chase"])
     enemy = _enemy_of(context, target)
     out = []
     for agent in context.subject.agents():
         mine = context.subject.object_of(agent)
-        if (enemy is None or mine is None
-                or _distance_sq(mine.coordinates.cell, enemy.coordinates.cell)
-                > radius * radius):
+        far = (enemy is not None and mine is not None
+               and _distance_sq(mine.coordinates.cell, enemy.coordinates.cell)
+               > radius * radius)
+        if enemy is None or mine is None:
             out.append(context.intent(Hold, units=(agent,)))
-            continue
-        out.append(context.intent(Attack, units=(agent,), target=target))
+        elif far and chase:
+            out.append(context.intent(MoveTo, units=(agent,),
+                                      cell=enemy.coordinates.cell,
+                                      stance=Stance.AGGRESSIVE))
+        elif far:
+            out.append(context.intent(Hold, units=(agent,)))
+        else:
+            out.append(context.intent(Attack, units=(agent,), target=target))
     return tuple(out)
 
 
@@ -100,6 +114,9 @@ TACTICS = (
             # 模型少写一个参数却拿到「成功」，看不出自己其实什么都没打。
             Param("target", REQUIRED, "要打的敌方单位 id，取自 status 的可见敌方",
                   is_positive_number),
+            Param("chase", True,
+                  "目标在半径外时开过去打（点名的目标默认去追；false 则原地驻守）",
+                  is_bool),
             Param("radius", 12, "只在目标这么近时才开火（格）", is_positive_number),
         ),
         requires=("has_units",),

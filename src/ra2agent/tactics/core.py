@@ -102,6 +102,11 @@ def is_positive_int(value) -> bool:
     return (isinstance(value, int) and not isinstance(value, bool) and value > 0)
 
 
+def is_bool(value) -> bool:
+    """是否是布尔。用于「要不要去追」这类开关参数。"""
+    return isinstance(value, bool)
+
+
 def is_positive_number(value) -> bool:
     """是否是正数。"""
     return (isinstance(value, (int, float)) and not isinstance(value, bool)
