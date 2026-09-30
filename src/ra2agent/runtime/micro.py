@@ -76,6 +76,11 @@ class Squad:
         #: 从哪一帧起连续等同一个理由；理由一变就重新计时。
         self.wait_since: int | None = None
         self.wait_key: str = ""
+        #: 这条任务**第一次**开始等待的帧。与 `wait_since` 的区别是它不被理由变化
+        #: 重置：理由在两种之间来回摆时（条件时有时无），按理由计时会永远到不了上限
+        #: ——实测一条 `place_ready_building` 因此挂了 4700 多帧，占着建造厂不放，
+        #: 后续所有建造都被拒「这个厂正忙」。
+        self.wait_started: int | None = None
         #: 每类告警上次发出的帧，用于限频（见 `_notify_once`）。
         self.notice_frames: dict = {}
 
@@ -347,6 +352,7 @@ class MicroLayer:
             return
         squad.wait_since = None            # 又动起来了，等待计时归零
         squad.wait_key = ""
+        squad.wait_started = None
         for intent in wakes:
             self._request_wake(intent, observation, squad.intent.tactic)
         for intent in engine:
@@ -363,11 +369,14 @@ class MicroLayer:
         if squad.wait_since is None or squad.wait_key != reason:
             squad.wait_since = frame
             squad.wait_key = reason
+        if squad.wait_started is None:
+            squad.wait_started = frame
         self._record(frame, "squad_waiting", squad.intent,
                      {"tactic": squad.intent.tactic, "reason": reason})
         self._notify_once(squad, "waiting", frame, squad.intent.tactic, reason)
         grace = self.registry.get(squad.intent.tactic).info.wait_grace_frames
-        waited = frame - squad.wait_since
+        # 按**首次等待**算，不按当前这段理由：理由摆动不该无限续命
+        waited = frame - squad.wait_started
         if grace is not None and waited >= grace:
             self._fail_squad(squad, observation, outcomes,
                              f"等了 {waited} 帧局面没变：{reason}")
