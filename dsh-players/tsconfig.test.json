@@ -1,0 +1,4 @@
+{
+  "extends": "/home/youthz/deepseek-harness/tsconfig.base.json",
+  "include": ["src", "tests"]
+}

@@ -18,6 +18,7 @@
 - `config/` — 部署配置：技法门控、唤醒节制、对局名册
 - `corpus/` — 原始语料与来源记录，见 [corpus/README.md](corpus/README.md)
 - `dsh/` — DSH 侧的挂载物：声明 agent preset `ra2` 的 bundle
+- `dsh-wake/`、`dsh-players/` — DSH 侧的本地插件 bundle：唤醒桥、按玩家派的玩家 agent（各自一份游戏连接）
 - `docs/` — 给人看的文档
 - `.agents/` — 给 agent 看的内容，见 [.agents/AGENTS.md](.agents/AGENTS.md)
 
