@@ -10,7 +10,7 @@ import unittest
 from types import SimpleNamespace
 
 from ra2agent.constants import LoadStage
-from ra2agent.errors import Ra2Error
+from ra2agent.errors import ProtocolError, Ra2Error
 from ra2agent.deploy.game import GameHost, ProcessInfo
 from ra2agent.mcp import (FALLBACK_PROTOCOL, INSTRUCTIONS, LATEST_PROTOCOL,
                           PROTOCOL_VERSIONS, TOOLS, GameSession, McpServer)
@@ -263,6 +263,149 @@ def in_match(frame=812, stage=LoadStage.INGAME):
     state = SimpleNamespace(stage=stage, frame=frame, player_house=lambda: object())
     return SimpleNamespace(state=state, frame=frame,
                            house=SimpleNamespace(name="America"))
+
+
+def tick_observation(frame, stage=LoadStage.INGAME, pointer=7, array_index=0,
+                     ended=False, players=1):
+    house = SimpleNamespace(pointer=pointer, array_index=array_index,
+                            is_game_over=ended)
+
+    def player_house():
+        if players != 1:
+            raise ProtocolError(f"期望恰好一个 current_player 阵营，实际 {players} 个")
+        return house
+
+    state = SimpleNamespace(frame=frame, stage=stage, player_house=player_house)
+    return SimpleNamespace(frame=frame, state=state, house=house)
+
+
+class TestFrameGate(unittest.TestCase):
+    """确定性单拍测试，不起线程、不连接游戏。"""
+
+    def session(self, observations):
+        session = GameSession(on_log=lambda text: None)
+        pending = iter(observations)
+
+        def poll():
+            session._observer.latest = next(pending)
+            return session._observer.latest
+
+        session._observer = SimpleNamespace(poll=poll, observe=lambda: session._observer.latest)
+        ticks = []
+        session._layer = SimpleNamespace(tick=lambda observation: ticks.append(observation))
+        session._commander = object()
+        return session, ticks
+
+    def test_same_frame_does_not_tick_and_resume_ticks_once(self):
+        session, ticks = self.session([tick_observation(frame) for frame in (10, 10, 11, 11)])
+        for _ in range(4):
+            self.assertTrue(session._advance())
+        self.assertEqual([observation.frame for observation in ticks], [11])
+        self.assertEqual(session._observation.frame, 11)
+
+    def test_advanced_observation_is_passed_to_tick(self):
+        session, ticks = self.session([tick_observation(10), tick_observation(25)])
+        session._advance()
+        session._advance()
+        self.assertIs(ticks[0], session._observation)
+
+    def test_boundary_discards_old_tasks_without_tick(self):
+        changes = {
+            "rollback": tick_observation(9),
+            "loading": tick_observation(11, stage=LoadStage.LOADING),
+            "player": tick_observation(11, pointer=8),
+            "seat": tick_observation(11, array_index=1),
+            "ended": tick_observation(11, ended=True),
+            "no_player": tick_observation(11, players=0),
+            "multiple_players": tick_observation(11, players=2),
+        }
+        for name, changed in changes.items():
+            with self.subTest(name=name):
+                session, ticks = self.session([tick_observation(10), changed])
+                session._advance()
+                self.assertFalse(session._advance())
+                self.assertEqual(ticks, [])
+                self.assertTrue(session._broken)
+                self.assertIsNone(session._layer)
+                self.assertIsNone(session._commander)
+                self.assertIsNone(session._observation)
+                self.assertIn("旧任务已丢弃", session._last_error)
+
+    def test_receipt_poll_updates_baseline(self):
+        session, ticks = self.session([tick_observation(frame) for frame in (10, 11, 20)])
+        session._advance()
+
+        def tick(observation):
+            ticks.append(observation)
+            session._observer.latest = tick_observation(20)
+
+        session._layer.tick = tick
+        session._advance()
+        self.assertEqual(session._last_polled_frame, 20)
+        session._advance()
+        self.assertEqual(len(ticks), 1)
+
+    def test_reset_clears_frame_and_player_baseline(self):
+        session = GameSession()
+        session._match_player = (7, 0)
+        session._last_polled_frame = 20
+        session._frame_sample = (20, time.monotonic())
+        session.reset()
+        self.assertIsNone(session._match_player)
+        self.assertIsNone(session._last_polled_frame)
+        self.assertIsNone(session._frame_sample)
+
+    def test_invalid_poll_discards_old_tasks(self):
+        session, ticks = self.session([tick_observation(10)])
+        session._advance()
+
+        def invalid_poll():
+            raise ProtocolError("current_player 不唯一")
+
+        session._observer.poll = invalid_poll
+        self.assertFalse(session._advance())
+        self.assertTrue(session._broken)
+        self.assertEqual(ticks, [])
+
+    def test_execution_boundary_discards_old_tasks(self):
+        session, ticks = self.session([tick_observation(10), tick_observation(11)])
+        session._advance()
+
+        def tick(observation):
+            session._observer.latest = tick_observation(1)
+
+        session._layer.tick = tick
+        self.assertFalse(session._advance())
+        self.assertTrue(session._broken)
+        self.assertIsNone(session._layer)
+
+    def test_boundary_reconnect_builds_new_layer(self):
+        session, ticks = self.session([tick_observation(10), tick_observation(1)])
+        closed = []
+        session._client = SimpleNamespace(close=lambda: closed.append(True))
+        old_layer = session._layer
+        session._advance()
+        session._advance()
+
+        def connect():
+            session._client = object()
+            session._layer = object()
+
+        session._connect = connect
+        self.assertIs(session.ensure(), session)
+        self.assertEqual(closed, [True])
+        self.assertIsNot(session._layer, old_layer)
+        self.assertFalse(session._broken)
+
+    def test_inactive_connection_error_describes_match_condition(self):
+        session = GameSession()
+
+        def connect():
+            raise ProtocolError("当前不是活动对局")
+
+        session._connect = connect
+        with self.assertRaisesRegex(Ra2Error, "进入活动对局"):
+            session.ensure()
 
 
 def refuse_connection():

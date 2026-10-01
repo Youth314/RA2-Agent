@@ -19,7 +19,7 @@ from .engine.client import Client
 from .command import CallRequest, Commander
 from .data.catalogue import Catalogue
 from .constants import DEFAULT_HOST, DEFAULT_PORT, LoadStage
-from .errors import ConnectionLost, Ra2Error
+from .errors import ConnectionLost, ProtocolError, Ra2Error
 from .runtime.executor import Executor
 from .deploy.game import GameHost, LOOP_STALL_SECONDS
 from .runtime.intents import DecisionLog
@@ -190,6 +190,8 @@ class GameSession:
         self._thread = None
         self._last_error = ""
         self._broken = False
+        self._match_player = None
+        self._last_polled_frame = None
 
     # ------------------------------------------------------------ 生命周期
     def ensure(self):
@@ -209,6 +211,11 @@ class GameSession:
                 return self
             try:
                 self._connect()
+            except ProtocolError as error:
+                if isinstance(error, ConnectionLost):
+                    raise Ra2Error(f"游戏连接断了：{error}。用 game status 看进程。") from error
+                raise Ra2Error(f"当前无法建立局内会话：{error}。"
+                               "进入活动对局后重试 status。") from error
             except (Ra2Error, OSError) as error:
                 raise Ra2Error(f"游戏没在跑：{error}。用 game status 看进程，"
                                f"game start 启动。") from error
@@ -246,6 +253,9 @@ class GameSession:
             self._observation = None
             self._broken = False
             self._last_error = ""
+            self._match_player = None
+            self._last_polled_frame = None
+            self._frame_sample = None
 
     def _connect(self):
         """连游戏、取底图与类型表、建技法层，并起后台线程。"""
@@ -260,6 +270,12 @@ class GameSession:
         # 不影响对局，故不报错。
         observer.catalogue = Catalogue.load(self.aliases_path)
         registry = TacticRegistry(TacticPolicy.load("config/tactics.json")).load_builtin()
+        try:
+            observation = observer.poll()
+            player = self._active_player(observation)
+        except Ra2Error:
+            client.close()
+            raise
         log = DecisionLog(self.log_path) if self.log_path else None
         executor = Executor(client, observer.identity, types=observer.types,
                             validator=Validator(observer.map_data), log=log,
@@ -271,7 +287,9 @@ class GameSession:
         # 自动触发挂在技法层的每拍开头：本拍发起的任务同拍就能下令
         layer.on_tick = self._commander.auto
         self._log = log
-        self._observation = observer.poll()
+        self._observation = observation
+        self._match_player = player
+        self._last_polled_frame = self._observation.frame
         self._emit("已连接游戏：帧 %d，地图 %dx%d，技法 %d 条，库指纹 %s"
                    % (self._observation.frame, observer.map_data.width,
                       observer.map_data.height, len(registry), registry.fingerprint()))
@@ -281,7 +299,7 @@ class GameSession:
         self._thread.start()
 
     def _tick_forever(self):
-        """后台推进：每 tick 跑一次技法层。
+        """后台轮询：活动对局的帧号推进后才执行技法。
 
         连接断了就标记并退出，让下次工具调用整条重建；失焦或单条命令失败只记
         事件，不影响后续 tick。
@@ -291,8 +309,8 @@ class GameSession:
                 if self._layer is None:
                     return
                 try:
-                    self._layer.tick()
-                    self._observation = self._observer.observe()
+                    if not self._advance():
+                        return
                 except ConnectionLost as error:
                     self._broken = True
                     self._fail(f"连接断了：{error}")
@@ -303,6 +321,60 @@ class GameSession:
                     self._broken = True
                     self._fail(f"连接出错：{error}")
                     return
+
+    @staticmethod
+    def _active_player(observation):
+        """返回活动席位身份；不猜测缺失或不唯一的 current_player。"""
+        state = observation.state
+        if state is None or state.stage != LoadStage.INGAME:
+            raise ProtocolError("当前不是活动对局")
+        house = state.player_house()
+        if house is None or any(getattr(house, flag, False) for flag in (
+                "defeated", "is_winner", "is_loser", "is_game_over")):
+            raise ProtocolError("当前玩家已结束对局")
+        return house.pointer, house.array_index
+
+    def _discard_match(self, reason):
+        """边界变化后停止旧任务；连接由下一次 ensure/reset 关闭重建。"""
+        self._broken = True
+        self._layer = self._commander = self._observer = None
+        self._observation = None
+        self._match_player = self._last_polled_frame = None
+        self._fail(f"{reason}；旧任务已丢弃，下次调用重建会话")
+        return False
+
+    def _advance(self):
+        """在会话锁下轮询一拍。False 表示已跨局次边界，线程应退出。"""
+        try:
+            observation = self._observer.poll()
+            player = self._active_player(observation)
+        except ConnectionLost:
+            raise
+        except ProtocolError as error:
+            return self._discard_match(str(error))
+        if self._match_player is not None and player != self._match_player:
+            return self._discard_match("current_player 阵营已变化")
+        previous = self._last_polled_frame
+        if previous is not None and observation.frame < previous:
+            return self._discard_match("游戏帧号回退")
+        self._observation = observation
+        self._match_player = player
+        self._last_polled_frame = observation.frame
+        # 第一份采样只建立基线；暂停时既不自动触发，也不向引擎排队。
+        if previous is None or observation.frame == previous:
+            return True
+        self._layer.tick(observation)
+        # 执行器等待回执也会更新 Observer；保留其最新观测与帧基线。
+        observation = self._observer.observe()
+        try:
+            player = self._active_player(observation)
+        except ProtocolError as error:
+            return self._discard_match(str(error))
+        if player != self._match_player or observation.frame < self._last_polled_frame:
+            return self._discard_match("执行期间局次边界已变化")
+        self._observation = observation
+        self._last_polled_frame = observation.frame
+        return True
 
     def close(self):
         """停线程、关连接。"""
