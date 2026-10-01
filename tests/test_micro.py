@@ -166,6 +166,21 @@ class TestAssign(Case):
 
 # ---------------------------------------------------------------- 驻守
 class TestHold(Case):
+    def test_settlement_frame_is_not_before_command_receipt(self):
+        state = make_state(frame=100, objects=[tank(ALLY_A, (1, 1))])
+        final = make_state(frame=120, objects=[tank(ALLY_A, (1, 1), mission=Mission.STOP)])
+
+        class LaterExecutor(FakeExecutor):
+            def execute(self, intent, state):
+                return super().execute(intent, final)
+
+        self.build(state, executor=LaterExecutor())
+        self.assign(state, "hold_position")
+        self.tick(state)
+        result = self.layer.completed[0]
+        self.assertEqual(result["frame"], 120)
+        self.assertEqual(result["receipts"][-1]["frame"], 120)
+
     def test_stop_then_settle_satisfied(self):
         state = make_state(objects=[tank(ALLY_A, (1, 1))])
         self.build(state)

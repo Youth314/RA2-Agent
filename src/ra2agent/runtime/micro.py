@@ -7,7 +7,7 @@
 负责。默认每 22 帧（约 0.5 秒）一拍。
 """
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import StrEnum
 
 from ..constants import WAIT_GRACE_FRAMES
@@ -205,6 +205,13 @@ class MicroLayer:
             if self._settle(squad, observation, outcomes):
                 continue
             self._order(squad, observation, outcomes)
+            # 同步执行可能等待了多帧；结算不能早于最新回执。
+            if outcomes and outcomes[-1].state.frame > observation.frame:
+                latest = outcomes[-1].state
+                observe = getattr(self.observer, "observe", None)
+                current = observe() if observe is not None else None
+                observation = (current if current is not None and current.frame >= latest.frame
+                               else replace(observation, frame=latest.frame, state=latest))
             # 命令失败或即刻见效（停止、部署一类）的编队同拍结算
             self._settle(squad, observation, outcomes)
         return outcomes
