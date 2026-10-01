@@ -1192,7 +1192,8 @@ class TestAutoTriggeredTactics(Case):
 
     def build_with(self, tactics):
         state = GameState.parse(build_game_state(houses=[
-            build_house(PLAYER_HOUSE, current_player=True)]))
+            build_house(PLAYER_HOUSE, current_player=True)],
+            objects=[tank(ALLY_A, (1, 1))]))
         self.build(state, registry=TacticRegistry().load(tactics))
         self.observer.events = EventLog()
         self.layer.on_tick = self.commander.auto
@@ -1205,6 +1206,24 @@ class TestAutoTriggeredTactics(Case):
                                       Trigger.every(10))])
         self.layer.tick(self.observation)
         self.assertEqual([i.kind for i in self.executor.calls], ["deploy"])
+
+    def test_auto_does_not_take_units_leased_to_model_task(self):
+        from ra2agent.runtime.intents import Deploy
+        from ra2agent.tactics import Trigger
+        seen = []
+
+        def run(ctx):
+            seen.append(ctx.subject.agents())
+            return (ctx.intent(Deploy, units=(1,)),)
+
+        state = self.build_with([self._tactic("auto", run, Trigger.every(10)),
+                                 TacticRegistry().load_builtin().get("hold_position")])
+        call = TacticCall(tactic="hold_position", scope=Scope(objects=(1,)))
+        self.layer.assign(call, self.observation)
+        self.commander.auto(self.observation)
+        self.assertEqual(seen, [()])
+        self.assertEqual(self.executor.calls, [])
+        self.assertEqual(len(self.layer.squads()), 1)
 
     def test_status_reports_what_the_autopilot_did(self):
         from ra2agent.runtime.intents import Deploy
@@ -1258,7 +1277,8 @@ class TestWakeRequests(Case):
     def _build(self, run):
         from ra2agent.wake import WakeBridge, WakePolicy
         state = GameState.parse(build_game_state(houses=[
-            build_house(PLAYER_HOUSE, current_player=True)]))
+            build_house(PLAYER_HOUSE, current_player=True)],
+            objects=[tank(ALLY_A, (1, 1))]))
         self.build(state, registry=TacticRegistry().load([self._tactic(run)]))
         self.posts = []
 

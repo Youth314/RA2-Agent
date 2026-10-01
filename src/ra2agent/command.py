@@ -289,16 +289,17 @@ class UnitPool:
     单位**，`agents()` 不报它，它也不会被塞进意图的默认 scope。
     """
 
-    def __init__(self, observation, identity):
+    def __init__(self, observation, identity, excluded=()):
         self.observation = observation
         self.identity = identity
         self._own = {}
         self._pending = {}
+        excluded = set(excluded)
         state = observation.state
         # 从 state 取而不是从 observation.own 取：后者已经滤掉 limbo 对象
         for obj in (state.own_objects() if state is not None else ()):
             agent = identity.agent_id(obj.pointer)
-            if agent is None:
+            if agent is None or agent in excluded:
                 continue
             (self._pending if obj.in_limbo else self._own)[agent] = obj
         # 待放置的先建，在地图上的后建——同指针时以「在地图上」为准
@@ -451,6 +452,13 @@ class StatusReport:
                 lines.append(f"- {item['tactic']}#{item['intent_id']}｜"
                              f"单位 {','.join(str(u) for u in item['units'])}｜"
                              f"{modes}｜已 {elapsed} 帧")
+                if item.get("unverified"):
+                    lines.append("  命令结果未知：保留任务与租约，等待观测，不自动重发")
+                receipts = item.get("receipts", ())
+                if receipts:
+                    latest = receipts[-1]
+                    lines.append(f"  最近回执：{latest['receipt']}/{latest['evidence']}"
+                                 "（回执匹配不表示任务完成）")
         else:
             lines.append("在管 0 项")
         if self.results:
@@ -465,6 +473,8 @@ class StatusReport:
                     hint = reason_hint(event["reason"])
                     if hint:
                         line += f"｜{hint}"
+                if event.get("unverified"):
+                    line += "｜仍有结果未知的已提交命令；结束任务不撤销引擎队列"
                 lines.append(line)
         if self.notices:
             lines.append(f"告警 {len(self.notices)} 条：")
@@ -504,7 +514,8 @@ class Commander:
         #: 自动触发层。技法按名片里的触发声明自己跑，产出的是脉冲。
         # 唤醒桥挂在技法层上：一个会话一份额度，自动层与模型调用的路径共用
         self.autopilot = Autopilot(layer.registry, layer.executor, log=log,
-                                   wake=layer.wake)
+                                   wake=layer.wake,
+                                   available=self._auto_available)
 
     # ------------------------------------------------------------ 工具一：局势
     def status(self, observation=None) -> StatusReport:
@@ -723,8 +734,15 @@ class Commander:
         事件游标与模型看到的那个分开——自动层读过不代表模型看过了，反过来也一样。
         """
         events, self._auto_cursor = observation_events(self.observer, self._auto_cursor)
-        records = self.autopilot.run(observation, events, self._pool(observation))
+        busy = {agent for item in self.layer.progress() for agent in item["units"]}
+        subject = UnitPool(observation, self.observer.identity, excluded=busy)
+        records = self.autopilot.run(observation, events, subject)
         return records
+
+    def _auto_available(self):
+        """发送时再次核对租约；包含待放置对象。"""
+        busy = {agent for item in self.layer.progress() for agent in item["units"]}
+        return self.observer.identity.known() - busy
 
     def auto_records(self, since):
         """`since` 之后**值得一提**的自动执行记录，返回 `(记录, 新游标)`。

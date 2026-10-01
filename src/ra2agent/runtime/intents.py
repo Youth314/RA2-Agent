@@ -59,6 +59,33 @@ TERMINAL_STATES = frozenset({
 })
 
 
+def command_actors(intent):
+    """实际被命令操作的对象；攻击目标不属于控制对象。"""
+    if hasattr(intent, "units"):
+        return tuple(intent.units)
+    if hasattr(intent, "buildings"):
+        return tuple(intent.buildings)
+    if hasattr(intent, "building"):
+        return (intent.building,)
+    return ()
+
+
+def check_command_scope(intent, allowed, *, state=None, identity=None):
+    """检查技法信封和 actors；Place 允许引用己方完工条目。"""
+    from ..errors import InvalidCommand
+    allowed = set(allowed)
+    if not set(intent.scope.objects) <= allowed:
+        raise InvalidCommand("意图 scope 超出本次授权对象")
+    extra = set(command_actors(intent)) - allowed
+    if extra and intent.kind == "place" and state is not None and identity is not None:
+        ready = {identity.agent_id(f.object) for f in state.own_factories()
+                 if f.completed and state.object(f.object) is not None
+                 and state.object(f.object).house == state.player_house().pointer}
+        extra -= ready
+    if extra:
+        raise InvalidCommand(f"命令操作对象超出本次授权：{sorted(extra)}")
+
+
 class Stance(StrEnum):
     """接战姿态，影响 L1 把移动意图展开成哪一种引擎动作。"""
 

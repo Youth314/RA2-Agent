@@ -8,6 +8,7 @@ import json
 import os
 import tempfile
 import unittest
+from dataclasses import replace
 
 from ra2agent.engine.client import CommandResult
 from ra2agent.constants import (AbstractType, LandType, Mission, NetworkEvent,
@@ -437,6 +438,9 @@ class TestExecute(ExecutorCase):
         self.assertEqual(outcome.polls, 3)
         self.assertEqual(outcome.state.frame, 103)
         self.assertEqual(outcome.kind, "move_to")
+        self.assertEqual(outcome.receipt, "observed_match")
+        self.assertEqual(outcome.evidence, "state_changed")
+        self.assertEqual(outcome.submitted_frame, 101)
         self.assertEqual(len(self.client.sent), 1)
         command, pointers, action, target, coordinates = self.client.sent[0]
         self.assertEqual(command, "UnitOrder")
@@ -452,6 +456,79 @@ class TestExecute(ExecutorCase):
         outcome = executor.execute(self.move_intent(), state)
         self.assertEqual(outcome.frames_waited, 0)
         self.assertEqual(outcome.polls, 1)
+        self.assertEqual(outcome.receipt, "observed_match")
+        self.assertEqual(outcome.evidence, "preexisting_match")
+
+    def test_refresh_rejects_actor_whose_ownership_changed(self):
+        executor = self.build(self.first)
+        latest = make_state(frame=101, objects=[
+            tank(TANK, (1, 1), house=ENEMY_HOUSE)])
+        executor._read = lambda: latest
+        with self.assertRaises(InvalidCommand):
+            executor.execute(self.move_intent(), self.first)
+        self.assertEqual(self.client.sent, [])
+
+    def test_refresh_rejects_actor_that_disappeared(self):
+        executor = self.build(self.first)
+        executor._read = lambda: make_state(frame=101)
+        with self.assertRaises(InvalidCommand):
+            executor.execute(self.move_intent(), self.first)
+        self.assertEqual(self.client.sent, [])
+
+    def test_refresh_rejects_frame_rollback(self):
+        executor = self.build(self.first)
+        executor._read = lambda: make_state(frame=99, objects=[tank(TANK, (1, 1))])
+        with self.assertRaises(InvalidCommand):
+            executor.execute(self.move_intent(), self.first)
+        self.assertEqual(self.client.sent, [])
+
+    def test_refresh_rejects_player_seat_change(self):
+        executor = self.build(self.first)
+        latest = make_state(frame=101, objects=[tank(TANK, (1, 1))], houses=[
+            build_house(PLAYER_HOUSE), build_house(ENEMY_HOUSE, current_player=True)])
+        executor._read = lambda: latest
+        with self.assertRaises(InvalidCommand):
+            executor.execute(self.move_intent(), self.first)
+        self.assertEqual(self.client.sent, [])
+
+    def test_refresh_rejects_outside_match(self):
+        executor = self.build(self.first)
+        executor._read = lambda: replace(self.first, stage=3)
+        with self.assertRaises(InvalidCommand):
+            executor.execute(self.move_intent(), self.first)
+        self.assertEqual(self.client.sent, [])
+
+    def test_refresh_rechecks_ttl_against_latest_frame(self):
+        executor = self.build(self.first)
+        intent = self.move_intent()
+        intent.created_frame, intent.ttl_frames = 100, 5
+        executor._read = lambda: make_state(frame=105, objects=[tank(TANK, (1, 1))])
+        with self.assertRaises(InvalidCommand):
+            executor.execute(intent, self.first)
+        self.assertEqual(self.client.sent, [])
+
+    def test_refresh_resolves_transformed_actor_before_delivery(self):
+        initial = make_state(objects=[tank(MCV, (4, 4))])
+        executor = self.build(initial)
+        actor = self.agent(MCV)
+        latest = make_state(frame=101, objects=[
+            building(BUILDING, (4, 4), mission=Mission.STOP)])
+        executor._read = lambda: latest
+        outcome = executor.execute(Hold(units=(actor,)), initial)
+        self.assertEqual(outcome.plan.pointers, (BUILDING,))
+        self.assertEqual(self.client.sent[0][1], (BUILDING,))
+
+    def test_each_command_refreshes_even_if_caller_reuses_initial_state(self):
+        initial = make_state(objects=[tank(TANK, (1, 1), mission=Mission.STOP)])
+        executor = self.build(initial)
+        intent = Hold(units=(self.agent(TANK),))
+        executor.execute(intent, initial)
+        latest = make_state(frame=101, objects=[
+            tank(TANK, (1, 1), house=ENEMY_HOUSE)])
+        executor._read = lambda: latest
+        with self.assertRaises(InvalidCommand):
+            executor.execute(intent, initial)
+        self.assertEqual(len(self.client.sent), 1)
 
     def test_server_failure_is_normalized(self):
         executor = self.build(self.first, client_kwargs={
@@ -469,6 +546,11 @@ class TestExecute(ExecutorCase):
         with self.assertRaises(Timeout) as ctx:
             executor.execute(self.move_intent(), states[0])
         self.assertIn("4 帧", str(ctx.exception))
+        self.assertEqual(ctx.exception.plan.kind, "move_to")
+        self.assertEqual(ctx.exception.intent.kind, "move_to")
+        self.assertEqual(ctx.exception.submitted_frame, 100)
+        self.assertTrue(ctx.exception.result.ok)
+        self.assertEqual(len(self.client.sent), 1)
 
     def test_frozen_frame_is_not_responding(self):
         # 假时钟让「帧停了 1.5 秒」立刻成立，免得测试真等
@@ -476,6 +558,23 @@ class TestExecute(ExecutorCase):
         with self.assertRaises(GameNotResponding) as ctx:
             executor.execute(self.move_intent(), self.first)
         self.assertIn("失焦", str(ctx.exception))
+        self.assertEqual(ctx.exception.plan.kind, "move_to")
+        self.assertEqual(ctx.exception.submitted_frame, 100)
+        self.assertEqual(len(self.client.sent), 1)
+
+    def test_wait_rejects_rollback_even_above_submission_frame(self):
+        executor = self.build(self.first)
+        samples = iter([
+            self.first,
+            make_state(frame=110, objects=[tank(TANK, (1, 1))]),
+            make_state(frame=105, objects=[
+                tank(TANK, (1, 1), destination=at((2, 2)))])])
+        executor._read = lambda: next(samples)
+        with self.assertRaises(GameNotResponding) as ctx:
+            executor.execute(self.move_intent(), self.first)
+        self.assertIn("回退", str(ctx.exception))
+        self.assertEqual(ctx.exception.submitted_frame, 100)
+        self.assertEqual(len(self.client.sent), 1)
 
     def test_real_time_budget_is_enforced(self):
         states = [make_state(frame=100 + i, objects=[tank(TANK, (1, 1))])
@@ -615,6 +714,21 @@ class TestDecisionLog(ExecutorCase):
             executor.execute(Hold(units=(self.agent(TANK),)), self.first)
         self.assertEqual([e["event"] for e in self.read_log()],
                          ["command_sent", "command_unverified"])
+
+    def test_delivery_timeout_preserves_unknown_without_sent_log(self):
+        executor = self.build(self.first, log=self.log)
+        intent = Hold(units=(self.agent(TANK),))
+        def timeout(plan):
+            raise Timeout("transport response unknown")
+        executor._deliver = timeout
+        with self.assertRaises(Timeout) as ctx:
+            executor.execute(intent, self.first)
+        self.assertIs(ctx.exception.intent, intent)
+        self.assertEqual(ctx.exception.plan.kind, "hold")
+        self.assertEqual(ctx.exception.submitted_frame, 100)
+        self.assertIsNone(ctx.exception.result)
+        self.assertEqual([e["event"] for e in self.read_log()],
+                         ["command_unverified"])
 
 
 if __name__ == "__main__":

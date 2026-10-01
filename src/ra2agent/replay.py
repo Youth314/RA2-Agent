@@ -202,7 +202,8 @@ class _RecordingExecutor:
         return ExecutionOutcome(
             intent_id=intent.id, kind=intent.kind, plan=plan, frames_waited=0,
             polls=1, state=state,
-            result=CommandResult(type=plan.command, payload=b"", code=None, error=""))
+            result=CommandResult(type=plan.command, payload=b"", code=None, error=""),
+            receipt="simulated", evidence="planning_only")
 
     def kinds(self) -> list:
         """本次拍产出的意图类型。"""

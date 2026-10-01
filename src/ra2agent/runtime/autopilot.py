@@ -7,8 +7,8 @@
 **与模型调用共用同一道门槛**：`TacticRegistry.run` 里的策略闸与适用条件闸一项不少。
 触发层不是后门——等级门槛、停用名单、适用条件，自动触发一样要过。
 """
-from ..errors import GameNotResponding, Ra2Error
-from .intents import split_wakes
+from ..errors import GameNotResponding, InvalidCommand, Ra2Error, Timeout
+from .intents import check_command_scope, command_actors, split_wakes
 from ..wake import WakeBridge
 
 #: 保留多少条自动执行记录给 `status` 查。
@@ -25,7 +25,7 @@ class Autopilot:
     """按触发声明跑技法。由技法层每拍驱动一次。"""
 
     def __init__(self, registry, executor, log=None, wake=None,
-                 max_records=DEFAULT_MAX_RECORDS):
+                 max_records=DEFAULT_MAX_RECORDS, available=None):
         self.registry = registry
         self.executor = executor
         self.log = log
@@ -38,6 +38,8 @@ class Autopilot:
         #: 同一条移动令把它钉在原地。
         self.memo: dict = {}
         self.records: list = []
+        self.available = available
+        self.pending: dict = {}
 
     # ------------------------------------------------------------ 判断
     def due(self, observation, events) -> tuple:
@@ -77,6 +79,17 @@ class Autopilot:
         """跑一条技法并把它的意图各下发一次。"""
         name = tactic.info.name
         record = {"tactic": name, "frame": observation.frame, "kind": "pulse"}
+        pending = self.pending.get(name)
+        if pending is not None:
+            _, plan = pending
+            if plan is not None and plan.verify(observation.state):
+                del self.pending[name]
+                record["receipt"] = "observed_match"
+                record["evidence"] = "late_match"
+            record["skipped"] = ("未知结果已观测匹配，本拍不再提交" if name not in self.pending
+                                 else "先前命令结果未知，等待观测，不自动重发")
+            self._log(observation, "auto_unverified", record)
+            return record
         # 门槛由 registry.run 强制执行；先问一次只为把「为什么没跑」记清楚。
         # 脉冲没有调用方给参数，故条件按补好的默认值判——自动触发的技法不许有必填参数
         reason = self.registry.admit(
@@ -102,7 +115,7 @@ class Autopilot:
         # `Wake` 不落到引擎——它往上走，交给唤醒桥
         engine, wakes = split_wakes(intents)
         if engine:
-            record["outcomes"] = self._dispatch(engine, observation, record)
+            record["outcomes"] = self._dispatch(engine, observation, record, subject)
         if wakes:
             record["wakes"] = [self.wake.request(intent.text, observation.frame,
                                                  tactic=name)
@@ -110,16 +123,25 @@ class Autopilot:
         self._log(observation, "auto_ran", record)
         return record
 
-    def _dispatch(self, intents, observation, record) -> list:
+    def _dispatch(self, intents, observation, record, subject) -> list:
         """逐条下发。单条失败不影响其余。"""
         outcomes = []
         for intent in intents:
             entry = {"intent": intent.kind}
             try:
+                allowed = set(subject.agents())
+                check_command_scope(intent, allowed, state=observation.state,
+                                    identity=getattr(subject, "identity", None))
+                if self.available is not None:
+                    available = set(self.available())
+                    if not set(command_actors(intent) + intent.scope.objects) <= available:
+                        raise InvalidCommand("自动触发操作对象已被在管任务占用")
                 outcome = self.executor.execute(intent, observation.state)
-            except GameNotResponding as error:
+            except (GameNotResponding, Timeout) as error:
                 # 失焦不是命令失败：整拍挂起，别把剩下的也发了
                 record["paused"] = str(error)
+                self.pending[record["tactic"]] = (intent, getattr(error, "plan", None))
+                entry["state"] = "结果未知"
                 entry["error"] = str(error)
                 outcomes.append(entry)
                 break
@@ -128,7 +150,9 @@ class Autopilot:
                 outcomes.append(entry)
                 continue
             # `outcome.state` 是判据成立时的那一帧局面，不是意图状态，别拿来渲染
-            entry["state"] = "已生效"
+            entry["state"] = "观测匹配"
+            entry["receipt"] = getattr(outcome, "receipt", "observed_match")
+            entry["evidence"] = getattr(outcome, "evidence", "unknown")
             entry["waited"] = outcome.frames_waited
             outcomes.append(entry)
         return outcomes

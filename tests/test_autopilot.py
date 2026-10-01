@@ -6,7 +6,7 @@
 import unittest
 
 from ra2agent.runtime.autopilot import Autopilot, kind_of
-from ra2agent.errors import CommandFailed, TacticError
+from ra2agent.errors import CommandFailed, TacticError, Timeout
 from ra2agent.engine.events import Event, EventKind, Subject
 from ra2agent.runtime.intents import Deploy, Wake
 from ra2agent.engine.observation import Observation
@@ -48,6 +48,26 @@ class FakeExecutor:
         if intent.kind in self.fail_on:
             raise CommandFailed(f"{intent.kind} 失败")
         return type("Outcome", (), {"state": object(), "frames_waited": 4})()
+
+
+class TimeoutExecutor(FakeExecutor):
+    """下发后结果未知；后续帧可以满足保存的观测判据。"""
+
+    def __init__(self, matched_frame=None):
+        super().__init__()
+        self.matched_frame = matched_frame
+
+    def plan(self, intent, state):
+        def verify(current):
+            return (self.matched_frame is not None
+                    and current.frame >= self.matched_frame)
+        return type("Plan", (), {"verify": staticmethod(verify)})()
+
+    def execute(self, intent, state):
+        self.executed.append(intent)
+        error = Timeout("命令已下发，但等待观测超时")
+        error.plan = self.plan(intent, state)
+        raise error
 
 
 def observation(frame=100):
@@ -129,7 +149,7 @@ class TestPulse(AutopilotCase):
         records = self.autopilot.run(observation(), (), self.subject())
         self.assertEqual(len(self.executor.executed), 1)
         self.assertEqual(records[0]["intents"], 1)
-        self.assertEqual(records[0]["outcomes"][0]["state"], "已生效")
+        self.assertEqual(records[0]["outcomes"][0]["state"], "观测匹配")
 
     def test_a_tactic_may_decide_to_do_nothing(self):
         # 技法自己判断此刻无事可做——常见且正常，故标 idle 而不报给模型
@@ -157,6 +177,60 @@ class TestPulse(AutopilotCase):
         for frame in range(100, 220, 30):
             self.autopilot.run(observation(frame), (), self.subject())
         self.assertLessEqual(len(self.autopilot.records), 3)
+
+
+class TestPulseSafety(AutopilotCase):
+    def test_unknown_timeout_stops_batch_and_does_not_resend(self):
+        self.build([tactic("a", lambda ctx: (
+            ctx.intent(Deploy, units=(1,)),
+            ctx.intent(Deploy, units=(2,)),))], TimeoutExecutor())
+        first = self.autopilot.run(observation(100), (), self.subject())
+        self.assertEqual(first[0]["outcomes"][0]["state"], "结果未知")
+        self.assertEqual(len(self.executor.executed), 1,
+                         "结果未知时不继续下发本批后续命令")
+        later = self.autopilot.run(observation(130), (), self.subject())
+        self.assertIn("skipped", later[0])
+        self.assertEqual(len(self.executor.executed), 1,
+                         "下一脉冲不能重发仍未确认的命令")
+
+    def test_late_match_is_recorded_without_resending_that_pulse(self):
+        self.build([tactic("a", lambda ctx: (
+            ctx.intent(Deploy, units=(1,)),))], TimeoutExecutor(matched_frame=130))
+        self.autopilot.run(observation(100), (), self.subject())
+        matched = self.autopilot.run(observation(130), (), self.subject())
+        self.assertEqual(matched[0]["receipt"], "observed_match")
+        self.assertEqual(matched[0]["evidence"], "late_match")
+        self.assertEqual(len(self.executor.executed), 1,
+                         "晚到的观测匹配当拍只结算，不重发")
+        self.autopilot.run(observation(160), (), self.subject())
+        self.assertEqual(len(self.executor.executed), 2,
+                         "结算后下一次正常脉冲才可再次执行")
+
+    def test_actor_outside_subject_is_rejected(self):
+        self.build([tactic("a", lambda ctx: (
+            ctx.intent(Deploy, units=(99,)),))])
+        records = self.autopilot.run(observation(), (), self.subject())
+        self.assertEqual(self.executor.executed, [])
+        self.assertIn("error", records[0]["outcomes"][0])
+        self.assertIn("99", records[0]["outcomes"][0]["error"])
+
+    def test_leased_actor_is_skipped_before_dispatch(self):
+        self.build([tactic("a", lambda ctx: (
+            ctx.intent(Deploy, units=(1,)),))])
+        self.autopilot.available = lambda: (2,)
+        records = self.autopilot.run(observation(), (), self.subject())
+        self.assertEqual(self.executor.executed, [])
+        self.assertIn("占用", records[0]["outcomes"][0]["error"])
+
+    def test_availability_is_rechecked_for_each_dispatch(self):
+        self.build([tactic("a", lambda ctx: (
+            ctx.intent(Deploy, units=(1,)),
+            ctx.intent(Deploy, units=(2,)),))])
+        self.autopilot.available = (
+            lambda: (1, 2) if not self.executor.executed else (1,))
+        records = self.autopilot.run(observation(), (), self.subject())
+        self.assertEqual([intent.units for intent in self.executor.executed], [(1,)])
+        self.assertIn("占用", records[0]["outcomes"][1]["error"])
 
 
 class TestEventWakesTheModel(AutopilotCase):

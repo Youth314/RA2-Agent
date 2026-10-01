@@ -14,7 +14,8 @@ from ..constants import WAIT_GRACE_FRAMES
 from ..errors import (CommandFailed, GameNotResponding, InvalidCommand, Timeout,
                      TacticDenied, TacticError)
 from .executor import Executor
-from .intents import IntentState, TacticCall, split_wakes
+from .intents import (IntentState, Stance, TacticCall, check_command_scope,
+                      command_actors, split_wakes)
 from ..engine.observation import Observation
 from ..tactics import Mode, TacticRegistry
 from ..engine.validate import Validator
@@ -42,6 +43,7 @@ class UnitMode(StrEnum):
     STUCK = "stuck"          # 位置长时间不动，等换路点
     LOST = "lost"            # 对象从观测里消失
     FAILED = "failed"        # 命令反复失败
+    UNVERIFIED = "unverified"  # 已提交，结果未知；禁止自动重发
 
 
 #: 不再需要下令的状态。
@@ -60,6 +62,7 @@ class UnitProgress:
     last_cell: tuple | None = None
     last_change_frame: int = 0
     retries: int = 0
+    completion_basis: str | None = None
 
 
 class Squad:
@@ -83,6 +86,8 @@ class Squad:
         self.wait_started: int | None = None
         #: 每类告警上次发出的帧，用于限频（见 `_notify_once`）。
         self.notice_frames: dict = {}
+        self.pending: list = []
+        self.receipts: list = []
 
     # -------------------------------------------------- 技法看到的视图
     def agents(self) -> tuple:
@@ -163,6 +168,10 @@ class MicroLayer:
         if not isinstance(call, TacticCall):
             raise TacticError(f"技法层只接受指挥层意图，收到 {type(call).__name__}")
         self.registry.get(call.tactic)
+        busy = {u.agent_id for squad in self._squads for u in squad.units}
+        overlap = busy.intersection(call.scope.objects)
+        if overlap:
+            raise TacticError(f"对象已被其他任务占用：{sorted(overlap)}")
         units, missing = [], []
         for agent in call.scope.objects:
             pointer = self.observer.identity.pointer_of(agent)
@@ -230,6 +239,8 @@ class MicroLayer:
                 "units": [unit.agent_id for unit in squad.units],
                 "created_frame": squad.intent.created_frame,
                 "modes": counts,
+                "receipts": list(squad.receipts),
+                "unverified": len(squad.pending),
             })
         return tuple(out)
 
@@ -252,14 +263,29 @@ class MicroLayer:
     def _update(self, squad, observation) -> None:
         """按最新观测推进每个单位的状态。"""
         state = observation.state
+        for pending in list(squad.pending):
+            plan = pending.get("plan")
+            if plan is not None and plan.verify(state):
+                self._advance(squad, pending["intent"], state)
+                squad.pending.remove(pending)
+                squad.receipts.append({"intent_id": pending["intent"].id,
+                                       "receipt": "observed_match",
+                                       "evidence": "late_match", "frame": state.frame})
         enemies = {self.observer.identity.agent_id(obj.pointer)
                    for obj in observation.visible_enemies}
         for unit in squad.units:
             if unit.mode in DONE_MODES:
                 continue
+            pointer = self.observer.identity.pointer_of(unit.agent_id)
+            if pointer is None:
+                unit.mode = UnitMode.LOST
+                continue
+            unit.pointer = pointer
             found = state.object(unit.pointer)
             if found is None:
                 unit.mode = UnitMode.LOST
+                continue
+            if unit.mode == UnitMode.UNVERIFIED:
                 continue
             cell = found.coordinates.cell
             if cell != unit.last_cell:
@@ -274,6 +300,7 @@ class MicroLayer:
             if unit.goal is not None:
                 if _within(cell, unit.goal, self.arrive_radius):
                     unit.mode = UnitMode.ARRIVED
+                    unit.completion_basis = "goal_satisfied"
                 elif observation.frame - unit.last_change_frame >= self.stuck_frames:
                     # 卡住就换路点：计数加一，下拍按 attempt 换一个落点
                     unit.retries += 1
@@ -290,7 +317,8 @@ class MicroLayer:
         if any(unit.mode not in DONE_MODES for unit in squad.units):
             return False
         arrived = sum(1 for unit in squad.units if unit.mode == UnitMode.ARRIVED)
-        state = IntentState.SATISFIED if arrived else IntentState.FAILED
+        state = (IntentState.SATISFIED if arrived == len(squad.units)
+                 else IntentState.FAILED)
         squad.intent.state = state
         self._finish(squad, observation, outcomes, state,
                      reason=getattr(squad.intent, "fail_reason", ""))
@@ -312,6 +340,10 @@ class MicroLayer:
             "lost": [u.agent_id for u in squad.units if u.mode == UnitMode.LOST],
             "failed": [u.agent_id for u in squad.units if u.mode == UnitMode.FAILED],
             "reason": reason,
+            "receipts": list(squad.receipts),
+            "unverified": len(squad.pending),
+            "completion_basis": {u.agent_id: u.completion_basis for u in squad.units
+                                 if u.completion_basis is not None},
         }
         self.completed.append(record)
         self._squads.remove(squad)
@@ -320,6 +352,8 @@ class MicroLayer:
     # ------------------------------------------------------------ 下令
     def _order(self, squad, observation, outcomes) -> None:
         """对需要下令的单位跑一次技法。"""
+        if squad.pending:
+            return
         active = [unit for unit in squad.units if self._needs_orders(unit)]
         if not active:
             return
@@ -357,6 +391,8 @@ class MicroLayer:
             self._request_wake(intent, observation, squad.intent.tactic)
         for intent in engine:
             self._dispatch(squad, active, intent, observation, outcomes)
+            if squad.pending or squad.intent.is_terminal():
+                break
 
     def _wait(self, squad, observation, outcomes, reason) -> None:
         """条件没满足时的一次等待：记日志、限频告警、等太久就收工。
@@ -398,30 +434,29 @@ class MicroLayer:
 
     def _dispatch(self, squad, active, intent, observation, outcomes) -> None:
         """下发一条意图，并按结果更新进度。"""
+        affected_ids = set(command_actors(intent) or intent.scope.objects)
+        affected = [unit for unit in active if unit.agent_id in affected_ids]
         try:
+            if intent.parent is None:
+                intent.parent = squad.intent.id
+            check_command_scope(intent, [u.agent_id for u in active],
+                                state=observation.state,
+                                identity=self.observer.identity)
             outcome = self.executor.execute(intent, observation.state)
-        except GameNotResponding as error:
-            # 失焦不是命令失败：整拍挂起，等帧恢复
-            self._record(observation.frame, "command_paused", squad.intent,
+        except (GameNotResponding, Timeout) as error:
+            # 等待超时或失焦均不能证明命令没执行，保留请求等待后续观测。
+            squad.pending.append({"intent": intent,
+                                  "plan": getattr(error, "plan", None)})
+            for unit in affected or active:
+                unit.mode = UnitMode.UNVERIFIED
+            self._record(observation.frame, "command_unverified", squad.intent,
                          {"intent": intent.kind, "reason": str(error)})
-            self._notify_once(squad, "paused", observation.frame,
+            self._notify_once(squad, "unverified", observation.frame,
                               squad.intent.tactic, str(error))
-            for unit in active:
-                unit.goal = None
-            return
-        except Timeout as error:
-            for unit in active:
-                unit.retries += 1
-                if unit.retries > self.max_retries:
-                    unit.mode = UnitMode.FAILED
-                else:
-                    unit.goal = None
-            self._record(observation.frame, "command_retry", squad.intent,
-                         {"intent": intent.kind, "reason": str(error)})
             return
         except CommandFailed as error:
             if error.reason in ("object_missing", "illegal_mission"):
-                for unit in active:
+                for unit in affected:
                     unit.mode = UnitMode.FAILED
             else:
                 self._fail_squad(squad, observation, outcomes, str(error))
@@ -430,6 +465,10 @@ class MicroLayer:
             self._fail_squad(squad, observation, outcomes, str(error))
             return
         outcomes.append(outcome)
+        squad.receipts.append({"intent_id": intent.id,
+                               "receipt": outcome.receipt,
+                               "evidence": outcome.evidence,
+                               "frame": outcome.state.frame})
         self._advance(squad, intent, outcome.state)
 
     def _advance(self, squad, intent, state) -> None:
@@ -446,7 +485,7 @@ class MicroLayer:
         units = getattr(intent, "units", None)
         covered = set(intent.scope.objects if units is None else units)
         affected = [unit for unit in squad.units if unit.agent_id in covered]
-        if intent.kind == "move_to":
+        if intent.kind == "move_to" and intent.stance != Stance.HOLD:
             for unit in affected:
                 unit.goal = tuple(intent.cell)
                 unit.mode = UnitMode.MOVING
@@ -462,6 +501,7 @@ class MicroLayer:
             for unit in affected:
                 unit.mode = UnitMode.ARRIVED
                 unit.goal = None
+                unit.completion_basis = "operation_observed"
 
     @staticmethod
     def _needs_orders(unit) -> bool:

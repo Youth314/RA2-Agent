@@ -11,7 +11,7 @@ from ra2agent.errors import (CommandFailed, GameNotResponding, InvalidCommand,
                              TacticError, Timeout)
 from ra2agent.runtime.executor import CommandPlan, ExecutionOutcome
 from ra2agent.engine.identity import IdentityTable
-from ra2agent.runtime.intents import IntentState, Scope, TacticCall
+from ra2agent.runtime.intents import Hold, IntentState, MoveTo, Scope, Stance, TacticCall
 from ra2agent.runtime.micro import MicroLayer, UnitMode
 from ra2agent.engine.observation import Observation
 from ra2agent.engine.state import GameState, MapData
@@ -121,6 +121,14 @@ class Case(unittest.TestCase):
 
 # ---------------------------------------------------------------- 建队
 class TestAssign(Case):
+    def test_overlapping_assignments_are_rejected(self):
+        state = make_state(objects=[tank(ALLY_A, (1, 1))])
+        self.build(state)
+        squad, _ = self.assign(state, "hold_position")
+        with self.assertRaises(TacticError):
+            self.assign(state, "advance_to_cell", {"cell": (5, 5)})
+        self.assertEqual(self.layer.squads(), (squad,))
+
     def test_squad_is_created(self):
         state = make_state(objects=[tank(ALLY_A, (1, 1))])
         self.build(state)
@@ -169,6 +177,9 @@ class TestHold(Case):
         self.assertEqual(self.layer.squads(), ())
         self.assertEqual(call.state, IntentState.SATISFIED)
         self.assertEqual(self.layer.completed[0]["state"], "satisfied")
+        self.assertEqual(self.executor.calls[0].parent, call.id)
+        self.assertEqual(self.layer.completed[0]["completion_basis"],
+                         {squad.units[0].agent_id: "operation_observed"})
 
     def test_one_command_covers_the_whole_squad(self):
         state = make_state(objects=[tank(ALLY_A, (1, 1)), tank(ALLY_B, (2, 2))])
@@ -210,6 +221,8 @@ class TestAdvance(Case):
         arrived = make_state(frame=130, objects=[tank(ALLY_A, goal)])
         self.tick(arrived)
         self.assertEqual(squad.units[0].mode, UnitMode.ARRIVED)
+        self.assertEqual(self.layer.completed[0]["completion_basis"],
+                         {squad.units[0].agent_id: "goal_satisfied"})
         self.assertEqual(call.state, IntentState.SATISFIED)
 
     def test_arrival_allows_one_cell_slack(self):
@@ -359,6 +372,33 @@ class TestHoldAndFire(Case):
 
 # ---------------------------------------------------------------- 损失
 class TestLosses(Case):
+    def test_forgotten_identity_does_not_reuse_cached_pointer(self):
+        state = make_state(objects=[tank(ALLY_A, (1, 1))])
+        self.build(state)
+        squad, call = self.assign(state, "advance_to_cell", {"cell": (5, 5)})
+        self.tick(state)
+        # 标识已忘记，而旧指针值仍在新观测中：不能把它当成原对象。
+        self.observer.identity.update(make_state(frame=200, objects=[]))
+        reused = make_state(frame=201, objects=[tank(ALLY_A, squad.units[0].goal)])
+        self.tick(reused)
+        self.assertEqual(squad.units[0].mode, UnitMode.LOST)
+        self.assertEqual(call.state, IntentState.FAILED)
+        self.assertEqual(self.layer.completed[0]["arrived"], [])
+
+    def test_transformed_actor_is_resolved_by_agent_id(self):
+        state = make_state(objects=[tank(ALLY_A, (1, 1))])
+        self.build(state)
+        squad, call = self.assign(state, "advance_to_cell", {"cell": (5, 5)})
+        self.tick(state)
+        goal = squad.units[0].goal
+        transformed = build_object(ALLY_B, house=PLAYER_HOUSE,
+            object_type=AbstractType.BUILDING, x=at(goal)[0], y=at(goal)[1])
+        latest = make_state(frame=120, objects=[transformed])
+        self.observer.identity.update(latest)
+        self.tick(latest)
+        self.assertEqual(squad.units[0].mode, UnitMode.ARRIVED)
+        self.assertEqual(call.state, IntentState.SATISFIED)
+
     def test_vanished_unit_is_lost(self):
         state = make_state(objects=[tank(ALLY_A, (1, 1))])
         self.build(state)
@@ -368,7 +408,7 @@ class TestLosses(Case):
         self.assertEqual(squad.units[0].mode, UnitMode.LOST)
         self.assertEqual(call.state, IntentState.FAILED)
 
-    def test_partial_loss_still_satisfies(self):
+    def test_partial_loss_does_not_satisfy_all_units(self):
         state = make_state(objects=[tank(ALLY_A, (1, 1)), tank(ALLY_B, (2, 2))])
         self.build(state)
         first, second = self.agent(ALLY_A), self.agent(ALLY_B)
@@ -379,7 +419,7 @@ class TestLosses(Case):
         survivor = make_state(frame=140,
                               objects=[tank(ALLY_A, goals[first])])
         self.tick(survivor)
-        self.assertEqual(call.state, IntentState.SATISFIED)
+        self.assertEqual(call.state, IntentState.FAILED)
         record = self.layer.completed[0]
         self.assertEqual(record["lost"], [second])
         self.assertEqual(record["arrived"], [first])
@@ -387,6 +427,41 @@ class TestLosses(Case):
 
 # ---------------------------------------------------------------- 异常
 class TestCommandErrors(Case):
+    def test_move_with_hold_stance_settles_as_stop(self):
+        state = make_state(objects=[tank(ALLY_A, (1, 1))])
+        self.build(state)
+        actor = self.agent(ALLY_A)
+        squad, call = self.assign(state, "advance_to_cell", {"cell": (5, 5)})
+        self.layer.registry.run = lambda *args, **kwargs: (
+            MoveTo(units=(actor,), cell=(5, 5), stance=Stance.HOLD,
+                   scope=Scope(objects=(actor,))),)
+        self.tick(state)
+        self.assertEqual(squad.units[0].mode, UnitMode.ARRIVED)
+        self.assertEqual(call.state, IntentState.SATISFIED)
+        self.assertIsNone(squad.units[0].goal)
+
+    def test_intent_cannot_operate_on_actor_outside_active_scope(self):
+        state = make_state(objects=[tank(ALLY_A, (1, 1)), tank(ALLY_B, (2, 2))])
+        self.build(state)
+        other = self.agent(ALLY_B)
+        _, call = self.assign(state, "hold_position")
+        self.layer.registry.run = lambda *args, **kwargs: (
+            Hold(units=(other,), scope=Scope(objects=(other,))),)
+        self.tick(state)
+        self.assertEqual(self.executor.calls, [])
+        self.assertEqual(call.state, IntentState.FAILED)
+
+    def test_scope_cannot_claim_actor_outside_active_scope(self):
+        state = make_state(objects=[tank(ALLY_A, (1, 1)), tank(ALLY_B, (2, 2))])
+        self.build(state)
+        actor, other = self.agent(ALLY_A), self.agent(ALLY_B)
+        _, call = self.assign(state, "hold_position")
+        self.layer.registry.run = lambda *args, **kwargs: (
+            Hold(units=(actor,), scope=Scope(objects=(actor, other))),)
+        self.tick(state)
+        self.assertEqual(self.executor.calls, [])
+        self.assertEqual(call.state, IntentState.FAILED)
+
     def test_missing_object_fails_the_unit(self):
         state = make_state(objects=[tank(ALLY_A, (1, 1))])
         executor = FakeExecutor(error=CommandFailed("gone", reason="object_missing"))
@@ -396,15 +471,17 @@ class TestCommandErrors(Case):
         self.assertEqual(squad.units[0].mode, UnitMode.FAILED)
         self.assertEqual(call.state, IntentState.FAILED)
 
-    def test_timeout_retries_then_fails(self):
+    def test_timeout_without_metadata_keeps_unknown_without_resending(self):
         state = make_state(objects=[tank(ALLY_A, (1, 1))])
         executor = FakeExecutor(error=Timeout("no effect"))
         self.build(state, executor=executor, max_retries=2)
         squad, _ = self.assign(state, "advance_to_cell", {"cell": (5, 5)})
         for _ in range(4):
             self.tick(state)
-        self.assertEqual(len(executor.calls), 3)          # 首次加两次重试
-        self.assertEqual(squad.units[0].mode, UnitMode.FAILED)
+        self.assertEqual(len(executor.calls), 1)
+        self.assertEqual(squad.units[0].mode, UnitMode.UNVERIFIED)
+        self.assertEqual(squad.units[0].retries, 0)
+        self.assertEqual(self.layer.squads(), (squad,))
 
     def test_lost_focus_pauses_without_failing(self):
         state = make_state(objects=[tank(ALLY_A, (1, 1))])
@@ -412,10 +489,44 @@ class TestCommandErrors(Case):
         self.build(state, executor=executor)
         squad, _ = self.assign(state, "advance_to_cell", {"cell": (5, 5)})
         self.tick(state)
-        self.assertEqual(squad.units[0].mode, UnitMode.MOVING)
+        self.assertEqual(squad.units[0].mode, UnitMode.UNVERIFIED)
         self.assertEqual(squad.units[0].goal, None)
         self.assertEqual(squad.units[0].retries, 0)
         self.assertEqual(self.layer.squads(), (squad,))
+        self.tick(make_state(frame=120, objects=[tank(ALLY_A, (1, 1))]))
+        self.assertEqual(len(executor.calls), 1)
+        self.assertEqual(self.layer.notices[-1]["kind"], "unverified")
+
+    def test_unknown_move_recovers_from_matching_observation_without_resend(self):
+        state = make_state(objects=[tank(ALLY_A, (1, 1))])
+        error = Timeout("unknown")
+        executor = FakeExecutor(error=error)
+        self.build(state, executor=executor)
+        actor = self.agent(ALLY_A)
+        squad, call = self.assign(state, "advance_to_cell", {"cell": (5, 5)})
+        # 装入实际下发意图，使测试保留编队计算出的落点。
+        def fail_with_metadata(intent, current):
+            executor.calls.append(intent)
+            error.intent = intent
+            error.plan = CommandPlan(kind=intent.kind, command="UnitOrder", action=None,
+                pointers=(ALLY_A,), verify=lambda s: s.object(ALLY_A).destination.cell
+                == tuple(intent.cell))
+            error.submitted_frame = current.frame
+            error.result = CommandResult(type="UnitOrder", payload=b"", code=None,
+                                         error="")
+            raise error
+        executor.execute = fail_with_metadata
+        self.tick(state)
+        self.assertEqual(squad.units[0].mode, UnitMode.UNVERIFIED)
+        goal = executor.calls[0].cell
+        self.tick(make_state(frame=120, objects=[
+            tank(ALLY_A, (1, 1), destination=at(goal))]))
+        self.assertEqual(squad.units[0].mode, UnitMode.MOVING)
+        self.assertEqual(squad.units[0].goal, tuple(goal))
+        self.assertEqual(len(executor.calls), 1)
+        self.tick(make_state(frame=140, objects=[tank(ALLY_A, goal)]))
+        self.assertEqual(call.state, IntentState.SATISFIED)
+        self.assertEqual(self.layer.completed[0]["arrived"], [actor])
 
     def test_invalid_command_fails_the_squad(self):
         state = make_state(objects=[tank(ALLY_A, (1, 1))])

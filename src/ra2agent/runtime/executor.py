@@ -23,7 +23,7 @@
 ## 生效验证
 
 排队命令要等主循环执行，实测约 4 帧。发送成功不等于生效：`UnitOrder` 丢弃引擎
-内部的返回值，引擎拒绝时静默。因此每条命令都配一条状态谓词，等谓词成立才算成功；
+内部的返回值，引擎拒绝时静默。因此每条命令都配一条状态谓词，等谓词成立才返回观测匹配；
 帧数用尽报 `Timeout`，帧不推进报 `GameNotResponding`。
 
 判据的实测与推断之别：`STOP` 看 `mission`、`MOVE` 看 `destination` 有实测依据；
@@ -32,7 +32,7 @@
 ## 边界
 
 - 意图的 `scope`（对象租约）由 L1 及以上仲裁，L0 只做引擎安全所需的归属校验。
-- 生命周期状态由 L1 更新：L0 的「已执行」指命令已生效，不等于目标已达成——
+- 生命周期状态由 L1 更新：L0 的回执只指状态谓词匹配，不证明本次命令造成变化——
   移动意图的达成是「到位」，由 L1 判定。
 - 执行器不改写意图，也不重发；重复下发由 L1 的循环决定。
 
@@ -47,9 +47,10 @@ from enum import IntEnum
 from typing import Callable
 
 from ..engine.client import CommandResult
-from ..constants import (Mission, NetworkEvent, PLACE_QUERY_MAX_LENGTH,
+from ..constants import (LoadStage, Mission, NetworkEvent, PLACE_QUERY_MAX_LENGTH,
                         PLACE_SITE_RADIUS, UnitAction)
-from ..errors import CommandFailed, GameNotResponding, InvalidCommand, Timeout
+from ..errors import (CommandFailed, GameNotResponding, InvalidCommand,
+                      ProtocolError, Timeout)
 from .formation import place_candidates
 from .intents import (Attack, Deploy, Hold, Intent, MoveTo, Place, Produce, Sell,
                       Stance)
@@ -196,7 +197,7 @@ class CommandPlan:
 
 @dataclass(frozen=True)
 class ExecutionOutcome:
-    """一次成功的执行。
+    """一次已提交且观测判据匹配的执行；不表示任务完成。
 
     `state` 是判据成立时的那一帧。执行期间驱动了若干帧，调用方应把它交给
     `Observer.absorb`；若 `read_state` 已包装 `Observer.poll`，则不必。
@@ -209,12 +210,15 @@ class ExecutionOutcome:
     polls: int
     state: GameState
     result: CommandResult
+    receipt: str = "observed_match"
+    evidence: str = "state_changed"
+    submitted_frame: int | None = None
 
     def describe(self) -> str:
         """一行摘要，用于日志与人工检查。"""
         return (f"{self.kind}#{self.intent_id} {self.plan.describe()}｜"
                 f"等 {self.frames_waited} 帧、{self.polls} 次观测｜"
-                f"帧 {self.state.frame}")
+                f"帧 {self.state.frame}｜{self.receipt}/{self.evidence}")
 
 
 # ---------------------------------------------------------------- 执行器
@@ -285,12 +289,21 @@ class Executor:
         后两者表示命令已发出但结果未知。
         """
         try:
+            latest = self._read()
+            self._check_context(state, latest)
+            self.identity.update(latest)
+            state = latest
             plan = self.plan(intent, state)
         except InvalidCommand as error:
             self._record(state.frame, "command_rejected", intent, {"error": str(error)})
             raise
+        preexisting = plan.verify(state)
+        try:
+            result = self._deliver(plan)
+        except (GameNotResponding, Timeout) as error:
+            self._unverified(error, intent, plan, state, None)
+            raise
         self._record(state.frame, "command_sent", intent, plan.facts)
-        result = self._deliver(plan)
         if not result.ok:
             reason = reason_for(result.error)
             error = CommandFailed(
@@ -302,18 +315,45 @@ class Executor:
                           "error": str(error)})
             raise error
         try:
-            final, frames, polls = self._await(plan)
+            final, frames, polls = self._await(plan, state)
         except (GameNotResponding, Timeout) as error:
-            self._record(state.frame, "command_unverified", intent,
-                         {"command": plan.describe(), "error": str(error)})
+            self._unverified(error, intent, plan, state, result)
             raise
         outcome = ExecutionOutcome(intent_id=intent.id, kind=intent.kind, plan=plan,
                                    frames_waited=frames, polls=polls, state=final,
-                                   result=result)
+                                   result=result,
+                                   evidence=("preexisting_match" if preexisting
+                                             else "state_changed"),
+                                   submitted_frame=state.frame)
         self._record(final.frame, "command_executed", intent,
                      {"command": plan.describe(), "frames_waited": frames,
-                      "polls": polls})
+                      "polls": polls, "receipt": outcome.receipt,
+                      "evidence": outcome.evidence})
         return outcome
+
+    def _unverified(self, error, intent, plan, state, result):
+        """保留尝试依据供 L1 回读，不能据异常自动重复提交。"""
+        error.plan = plan
+        error.intent = intent
+        error.submitted_frame = state.frame
+        error.result = result
+        self._record(state.frame, "command_unverified", intent,
+                     {"command": plan.describe(), "error": str(error),
+                      "submission": "acknowledged" if result is not None else "unknown"})
+
+    @staticmethod
+    def _check_context(baseline, current):
+        """跨局次、席位变化或帧回退时不使用旧意图。"""
+        try:
+            before, after = baseline.player_house(), current.player_house()
+        except ProtocolError as error:
+            raise InvalidCommand(str(error)) from error
+        if (current.stage != LoadStage.INGAME
+                or current.frame < baseline.frame
+                or (before.pointer, before.array_index) !=
+                   (after.pointer, after.array_index)
+                or after.defeated or after.is_winner or after.is_loser):
+            raise InvalidCommand("对局或玩家上下文已变化，拒绝旧意图")
 
     # ------------------------------------------------------------ 发送
     def _deliver(self, plan) -> CommandResult:
@@ -331,7 +371,7 @@ class Executor:
         raise InvalidCommand(f"未知命令类型 {plan.command!r}")
 
     # ------------------------------------------------------------ 等待生效
-    def _await(self, plan) -> tuple[GameState, int, int]:
+    def _await(self, plan, submitted) -> tuple[GameState, int, int]:
         """等判据成立，返回 `(状态, 等待帧数, 观测次数)`。
 
         帧数从发送后的第一次观测算起：调用方给的那一帧可能已经陈旧（L1 按
@@ -343,6 +383,13 @@ class Executor:
         deadline = changed_at + self.timeout_s
         polls = 1
         while True:
+            if state.frame < last:
+                raise GameNotResponding("命令已提交，但观测帧回退；结果未知")
+            try:
+                self._check_context(submitted, state)
+            except InvalidCommand as error:
+                raise GameNotResponding(
+                    "命令已提交，但对局上下文变化；结果未知") from error
             if plan.verify(state):
                 return state, state.frame - start, polls
             waited = state.frame - start
