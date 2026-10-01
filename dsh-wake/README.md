@@ -57,13 +57,12 @@ Content-Type: application/json
 
 红警的 MCP 进程不知道自己在给哪个 DSH 会话服务，所以绑定只能由 DSH 侧推。规则按顺序：
 
-1. **请求里带了 `session`**：只用它，不做别的判断。它可以是冷会话——`sessionController.resolveAgent`
-   会把它 resume 起来（起 MCP 子进程、按 preset 重新组装）。找不到就 `ok:false`。
+1. **请求里带了 `session`**：只用它。live agent 直接 followup；普通冷会话通过 sessionController.resolveAgent 恢复。已释放的玩家子 agent 不能按普通冷会话处理，当前专用恢复路径尚未闭合，见[DSH 测试接入审计](../.agents/notes/验证/DSH测试接入审计.md)。失败返回 ok:false。
 2. **没带 `session`**：候选 = **当前活着（live）、且工具表里有 `mcp__<mcpServerName>__*` 的顶层会话**
    （`ctx.agents.roots()`，即不是 subagent 子会话），并且 `agent.status === 'idle'`。
    - 恰好 1 个 → 用它。
    - 0 个或 ≥2 个 → 看配置 `fallbackSession`。
-3. **`fallbackSession` 非空**：用它（同样可以冷启动）。
+3. **fallbackSession 非空**：使用该身份，冷恢复范围同第 1 条。
 4. **`fallbackSession` 为空**：回 `200 {"ok": false, "error": ...}`，错误里写清楚是「没有挂 MCP 工具的会话」、
    「挂了 MCP 工具的会话都在跑」还是「有 N 个空闲候选（列出 id）」。
 

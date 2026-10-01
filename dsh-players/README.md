@@ -82,8 +82,7 @@ Alpha——Beta 的子 agent 照样能指挥 Alpha。这就是泄漏。
 `inheritedServerName` 配成空串）/ provider 不支持 `toolFilter`。这几种都直接报错，不会静默地
 少一条防护。
 
-**边界**：被挡住的是**游戏通道**。子 agent 仍然是完整的编码 agent，`bash`、文件读写、
-`subagent` 之类通用工具照旧可用；本插件不限制、也不打算限制它们。
+**边界**：玩家面同时限制游戏通道与 playerDeny 中的通用执行、写入和派生入口；允许的工具以实际过滤和 tools/execute 守卫为准。read/glob/grep 等只读入口保留。工具隔离不等于任务或冷唤醒恢复已经验证，见[DSH 测试接入审计](../.agents/notes/验证/DSH测试接入审计.md)。
 
 ---
 
