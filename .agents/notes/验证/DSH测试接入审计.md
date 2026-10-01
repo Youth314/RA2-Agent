@@ -41,7 +41,7 @@ watch.py:48–85 只读局势、合成事件和投递唤醒，没有 MicroLayer�
 
 ## 5. 暂停与多连接
 
-MCP _tick_forever 按墙钟约每 0.5 秒直接 _layer.tick（mcp.py:58、283），没有使用 MicroLayer.run 的游戏帧节流（micro.py:183、203）。暂停期间存在发出排队命令的源码风险，是否重复由具体技法/结算决定；不能断言所有操作都会无限重发。GameNotResponding 是发令后的检测，不能替代发令前活动局次与帧推进门控。
+MCP 已增加活动对局、有效席位及游戏帧推进门控，同帧不执行技法，边界变化丢弃旧任务；同帧 / 恢复 / 退帧 / 新席位离线回归通过。实现证据及读取到发送间的竞争窗口见[Move / Stop 接口离线验证](MoveStop接口离线验证.md)。本轮未验证真实 DSH 宿主或焦点暂停，MCP / 玩家 agent / watcher 的生命周期限制不因该修复消失。
 
 现有手册中“模型已连接，其他脚本只能等 DSH 退出再连”不能当一般规则。调查上游支持多个 socket：ra2yrcpp/src/constants.hpp:12 的 MAX_CLIENTS=16；websocket_server.cpp:89–100 按有效配置限数；instrumentation_service.cpp:157–165 为每 socket 创建结果队列。本机两份 ra2yrcpp.json 显式端口与名册相符，未显式 max_connections；部署 DLL 的版本、默认限数和并发稳定性未实测。
 
@@ -54,7 +54,7 @@ MCP _tick_forever 按墙钟约每 0.5 秒直接 _layer.tick（mcp.py:58、283）
 | watch 异常分支未导入 Ra2Error | watch.py:67 使用名称但文件没有 import；当前 test_watch 主要覆盖正常事件 | 补异常路径测试并修复，当前未运行触发验证 |
 | 冷玩家子 agent 唤醒无法走普通 resolver | binding.ts:145；DSH resolver 拒绝 subagent | 使用专用 continuation/delivery，测试完整释放后恢复 |
 | watcher 不推进 L1 | watch.py:48 | 对局服务持续运行契约，勿仅靠 watcher 宣称任务继续 |
-| MCP 无游戏帧节流 | mcp.py:283 / micro.py:183 | 同帧、暂停、恢复、退回帧和新局次测试 |
+| MCP 游戏帧门控 | mcp.py:GameSession._advance | 已实现并通过离线边界回归；真实宿主、暂停恢复待验 |
 | 玩家认领表只在内存 | dsh-players/src/players.ts:166 起 | DSH 重启后 player/child 恢复策略需明确 |
 | 玩家工具边界文档自相矛盾 | dsh-players/README.md 前面说明屏蔽 bash/派生等，后面旧“边界”段却称照旧可用 | 以 src/players.ts 的实际过滤和执行守卫为准，实施时修正文档 |
 | 通用文档混用 MCP 生命周期/连接约束 | 指挥层、真机测试手册、watch 模块说明 | 区分普通 preset、玩家 agent、历史部署限制 |
@@ -82,7 +82,7 @@ Python 测试运行方式见开发环境文档，需要 PYTHONPATH=src；不能�
 
 ## 9. 验证层次与分工
 
-1. 先在 Python 离线层落实 L1 审计的 C01–C09，解决回执、状态复查、租约、身份变化与暂停门控。
+1. 现有 Move / Stop 的首轮 Python 安全实现与离线回归见[接口离线验证](MoveStop接口离线验证.md)；C01–C09 中完整请求类型、可见性、动态能力及对象归因仍需补齐。
 2. 由唯一执行者串行完成能力表 T01–T04 原版对照；源码调查、准备场景和事后日志分析可并行，输出目录分开。
 3. 用独立 stdio MCP 验完整协议分派，确认工具和后台线程的生命周期；无需先开 DSH 模型会话。
 4. 补 DSH 插件级 cold player、scope dispose、恢复过滤/归属、watch 异常和多会话游标场景，再运行其已有集成测试。
