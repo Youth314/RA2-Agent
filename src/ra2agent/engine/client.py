@@ -2,7 +2,7 @@
 
 一次连接对应一个结果队列，`queue_id` 即 WebSocket 的 socket id。命令分两类：
 同步命令在工作线程内完成，结果立刻可取；排队命令要等游戏主循环执行闭包，见
-`.agents/notes/命令接口源码结论.md#执行模型`。
+`.agents/notes/引擎/命令接口源码结论.md#执行模型`。
 """
 import time
 from dataclasses import dataclass

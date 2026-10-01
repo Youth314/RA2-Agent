@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """命令能力测绘：跑实测项并把结果写成 JSON。
 
-依据 .agents/notes/命令能力测绘计划.md。结果写入 .agents/tmp/survey-<组>.json。
+依据 .agents/notes/引擎/命令能力测绘计划.md。结果写入 .agents/tmp/survey-<组>.json。
 
 用法:
     python3 survey.py timing      # 甲组：往返耗时、生效延迟、错误通道

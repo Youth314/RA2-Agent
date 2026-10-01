@@ -1,6 +1,6 @@
 # DSH 测试接入审计
 
-日期：2026-10-02。只读调查本项目 Python/TypeScript、本机 DSH 源码与安装记录；未运行测试、启动游戏或服务、调用真实模型、安装依赖或修改配置。已知差距与方案建议在本文留档，不能视为已经修复。基础接口契约见[L1 审计](L1基础接口契约与现状审计.md)，实施顺序见[演进计划](L1基础能力与技法演进计划.md)。
+日期：2026-10-02。只读调查本项目 Python/TypeScript、本机 DSH 源码与安装记录；未运行测试、启动游戏或服务、调用真实模型、安装依赖或修改配置。已知差距与方案建议在本文留档，不能视为已经修复。基础接口契约见[L1 审计](../../drafts/接口/L1基础接口契约与现状审计.md)，实施顺序见[演进计划](../设计/L1基础能力与技法演进计划.md)。
 
 ## 1. 结论
 
@@ -92,8 +92,8 @@ Python 测试运行方式见开发环境文档，需要 PYTHONPATH=src；不能�
 
 ## 源码入口
 
-[MCP](../../src/ra2agent/mcp.py)、[watch](../../src/ra2agent/watch.py)、[唤醒桥](../../src/ra2agent/wake.py)、[回放](../../src/ra2agent/replay.py)、[DSH preset](../../dsh/README.md)、[玩家插件](../../dsh-players/src/index.ts)、[玩家作用域](../../dsh-players/src/players.ts)、[DSH 唤醒投递](../../dsh-wake/src/binding.ts)。DSH 宿主源码位于本机 /home/youthz/deepseek-harness；行号为此次调查定位。
+[MCP](../../../src/ra2agent/mcp.py)、[watch](../../../src/ra2agent/watch.py)、[唤醒桥](../../../src/ra2agent/wake.py)、[回放](../../../src/ra2agent/replay.py)、[DSH preset](../../../dsh/README.md)、[玩家插件](../../../dsh-players/src/index.ts)、[玩家作用域](../../../dsh-players/src/players.ts)、[DSH 唤醒投递](../../../dsh-wake/src/binding.ts)。DSH 宿主源码位于本机 /home/youthz/deepseek-harness；行号为此次调查定位。
 
 ## 验证方法与更新
 
-验证方式、人工协作与结论更新规则见[能力验证方法](../notes/能力验证方法.md)。待测项只在需要回答当前问题时执行，不作为每次改动的完整流水线；每项新证据先更新本文件的支持状态与限制，再回写相关计划。
+验证方式、人工协作与结论更新规则见[能力验证方法](能力验证方法.md)。待测项只在需要回答当前问题时执行，不作为每次改动的完整流水线；每项新证据先更新本文件的支持状态与限制，再回写相关计划。

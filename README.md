@@ -7,7 +7,7 @@
 
 ## 状态
 
-早期阶段。引擎可行性与命令能力均已实测验证，见 [.agents/notes/命令能力测绘结果.md](.agents/notes/命令能力测绘结果.md)。基础设施层（协议、状态、校验、意图、对象标识、观测、执行器）、技法层（技法框架、运行时、13 条内置技法）与指挥层工具面（局内四工具加门外的 `game`）已实现，全部可离线测试；DSH 侧以 agent preset `ra2` 挂载，装在 `dsh/`。设计见 [.agents/notes/技法框架.md](.agents/notes/技法框架.md) 与 [.agents/notes/指挥层.md](.agents/notes/指挥层.md)。怎么用见 [docs/如何使用.md](docs/如何使用.md)。
+早期阶段。引擎可行性与命令能力均已实测验证，见 [.agents/notes/引擎/命令能力测绘结果.md](.agents/notes/引擎/命令能力测绘结果.md)。基础设施层（协议、状态、校验、意图、对象标识、观测、执行器）、技法层（技法框架、运行时、13 条内置技法）与指挥层工具面（局内四工具加门外的 `game`）已实现，全部可离线测试；DSH 侧以 agent preset `ra2` 挂载，装在 `dsh/`。设计见 [.agents/notes/设计/技法框架.md](.agents/notes/设计/技法框架.md) 与 [.agents/notes/设计/指挥层.md](.agents/notes/设计/指挥层.md)。怎么用见 [docs/如何使用.md](docs/如何使用.md)。
 
 ## 目录
 
@@ -28,8 +28,8 @@
 PYTHONPATH=src python3 -m unittest discover -s tests -t .
 ```
 
-要开游戏跑真机测试，见 [.agents/notes/真机测试手册.md](.agents/notes/真机测试手册.md)（启动、焦点、跑批、留证与坑清单）。
+要开游戏跑真机测试，见 [.agents/notes/验证/真机测试手册.md](.agents/notes/验证/真机测试手册.md)（启动、焦点、跑批、留证与坑清单）。
 
-要让同一台机器上的两个实例对战，见 [.agents/notes/双实例联机.md](.agents/notes/双实例联机.md)（单实例守卫与失焦暂停两道墙、`spawn.ini` 席位语义、验收判据）。
+要让同一台机器上的两个实例对战，见 [.agents/notes/验证/双实例联机.md](.agents/notes/验证/双实例联机.md)（单实例守卫与失焦暂停两道墙、`spawn.ini` 席位语义、验收判据）。
 
-引擎侧接口的实测结论见 [.agents/notes/命令能力测绘结果.md](.agents/notes/命令能力测绘结果.md)。
+引擎侧接口的实测结论见 [.agents/notes/引擎/命令能力测绘结果.md](.agents/notes/引擎/命令能力测绘结果.md)。

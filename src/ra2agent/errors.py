@@ -28,7 +28,7 @@ class InvalidCommand(Ra2Error, ValueError):
     """命令在本地被拒绝。
 
     继续发送会崩溃游戏或必然失败，因此在发送前抛出。规则见
-    `.agents/notes/命令接口源码结论.md` 的前置校验清单。
+    `.agents/notes/引擎/命令接口源码结论.md` 的前置校验清单。
     """
 
 

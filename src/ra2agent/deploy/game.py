@@ -15,7 +15,7 @@ from ..constants import DEFAULT_HOST, DEFAULT_PORT
 from ..errors import Ra2Error
 from . import winfocus
 
-#: 探针游戏环境的 Windows 路径与 WSL 路径，见 `.agents/notes/开发环境.md`。
+#: 探针游戏环境的 Windows 路径与 WSL 路径，见 `.agents/notes/环境/开发环境.md`。
 GAME_DIR = r"D:\Games\ra2probe"
 GAME_DIR_WSL = "/mnt/d/Games/ra2probe"
 #: 入口可执行文件。ra2yrcpp 由它拉起，故「游戏在跑」看的是它。

@@ -30,16 +30,16 @@
 
 ## 索引
 
-- [`notes/平台与引擎选型.md`](notes/平台与引擎选型.md) —— 引擎选型与运行环境
-- [`notes/开发环境.md`](notes/开发环境.md) —— 运行位置、Python、Windows 侧路径
-- [`notes/真机测试手册.md`](notes/真机测试手册.md) —— 开游戏、焦点、跑批、留证、坑清单
-- [`notes/双实例联机.md`](notes/双实例联机.md) —— 同机两个实例对战：两道墙的解法、`spawn.ini` 席位语义、验收判据
-- [`notes/架构设计.md`](notes/架构设计.md) —— 设计支柱、分层意图栈、人的介入模型
-- [`notes/技法框架.md`](notes/技法框架.md) —— 技法库的形态、接口、等级与门控
-- [`notes/指挥层.md`](notes/指挥层.md) —— 模型看到的五个工具、卡片、事件上报
-- [`notes/探针实验结论.md`](notes/探针实验结论.md) —— ra2yrcpp 可用性的实测结论
-- [`notes/命令接口源码结论.md`](notes/命令接口源码结论.md) —— 从 ra2yrcpp 源码读出的命令语义
-- [`notes/命令能力测绘计划.md`](notes/命令能力测绘计划.md) —— 命令测绘的计划与未测项
-- [`notes/命令能力测绘结果.md`](notes/命令能力测绘结果.md) —— 命令测绘的实测结论
+- [`notes/平台与引擎选型.md`](notes/环境/平台与引擎选型.md) —— 引擎选型与运行环境
+- [`notes/开发环境.md`](notes/环境/开发环境.md) —— 运行位置、Python、Windows 侧路径
+- [`notes/真机测试手册.md`](notes/验证/真机测试手册.md) —— 开游戏、焦点、跑批、留证、坑清单
+- [`notes/双实例联机.md`](notes/验证/双实例联机.md) —— 同机两个实例对战：两道墙的解法、`spawn.ini` 席位语义、验收判据
+- [`notes/架构设计.md`](notes/设计/架构设计.md) —— 设计支柱、分层意图栈、人的介入模型
+- [`notes/技法框架.md`](notes/设计/技法框架.md) —— 技法库的形态、接口、等级与门控
+- [`notes/指挥层.md`](notes/设计/指挥层.md) —— 模型看到的五个工具、卡片、事件上报
+- [`notes/探针实验结论.md`](notes/引擎/探针实验结论.md) —— ra2yrcpp 可用性的实测结论
+- [`notes/命令接口源码结论.md`](notes/引擎/命令接口源码结论.md) —— 从 ra2yrcpp 源码读出的命令语义
+- [`notes/命令能力测绘计划.md`](notes/引擎/命令能力测绘计划.md) —— 命令测绘的计划与未测项
+- [`notes/命令能力测绘结果.md`](notes/引擎/命令能力测绘结果.md) —— 命令测绘的实测结论
 - [`drafts/交接.md`](drafts/交接.md) —— 新会话的入口：进度、下一步、陷阱
 - [`../corpus/README.md`](../corpus/README.md) —— 原始语料（原版 INI、ModEnc、Fandom）的来源与取法

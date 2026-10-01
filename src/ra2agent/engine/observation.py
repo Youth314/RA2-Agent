@@ -3,7 +3,7 @@
 「Agent 即玩家」是设计支柱之一：Agent 只能看到其阵营在当前迷雾下可见的信息。
 本模块维护底图与迷雾，并据此过滤对象，向上层只暴露它「看得见」的世界。
 
-观测模型见 `.agents/notes/命令能力测绘结果.md#观测模型`：
+观测模型见 `.agents/notes/引擎/命令能力测绘结果.md#观测模型`：
 
 - `GetGameState` 每帧返回对象全量，但**不含地图**，且 `GameState.map_data` 从不填充。
 - 完整地图经 `ReadValue{map_data_soa}` 取一次，之后按 `GameState.cells_difference`

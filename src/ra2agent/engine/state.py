@@ -3,7 +3,7 @@
 字段号取自 `proto/ra2yrproto/ra2yr.proto`。解析结果用 dataclass 而非字典，
 使上层拿到类型约束。
 
-观测模型见 `.agents/notes/命令能力测绘结果.md#观测模型`：`GetGameState` 每帧
+观测模型见 `.agents/notes/引擎/命令能力测绘结果.md#观测模型`：`GetGameState` 每帧
 返回对象全量，但**不含地图**；地图只在 `StorageValue` 中，须经 `ReadValue` 单独
 取一次，之后再按 `cells_difference` 增量更新。
 """

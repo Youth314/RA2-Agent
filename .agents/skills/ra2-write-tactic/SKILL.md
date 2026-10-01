@@ -7,7 +7,7 @@ description: 写或改《红色警戒2》Agent 的技法（tactic）时使用。
 
 技法（tactic）是 L0 之上唯一的能力形式：一个普通 Python 函数加一张名片。**对战
 时不写技法**，只在离线写、验证、注册。库的形态与门控见
-[.agents/notes/技法框架.md](../../notes/技法框架.md)。
+[.agents/notes/设计/技法框架.md](../../notes/设计/技法框架.md)。
 
 ## 一、技法是什么
 

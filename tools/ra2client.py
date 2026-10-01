@@ -375,7 +375,7 @@ class InvalidCommand(ValueError):
 
 
 class Validator:
-    """发送前校验。规则见 .agents/notes/命令接口源码结论.md#前置校验清单。"""
+    """发送前校验。规则见 .agents/notes/引擎/命令接口源码结论.md#前置校验清单。"""
 
     def __init__(self, map_data=None):
         self.width = map_data.width if map_data else None
