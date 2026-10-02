@@ -115,6 +115,8 @@ return (ctx.intent(Wake, text="基地被打了，3 个建筑在掉血"),)
 |---|---|---|
 | `MoveTo` | `units`、`cell`、`stance` | 移动；`stance` 取 `aggressive` / `passive` / `hold` |
 | `Hold` | `units` | 停止并驻守 |
+| `GuardCurrent` | `units`（单个己方车辆 Agent ID） | 实验 Guard v1；一次原版 G 输入，当前位置由 DLL 执行时确定；回执不承诺后续效果 |
+| `GuardPosition` | `units`（单个己方车辆 Agent ID）、`cell` | 实验 Guard v1；一次地点警戒输入，确认不表示已到达或持续保护 |
 | `Attack` | `units`、`target` | 攻击指定对象 |
 | `Produce` | `type_pointer`、`type_name` | 开始生产 |
 | `Place` | `building`、`cell` | 放置已完工建筑；`building` 是 **agent id**，完工待放对象只有 `ctx.subject.agent_id(pointer)` 认得 |
@@ -122,6 +124,8 @@ return (ctx.intent(Wake, text="基地被打了，3 个建筑在掉血"),)
 | `Deploy` | `units` | 展开基地车（走 `ClickEvent`，不是 `UnitOrder`） |
 | `Wake` | `text` | **不落到引擎**：请求唤醒模型，`split_wakes` 把它交给唤醒桥。限度见下 |
 | `TacticCall` | `tactic`、`params` | 指挥层意图，不是你要返回的东西——它是模型 `call` 的载荷 |
+
+Guard 首版只经过单个 Grizzly 的限定新 DLL 验证，适用性与剩余边界见[Guard 接口验证](../../notes/验证/Guard接口验证.md)。未经声明 v1 的 DLL 会被 L0 明确拒绝；禁止为新意图自行连接 Client、开放任意 Mission 或每拍重发。正式薄技法、持续任务与自动经济迁移属于 S4，不因类已注册而视为完成。
 
 ### `Wake` 的节制
 
