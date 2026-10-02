@@ -13,6 +13,7 @@ from typing import Iterator
 from ..constants import LEPTONS_PER_CELL
 from ..errors import ProtocolError
 from .proto import fmap, one, repeated_ints, signed64, sub
+from .native_events import NativeEvent, parse_native_events
 
 # ---------------------------------------------------------------- 基础类型
 @dataclass(frozen=True)
@@ -262,6 +263,7 @@ class GameState:
     cells_difference: tuple[Cell, ...]
     raw: bytes = field(repr=False, default=b"")
     _by_pointer: dict = field(repr=False, default_factory=dict)
+    _native_events: tuple[NativeEvent, ...] = field(repr=False, default=())
 
     def __post_init__(self):
         self._by_pointer = {o.pointer: o for o in self.objects}
@@ -280,7 +282,19 @@ class GameState:
             factories=tuple(parse_factory(v) for _, v in fields.get(3, [])),
             cells_difference=tuple(parse_cell(v) for _, v in fields.get(15, [])),
             raw=bytes(payload),
+            _native_events=parse_native_events(fields),
         )
+
+    @property
+    def native_events(self) -> tuple[NativeEvent, ...]:
+        """仅当前玩家的原版输入事件，不包含对手的命令记录。
+
+        必须存在唯一 current_player；不解析对象编码与稳定 ID 的关系，
+        不提供生效确认，也不代表当前 Target / Follow 的持续状态。
+        """
+        index = self.player_house().array_index
+        return tuple(event for event in self._native_events
+                     if event.house_index == index)
 
     def object(self, pointer) -> GameObject | None:
         """按引擎指针查找对象；不存在返回 `None`。"""

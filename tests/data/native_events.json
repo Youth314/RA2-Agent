@@ -1,0 +1,42 @@
+{
+  "origin": "S2 Alpha observations.jsonl, 2026-10-02; captured Event blobs only, not full GameState",
+  "recording_sha256": "3c213468f5f22548de54fff119e59e3082d872a4c97222268284e089be81c51b",
+  "samples": {
+    "stale_frame_info": {
+      "source": "do",
+      "raw_hex": "18bc19201c421a0a0608ecda3f103410021a00220608e2b204100b2a0408ecda3f98019ab8b48501"
+    },
+    "stop": {
+      "source": "do",
+      "raw_hex": "0801100118dc1920069801f9bdb48501"
+    },
+    "guard": {
+      "source": "do",
+      "raw_hex": "1001188c5d2004421a0a0608ecda3f1034100b1a0608c9ba04100b22002a0408ecda3f98018f99c08501"
+    },
+    "guard_position": {
+      "source": "do",
+      "raw_hex": "0801100118fc80012004421a0a0608ecda3f1034100b1a0608eab204100b22002a0408ecda3f9801f2bac68501"
+    },
+    "escort": {
+      "source": "do",
+      "raw_hex": "0801100118d898012004421a0a0608ecda3f1034100b1a0608efda3f103422002a0408ecda3f9801b7ccca8501"
+    },
+    "guard_structure": {
+      "source": "do",
+      "raw_hex": "080110011884b6012004421a0a0608ecda3f1034100b1a0608afdb3f103422002a0408ecda3f9801fddacf8501"
+    },
+    "cmin_guard": {
+      "source": "do",
+      "raw_hex": "100118dc94022004421a0a0608d2db3f1034100b1a060893d204100b22002a0408d2db3f98018097e08501"
+    },
+    "repair_guard": {
+      "source": "do",
+      "raw_hex": "0801100118a4b6022004421a0a0608f6db3f1034100b1a060889d204100b22002a0408f6db3f9801de83e68501"
+    },
+    "repair_target": {
+      "source": "do",
+      "raw_hex": "0801100118908d032004421a0a0608f6db3f103410011a0608efda3f103422002a0408f6db3f9801a78ef58501"
+    }
+  }
+}
