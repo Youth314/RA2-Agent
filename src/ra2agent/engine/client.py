@@ -244,6 +244,14 @@ class Client:
             payloads.unit_order(units, action, target_object, coordinates),
             poll_timeout_ms)
 
+    def guard_order(self, pointer, action, native_id, house_pointer, basis_frame,
+                    coordinates=None, poll_timeout_ms=5000) -> CommandResult:
+        """L0-only Guard extension transport; Executor checks DLL capability first."""
+        return self.send_command(
+            NS + "UnitOrder", payloads.guard_order(
+                pointer, action, native_id, house_pointer, basis_frame, coordinates),
+            poll_timeout_ms)
+
     def click_event(self, units, event, poll_timeout_ms=5000) -> CommandResult:
         """下发 `ClickEvent`。"""
         return self.send_command(NS + "ClickEvent",

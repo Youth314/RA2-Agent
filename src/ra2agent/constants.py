@@ -45,6 +45,9 @@ class UnitAction(IntEnum):
     STOP = 10
     SELL_CELL = 11
     ATTACK_MOVE = 12
+    # Local DLL extension v1; deliberately excluded from the old action whitelist.
+    GUARD_CURRENT = 13
+    GUARD_POSITION = 14
 
 
 #: 服务端 `UnitOrder` 的 switch 实际实现的动作。

@@ -479,7 +479,7 @@ class MicroLayer:
         self._advance(squad, intent, outcome.state)
 
     def _advance(self, squad, intent, state) -> None:
-        """命令生效后，把意图记到**这条命令真正涉及**的单位的进度上。
+        """操作判据成立后，把意图记到**这条命令真正涉及**的单位的进度上。
 
         不能记到本次调用的全部单位：一条命令只针对一个对象时，记错会把别的单位
         的目标格覆盖掉。
@@ -504,7 +504,7 @@ class MicroLayer:
                 unit.target = intent.target
                 unit.goal = None
         else:
-            # 停止、生产、放置、变卖、部署：命令生效即算到位
+            # 一次操作按观测结算；Guard 的输入确认不表示抵达或持续保护。
             for unit in affected:
                 unit.mode = UnitMode.ARRIVED
                 unit.goal = None

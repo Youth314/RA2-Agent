@@ -1,0 +1,2 @@
+# Unified diff context includes a space on blank lines; preserve patch syntax.
+engine/ra2yrcpp/patches/*.patch -whitespace

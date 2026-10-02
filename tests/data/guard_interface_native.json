@@ -1,0 +1,52 @@
+{
+  "provenance": {
+    "record": ".agents/tmp/engine-build/backups/guard-20261002-164406/validation.json",
+    "dll_sha256": "862a8c318a7193c5b4a6ec6899af26ecebef47b05b0270ce86debef6ef11010c",
+    "scenario": "isolated Commander/MicroLayer Grizzly Guard validation; Alpha Alliance, Beta Americans",
+    "scope": "samples of own object and native inputs; not a full replay"
+  },
+  "capability_version": 1,
+  "samples": [
+    {
+      "label": "current_initial",
+      "object_hex": "0888b6fb880110ac021a0708803d1080a1012090f2908f01480150b0c5af91015890f2908f01900105a00101a801ebda3f",
+      "event_hex": "08011001187c2004421a0a0608ebda3f1034100b1a06089ef104100b22002a0408ebda3f9801cf95a99d01",
+      "source": "out",
+      "native_id": 1043819,
+      "target_cell": [
+        30,
+        80
+      ],
+      "submitted_frame": 123,
+      "observed_frame": 127,
+      "rescheduled_event_hex": "080110011898012004421a0a0608ebda3f1034100b1a06089ef104100b22002a0408ebda3f9801cf95a99d01",
+      "rescheduled_source": "do"
+    },
+    {
+      "label": "position",
+      "object_hex": "0888b6fb880110ac021a0708803d1080a1012090f2908f01480150b0c5af91015890f2908f01900105a00101a801ebda3f",
+      "event_hex": "08011001189c012004421a0a0608ebda3f1034100b1a060899f104100b22002a0408ebda3f9801b296a99d01",
+      "source": "do",
+      "native_id": 1043819,
+      "target_cell": [
+        25,
+        80
+      ],
+      "submitted_frame": 128,
+      "observed_frame": 133
+    },
+    {
+      "label": "current_at_destination",
+      "object_hex": "0888b6fb880110ac021a070880331080a1012090f2908f01480150b0c5af91015890f2908f018a01070880331080a10190010ba00101a801ebda3f",
+      "event_hex": "0801100118f0012004421a0a0608ebda3f1034100b1a060899f104100b22002a0408ebda3f980195a1a99d01",
+      "source": "do",
+      "native_id": 1043819,
+      "target_cell": [
+        25,
+        80
+      ],
+      "submitted_frame": 213,
+      "observed_frame": 218
+    }
+  ]
+}

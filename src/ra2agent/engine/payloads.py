@@ -30,6 +30,26 @@ def unit_order(units, action: UnitAction, target_object=None,
     return out
 
 
+def guard_order(pointer, action, native_id, house_pointer, basis_frame,
+                coordinates=None) -> bytes:
+    """Controlled UnitOrder extension v1; no target objects or arbitrary missions."""
+    from ..errors import InvalidCommand
+
+    if action not in (UnitAction.GUARD_CURRENT, UnitAction.GUARD_POSITION):
+        raise InvalidCommand("不是受控 Guard 操作")
+    for label, value in (("pointer", pointer), ("native_id", native_id),
+                         ("house_pointer", house_pointer)):
+        if type(value) is not int or not 0 < value <= 0xFFFFFFFF:
+            raise InvalidCommand(f"Guard {label} 需要非零 uint32")
+    if type(basis_frame) is not int or not 0 <= basis_frame <= 0xFFFFFFFF:
+        raise InvalidCommand("Guard basis_frame 需要 uint32")
+    if (action == UnitAction.GUARD_CURRENT) != (coordinates is None):
+        raise InvalidCommand("Guard 目标类别不匹配")
+    return (unit_order((pointer,), action, coordinates=coordinates)
+            + pb_uint(5, native_id) + pb_uint(6, house_pointer)
+            + pb_uint(7, basis_frame))
+
+
 def click_event(units, event) -> bytes:
     """`ClickEvent{object_addresses, event}`。
 

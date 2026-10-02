@@ -79,6 +79,8 @@ class GameObject:
     #: 正在展开 / 正在收起。不给这两项，自动层会对正在展开的基地车重复下令。
     deploying: bool = False
     undeploying: bool = False
+    # Extension v1; None means that the DLL did not provide an own native ID.
+    native_id: int | None = None
 
     @property
     def is_building(self) -> bool:
@@ -181,7 +183,18 @@ def parse_object(blob) -> GameObject:
         on_map=bool(get(20)),
         destination=parse_coordinates(sub(blob, 17)),
         initial_owner=get(11),
+        native_id=_optional_uint32(fields, 21),
     )
+
+
+def _optional_uint32(fields, number):
+    entries = fields.get(number)
+    if not entries:
+        return None
+    wire, value = entries[-1]
+    if wire != 0 or not 0 <= value <= 0xFFFFFFFF:
+        raise ProtocolError(f"字段 {number} 需要 uint32")
+    return value
 
 
 def parse_house(blob) -> House:
@@ -264,6 +277,7 @@ class GameState:
     raw: bytes = field(repr=False, default=b"")
     _by_pointer: dict = field(repr=False, default_factory=dict)
     _native_events: tuple[NativeEvent, ...] = field(repr=False, default=())
+    guard_interface_version: int = 0
 
     def __post_init__(self):
         self._by_pointer = {o.pointer: o for o in self.objects}
@@ -283,6 +297,7 @@ class GameState:
             cells_difference=tuple(parse_cell(v) for _, v in fields.get(15, [])),
             raw=bytes(payload),
             _native_events=parse_native_events(fields),
+            guard_interface_version=_optional_uint32(fields, 17) or 0,
         )
 
     @property

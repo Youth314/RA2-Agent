@@ -29,6 +29,7 @@ class TrackedObject:
     cell: tuple[int, int]
     #: 变身前的引擎指针；未发生变身时为 `None`。agent id 在变身时延续不变。
     previous_pointer: int | None = None
+    native_id: int | None = None
 
     def __repr__(self):
         return (f"TrackedObject(agent_id={self.agent_id}, pointer={self.pointer},"
@@ -101,6 +102,18 @@ class IdentityTable:
         observed = {o.pointer: o for o in state.objects}
         delta = IdentityDelta(frame=frame)
 
+        # 原版 ID 明确改变表示指针已被复用，不能沿用旧意图的对象身份。
+        reused = set()
+        for pointer, obj in observed.items():
+            agent = self._by_pointer.get(pointer)
+            native_id = getattr(obj, "native_id", None)
+            if agent is not None and native_id is not None:
+                previous = self._tracked[agent].native_id
+                if previous is not None and previous != native_id:
+                    self._forget(agent)
+                    delta.vanished.append(agent)
+                    reused.add(pointer)
+
         newcomers = [p for p in observed if p not in self._by_pointer]
         absent = [p for p in self._by_pointer if p not in observed]
 
@@ -111,7 +124,8 @@ class IdentityTable:
 
         for pointer in newcomers:
             obj = observed[pointer]
-            partner = self._claim_transformation(obj, absent, frame)
+            partner = (None if pointer in reused else
+                       self._claim_transformation(obj, absent, frame))
             if partner is None:
                 delta.appeared.append(self._create(obj, frame))
             else:
@@ -135,7 +149,8 @@ class IdentityTable:
         self._tracked[agent] = TrackedObject(
             agent_id=agent, pointer=obj.pointer, first_seen_frame=frame,
             last_seen_frame=frame, house=obj.house, object_type=obj.object_type,
-            type_pointer=obj.type_pointer, cell=obj.coordinates.cell)
+            type_pointer=obj.type_pointer, cell=obj.coordinates.cell,
+            native_id=getattr(obj, "native_id", None))
         self._by_pointer[obj.pointer] = agent
         return agent
 
@@ -144,6 +159,9 @@ class IdentityTable:
         tracked.type_pointer = obj.type_pointer
         tracked.object_type = obj.object_type
         tracked.cell = obj.coordinates.cell
+        native_id = getattr(obj, "native_id", None)
+        if native_id is not None:
+            tracked.native_id = native_id
 
     def _retarget(self, agent, obj, frame):
         """把现有 agent id 指向新指针，并记下变身前的指针。"""
@@ -151,6 +169,7 @@ class IdentityTable:
         self._by_pointer.pop(tracked.pointer, None)
         tracked.previous_pointer = tracked.pointer
         tracked.pointer = obj.pointer
+        tracked.native_id = None
         self._by_pointer[obj.pointer] = agent
         self._refresh(tracked, obj, frame)
 

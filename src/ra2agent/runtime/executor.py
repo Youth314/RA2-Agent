@@ -173,6 +173,10 @@ class CommandPlan:
     coordinates: Coordinates | None = None
     object_type: ObjectType | None = None
     facts: dict = field(default_factory=dict)
+    native_id: int | None = None
+    house_pointer: int | None = None
+    basis_frame: int | None = None
+    verify_basis: str = "state_match"
 
     @property
     def action_name(self) -> str:
@@ -234,6 +238,8 @@ class Executor:
         "produce": "_plan_produce",
         "place": "_plan_place",
         "sell": "_plan_sell",
+        "guard_current": "_plan_guard",
+        "guard_position": "_plan_guard",
     }
 
     def __init__(self, client, identity, types=None, validator=None, log=None, *,
@@ -282,9 +288,9 @@ class Executor:
         return getattr(self, route)(intent, state)
 
     def execute(self, intent, state) -> ExecutionOutcome:
-        """翻译、发送并等待生效。
+        """翻译、发送并等待操作特定的观测判据。
 
-        返回时判据已成立。失败按类型抛异常：本地拒绝 `InvalidCommand`、服务端
+        返回时判据已成立；Guard 仅确认原版输入，不证明任务效果。失败按类型抛异常：本地拒绝 `InvalidCommand`、服务端
         拒绝 `CommandFailed`、帧不推进 `GameNotResponding`、判据未成立 `Timeout`。
         后两者表示命令已发出但结果未知。
         """
@@ -323,6 +329,8 @@ class Executor:
                                    frames_waited=frames, polls=polls, state=final,
                                    result=result,
                                    evidence=("preexisting_match" if preexisting
+                                             else "native_input_observed"
+                                             if plan.verify_basis == "native_input"
                                              else "state_changed"),
                                    submitted_frame=state.frame)
         self._record(final.frame, "command_executed", intent,
@@ -358,6 +366,10 @@ class Executor:
     # ------------------------------------------------------------ 发送
     def _deliver(self, plan) -> CommandResult:
         """按选路结果调用客户端方法。"""
+        if plan.verify_basis == "native_input":
+            return self.client.guard_order(
+                plan.pointers[0], plan.action, plan.native_id, plan.house_pointer,
+                plan.basis_frame, coordinates=plan.coordinates)
         if plan.command == "UnitOrder":
             return self.client.unit_order(plan.pointers, plan.action,
                                           target_object=plan.target,
@@ -424,6 +436,55 @@ class Executor:
         return self._read().frame - before.frame >= 1
 
     # ------------------------------------------------------------ 选路
+    def _plan_guard(self, intent, state):
+        pointers = self._pointers(intent.units)
+        coordinates = None
+        if intent.kind == "guard_position":
+            cell = intent.cell
+            if (not isinstance(cell, (tuple, list)) or len(cell) != 2
+                    or any(type(v) is not int for v in cell)):
+                raise InvalidCommand("GuardPosition.cell 需要两个整数格坐标")
+            coordinates = cell_center(*cell)
+        obj = self.validator.check_guard(state, pointers, coordinates)
+        house = state.player_house()
+        # The network reschedules Frame on out -> do transfer; Timing survives.
+        before = {(e.house_index, e.timing, e.event_type, e.mega_mission)
+                  for e in state.native_events}
+        expected_cell = coordinates.cell if coordinates else None
+
+        def verify(current):
+            actor = current.object(pointers[0])
+            if (actor is None or actor.native_id != obj.native_id
+                    or actor.house != house.pointer or actor.in_limbo):
+                return False
+            for event in current.native_events:
+                mission = event.mega_mission
+                if (event.event_type != 4 or mission is None
+                        or event.frame < state.frame
+                        or (event.house_index, event.timing, event.event_type, mission) in before
+                        or mission.mission != Mission.AREA_GUARD
+                        or mission.whom is None or mission.whom.m_rtti != 52
+                        or (mission.whom.m_id & 0xFFFFFFFF) != obj.native_id
+                        or mission.target is None):
+                    continue
+                target = mission.target.cell
+                if target is None or not self.validator.map_data.in_bounds(*target):
+                    continue
+                if expected_cell is None or target == expected_cell:
+                    return True
+            return False
+
+        return CommandPlan(
+            kind=intent.kind, command="UnitOrder",
+            action=(UnitAction.GUARD_CURRENT if coordinates is None
+                    else UnitAction.GUARD_POSITION), pointers=pointers,
+            coordinates=coordinates, verify=verify, native_id=obj.native_id,
+            house_pointer=house.pointer, basis_frame=state.frame,
+            verify_basis="native_input",
+            facts={**self._facts(state, pointers), "native_id": obj.native_id,
+                   "basis_frame": state.frame, "verification": "native_input",
+                   "cell": expected_cell})
+
     def _plan_move(self, intent, state) -> CommandPlan:
         pointers = self._pointers(intent.units)
         action, coordinates = _move_action(intent.stance, intent.cell)

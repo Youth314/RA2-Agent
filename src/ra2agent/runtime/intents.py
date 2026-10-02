@@ -2,7 +2,7 @@
 
 设计见 `.agents/notes/设计/架构设计.md#意图-schema`。要点：
 
-- 意图是**持久目标**而非一次性命令，有生命周期与 TTL。
+- 意图表达持续目标或明确的一次输入；两者都有生命周期与 TTL，结果判据分别定义。
 - 各层交换意图，只有 L0 把意图翻译成引擎命令。
 - 意图必须可序列化，且带来源与 TTL，使接管与过期可自动处理。
 - 意图引用对象用 Agent 侧稳定 id，不用引擎指针——指针在单位变身时会变。
@@ -266,6 +266,23 @@ class Deploy(Intent):
     """部署基地车。"""
 
     units: tuple[int, ...] = ()
+
+
+@register("guard_current")
+@dataclass
+class GuardCurrent(Intent):
+    """一次建立原版 G 输入；当前位置由游戏线程确定，不承诺持续控制。"""
+
+    units: tuple[int, ...] = ()
+
+
+@register("guard_position")
+@dataclass
+class GuardPosition(Intent):
+    """一次建立地点警戒输入；输入匹配不表示已经到达或完成保护。"""
+
+    units: tuple[int, ...] = ()
+    cell: tuple[int, int] = (0, 0)
 
 
 @register("produce")
