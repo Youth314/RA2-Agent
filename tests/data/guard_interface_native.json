@@ -2,8 +2,11 @@
   "provenance": {
     "record": ".agents/tmp/engine-build/backups/guard-20261002-164406/validation.json",
     "dll_sha256": "862a8c318a7193c5b4a6ec6899af26ecebef47b05b0270ce86debef6ef11010c",
-    "scenario": "isolated Commander/MicroLayer Grizzly Guard validation; Alpha Alliance, Beta Americans",
-    "scope": "samples of own object and native inputs; not a full replay"
+    "scenario": "isolated Commander/MicroLayer Guard validation; Grizzly, CMIN and Engineer-loaded FV; Alpha Alliance, Beta Americans",
+    "scope": "samples of own object and native inputs; not a full replay",
+    "additional_records": [
+      ".agents/tmp/engine-build/backups/guard-poly-20261002-172006/scope-result.json"
+    ]
   },
   "capability_version": 1,
   "samples": [
@@ -47,6 +50,44 @@
       ],
       "submitted_frame": 213,
       "observed_frame": 218
+    },
+    {
+      "label": "miner_guard",
+      "actor_name": "Chrono Miner",
+      "object_hex": "0890c7b3880110e8071a0708805d108099012090f2908f01480150c0b7e391015890f2908f0168018a010708805d10809901900105a00101a80199db3f",
+      "event_hex": "0801100118d8532004421a0a060899db3f1034100b1a06088ed204100b22002a040899db3f9801db8ebb9e01",
+      "source": "do",
+      "native_id": 1043865,
+      "target_cell": [
+        46,
+        76
+      ],
+      "submitted_frame": 10698,
+      "observed_frame": 10701,
+      "provenance": {
+        "record": ".agents/tmp/engine-build/backups/guard-poly-20261002-172006/scope-result.json",
+        "original_driver_label": "miner_guard",
+        "dll_sha256": "862a8c318a7193c5b4a6ec6899af26ecebef47b05b0270ce86debef6ef11010c"
+      }
+    },
+    {
+      "label": "engineer_loaded_fv_guard",
+      "actor_name": "IFV",
+      "object_hex": "08d8ccb5880110c8011a07088057108095012090f2908f01480150f0a3e491015890f2908f0168018a010708805710809501900105a00101a801c4db3f",
+      "event_hex": "100118fcb8012004421a0a0608c4db3f1034100b1a0608bbc204100b22002a0408c4db3f9801d9d8cc9e01",
+      "source": "do",
+      "native_id": 1043908,
+      "target_cell": [
+        43,
+        74
+      ],
+      "submitted_frame": 23661,
+      "observed_frame": 23664,
+      "provenance": {
+        "record": ".agents/tmp/engine-build/backups/guard-poly-20261002-172006/scope-result.json",
+        "original_driver_label": "empty_fv_guard",
+        "dll_sha256": "862a8c318a7193c5b4a6ec6899af26ecebef47b05b0270ce86debef6ef11010c"
+      }
     }
   ]
 }

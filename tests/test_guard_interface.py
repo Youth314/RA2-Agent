@@ -73,7 +73,10 @@ class GuardCase(unittest.TestCase):
 class TestGuardProtocol(unittest.TestCase):
     def test_real_inputs_match_native_identity_and_cell_readback(self):
         fixture = json.loads((Path(__file__).parent / "data/guard_interface_native.json").read_text())
-        self.assertEqual(len(fixture["samples"]), 3)
+        self.assertEqual(len(fixture["samples"]), 5)
+        self.assertEqual({s["label"] for s in fixture["samples"]},
+                         {"current_initial", "position", "current_at_destination",
+                          "miner_guard", "engineer_loaded_fv_guard"})
         for sample in fixture["samples"]:
             with self.subTest(label=sample["label"]):
                 obj = parse_object(bytes.fromhex(sample["object_hex"]))
@@ -192,6 +195,31 @@ class TestGuardValidation(GuardCase):
 
 
 class TestGuardReceipt(GuardCase):
+    def test_real_polymorphic_input_does_not_require_area_guard_effect_mission(self):
+        fixture = json.loads((Path(__file__).parent / "data/guard_interface_native.json").read_text())
+        cases = {"miner_guard": Mission.HARVEST,
+                 "engineer_loaded_fv_guard": Mission.AREA_GUARD}
+        for sample in fixture["samples"]:
+            if sample["label"] not in cases:
+                continue
+            with self.subTest(label=sample["label"]):
+                actor = parse_object(bytes.fromhex(sample["object_hex"]))
+                native = NativeEvent.parse(bytes.fromhex(sample["event_hex"]), sample["source"])
+                base = state(sample["submitted_frame"])
+                house = replace(base.player_house(), pointer=actor.house,
+                                array_index=native.house_index)
+                initial = replace(base, objects=(actor,), houses=(house,))
+                self.build(initial)
+                self.agent = self.identity.agent_id(actor.pointer)
+                self.executor.validator = Validator(make_map(144))
+                plan = self.executor.plan(self.intent(), initial)
+                after = replace(initial, frame=sample["observed_frame"],
+                                objects=(replace(actor, mission=cases[sample["label"]]),),
+                                _native_events=(native,))
+                # Effect mission differs by unit; the receipt confirms only the new input.
+                self.assertTrue(plan.verify(after))
+                self.assertFalse(plan.verify(replace(after, _native_events=())))
+
     def test_old_mission_or_destination_is_not_confirmation(self):
         initial = state(mission=Mission.AREA_GUARD, destination=cell_center(2, 2))
         self.build(initial)
