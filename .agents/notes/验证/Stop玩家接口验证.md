@@ -1,6 +1,6 @@
 # Stop 玩家接口验证
 
-日期：2026-10-02。状态：A0 已完成 34 项覆盖矩阵与首组契约；A1 首个 Stop 切片已实现、离线回归和独立 DLL 构建通过，已完成临时部署及 Grizzly 三项限定真机对照，测试后恢复 Guard DLL。计划与契约见[建设计划](../设计/玩家操作接口建设计划.md)和[接口审计](../../drafts/接口/L1基础接口契约与现状审计.md#a0-玩家能力覆盖矩阵)。
+日期：2026-10-02。状态：A0 已完成 34 项覆盖矩阵与首组契约；A1 首个 Stop 切片已实现、离线回归和独立 DLL 构建通过，已完成 Grizzly 三项正例及 12 项服务端限定拒绝对照，测试后恢复 Guard DLL。计划与契约见[建设计划](../设计/玩家操作接口建设计划.md)和[接口审计](../../drafts/接口/L1基础接口契约与现状审计.md#a0-玩家能力覆盖矩阵)。
 
 ## 玩家语义核验与切片选择
 
@@ -38,7 +38,7 @@ ENGINE_FEATURE=stop PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard_engine.p
 
 ## 未验与下一步
 
-新 DLL 加载、Idle actor 回读、Grizzly 移动中断及静止再次输入限定通过；服务端拒绝场景尚未专门真机验证。当前未迁移 hold_position、halt、guard_area 或 focus_fire，A1 整体仍未完成。
+新 DLL 加载、Idle actor 回读、Grizzly 移动中断及静止再次输入限定通过；12 项固定请求的服务端拒绝与无输入窗口已验证，建筑及变身等动态拒绝仍未验。当前未迁移 hold_position、halt、guard_area 或 focus_fire，A1 整体仍未完成。
 
 持续暂停恢复、完整 DSH idle/dispose、玩家子 Agent 冷恢复、完整联机同步、跨局身份、动态乘员、计划清空及其他型号 Stop 行为保持未验。HARV 与空 FV 对照未重新列为前置。U02 模式确认与 U08 实际目标回读仍待后续切片。
 
@@ -56,12 +56,30 @@ ENGINE_FEATURE=stop PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard_engine.p
 
 原始录制与三条提取样本的来源指纹见 tests/data/stop_native.json。新增真实样本测试初次因错误沿用合成对象 native_id 失败，修正为样本 ID 后 236 项相关回归通过；没有修改产品谓词迎合样本。停止不是即时固定坐标、永久禁火或计划清空；不推广至 CMIN/FV、步兵或其他状态。
 
-## 服务端拒绝补测准备
+## 服务端拒绝补测结果
 
-测试专用 tests/stop_fault_transport.py 在正式 stop 技法、作用域和 L0 校验之后，只对一次 UnitOrder.PLAYER_STOP 载荷注入固定错误；不增加模型可调用工具，不修改生产校验，不接受任意 action。12 项为 wrong_native_id、wrong_house、stale_basis、future_basis、empty_actors、multiple_actors、missing_native_id、missing_house、coordinates、object_target、foreign_actor、infantry_actor。预期服务端错误文本按当前 Stop 固定补丁逐分支定义，当前尚无本批真实拒绝回执。
+测试专用 [StopFaultTransport](../../../tests/stop_fault_transport.py) 在正式 stop 技法、作用域和 L0 校验之后，只对一次 UnitOrder.PLAYER_STOP 载荷注入固定错误；不增加模型工具或任意 action，不修改生产校验。两个独立运行均以合法 Stop 正例夹住拒绝场景，正例确认新 Idle 后按 operation_observed 结算；非法请求均收到 code=1 的明确服务端拒绝，任务 failed、unverified=0、无成功回执、租约释放，每项每次运行恰好一次发送。
 
-对应离线测试覆盖固定字段差异、错误基线/夹具拒绝、每种合成拒绝回执只发送一次且不解析回声、故障单次消费及传输未知不重试。相关 232 项回归通过（test_stop_fault_transport、test_stop_interface、test_guard_fault_transport、test_executor、test_micro、test_command）。合成拒绝回执不是 DLL 实测证明。
+| 固定错误 | 实际服务端拒绝 | 证据范围 |
+|---|---|---|
+| wrong_native_id | controlled actor absent, changed or unsupported | 首轮完整窗口 |
+| wrong_house | controlled player context changed | 首轮完整窗口 |
+| stale_basis / future_basis | controlled basis frame is stale | 首轮完整窗口；stale 使用 0，future 为当前依据帧 +100000，不证明 150/151 精确边界 |
+| empty_actors / multiple_actors | controlled order requires one actor, native ID and house | 首轮完整窗口；multiple 重复同一车辆，不证明混合单位批量语义 |
+| missing_native_id / missing_house | controlled order requires one actor, native ID and house | 首轮完整窗口 |
+| coordinates / object_target | stop does not accept a target | 首轮完整窗口；coordinates 是显式存在的空消息 |
+| foreign_actor / infantry_actor | controlled actor absent, changed or unsupported | 首轮拒绝回执通过；尾段补跑取得完整窗口 |
 
-本批脚本在 .agents/tmp/a1-stop-rejections/；run.py 复用已有启动/配置备份恢复流程，probe.py 经正式 stop 注册表、Commander/Micro 和测试传输层运行，两次合法正例夹住 12 个非法请求；每例要求明确服务端拒绝、任务失败且非 unverified、释放租约、恰好一次发送，随后至少 45 个推进帧内对象状态不变且无新 Idle。两侧逐帧录制另行复核以弥补轮询漏采；当前脚本仅语法检查，真机执行待本次临时部署确认。
+首轮目录 .agents/tmp/a1-stop-rejections/ 保存 12 项回执、两次正例、轮询状态与逐帧录制。原始 gzip 快照及游戏关闭后录制均止于 1063 帧：前 10 项窗口完整；foreign_actor 为 1035–1063 的部分窗口，infantry_actor 与最后正例未落盘。没有将截断尾段记为逐帧通过。仅补跑两项及前后正例，目录 .agents/tmp/a1-stop-rejections-tail/；脚本只读等待两侧录制已落盘至末尾正例窗口之后再结束，无额外操作请求。
 
-建筑对象及变身期间拒绝仍未执行：默认开局没有建筑，变身状态需隔离至实际游戏线程检查时点；不通过改内存或合成状态冒充真机结果。其余在场/死亡/limbo 等动态边界也不由这 12 项自动覆盖；是否准备场景按具体证据成本决定。
+尾段 foreign_actor 的 389–435 帧、infantry_actor 的 456–501 帧完整；对应首轮前 10 项完整窗口合计覆盖全部 12 项，每个窗口至少 45 个推进帧，记录逐帧连续。三个夹具（己方 Grizzly、己方 GI、外方 Grizzly）在 Alpha 的原始状态中位置、健康、Mission 与 native ID 保持不变，全部窗口没有新 Idle；外方 ID 仅由 Beta 己方观测与初始类型/位置配对取得，用于拒绝夹具诊断。完整联机同步未验。
+
+两轮 gzip 都没有完整文件尾，已落盘的测试窗口完整；仅解析完整消息，保留尾部截断限制。recording-check.json 记录实际覆盖、来源哈希与 Idle。尾段补测原始录制只出现两个正例的对应 Idle。原版事件无请求 ID，本次独占写入与固定夹具可关联证据，不承诺 exactly-once 或无限期无异常。
+
+[真实回执样本](../../../tests/data/stop_rejections_native.json)保存首轮 12 条请求/回执、源报告及逐项完整窗口的录制指纹，尾段项指向第二轮。失败 payload 是请求回声；[测试](../../../tests/test_stop_fault_transport.py)验证固定故障复现、重复 actor/默认字段的回声语义，并将真实失败回执送过 Executor，确认不读取回声为状态、不等待生效、不重试。新增样本后相关 234 项回归通过，未重复无关全量测试。
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python3 -m unittest tests.test_stop_fault_transport tests.test_stop_interface tests.test_guard_fault_transport tests.test_executor tests.test_micro tests.test_command
+```
+
+建筑对象及变身期间拒绝仍未执行：默认开局没有建筑，变身状态须隔离至游戏线程检查时点；其余死亡、limbo、在场失效、150/151 帧边界和多种异构 actor 也未专门实测。保留既有离线检查与源码依据，不将本批 12 项推广为全部动态安全条件。环境与回滚结果见[Stop 部署与对照](../环境/Stop部署与对照.md#拒绝补测执行与恢复)。
