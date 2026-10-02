@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build patched Guard v1 using the already prepared, clean baseline dependencies.
+"""Build patched Guard v1 or Stop v1 (ENGINE_FEATURE=stop) using the already prepared, clean baseline dependencies.
 
 No installation, network access, game launch or DLL deployment. See
 engine/ra2yrcpp/README.md and the project's Guard validation record.
@@ -30,13 +30,15 @@ def require(condition, message):
 
 def main():
     root = Path(os.environ.get("ENGINE_BUILD_ROOT", PROJECT / ".agents/tmp/engine-build")).resolve()
+    feature = os.environ.get("ENGINE_FEATURE", "guard")
+    require(feature in ("guard", "stop"), "ENGINE_FEATURE must be guard or stop")
     jobs = os.environ.get("ENGINE_BUILD_JOBS", "4")
     require(re.fullmatch(r"[1-9][0-9]*", jobs), "ENGINE_BUILD_JOBS must be positive")
     baseline = root / "sources/ra2yrcpp"
-    source = root / "sources/ra2yrcpp-guard"
+    source = root / f"sources/ra2yrcpp-{feature}"
     patches = PROJECT / "engine/ra2yrcpp/patches"
-    specs = [(Path("."), patches / "guard-v1-engine.patch", REVISION),
-             (PROTOCOL, patches / "guard-v1-protocol.patch", PROTOCOL_REVISION)]
+    specs = [(Path("."), patches / f"{feature}-v1-engine.patch", REVISION),
+             (PROTOCOL, patches / f"{feature}-v1-protocol.patch", PROTOCOL_REVISION)]
     for directory, _, revision in specs:
         require(output("git", "-C", str(baseline / directory), "rev-parse", "HEAD") == revision,
                 "Unexpected baseline revision")
@@ -71,9 +73,9 @@ def main():
         status = subprocess.check_output(["git", "-C", str(repo), "status", "--porcelain"], text=True)
         require(all(line[3:] in allowed for line in status.splitlines()),
                 "Unexpected modified files/submodules in feature source")
-    build = root / "build/ra2yrcpp-guard-i686"
+    build = root / f"build/ra2yrcpp-{feature}-i686"
     logs = root / "logs"
-    artifact = root / "artifacts/guard-v1"
+    artifact = root / f"artifacts/{feature}-v1"
     logs.mkdir(parents=True, exist_ok=True)
     artifact.mkdir(parents=True, exist_ok=True)
 
@@ -87,9 +89,9 @@ def main():
         print(f"{name}: complete", flush=True)
 
     runtime = str(Path(output("i686-w64-mingw32-g++", "-print-file-name=libgcc_s_dw2-1.dll")).parent)
-    run_step("guard-configure", ["cmake", "-S", str(source), "-B", str(build),
+    run_step(f"{feature}-configure", ["cmake", "-S", str(source), "-B", str(build),
              "--toolchain", str(source / "toolchains/mingw-w64-i686.cmake"),
-             "-DCMAKE_BUILD_TYPE=Release", "-DRA2YRCPP_VERSION=0.01-ee215f5-guard-v1",
+             "-DCMAKE_BUILD_TYPE=Release", f"-DRA2YRCPP_VERSION=0.01-ee215f5-{feature}-v1",
              "-DRA2YRCPP_BUILD_TESTS=OFF", "-DRA2YRCPP_BUILD_CLI_TOOL=OFF",
              f"-DPROTOC_PATH={shutil.which('protoc')}",
              f"-DPROTO_LIB={root / 'build/protobuf-i686/libprotobuf.a'}",
@@ -98,7 +100,7 @@ def main():
              f"-DCMAKE_INCLUDE_PATH={runtime}",
              f"-DCMAKE_SHARED_LINKER_FLAGS=-L{root / 'prefix/runtime'}",
              f"-DFETCHCONTENT_SOURCE_DIR_GOOGLETEST={root / 'build/ra2yrcpp-i686/_deps/googletest-src'}"])
-    run_step("guard-build", ["cmake", "--build", str(build), "--target", "ra2yrcpp_dll", "--parallel", jobs])
+    run_step(f"{feature}-build", ["cmake", "--build", str(build), "--target", "ra2yrcpp_dll", "--parallel", jobs])
     dll = artifact / "libra2yrcpp.dll"
     shutil.copyfile(build / "bin/libra2yrcpp.dll", dll)
     blob = dll.read_bytes()
@@ -118,8 +120,8 @@ def main():
             "Missing hook section or exports")
     require(len(re.findall(r"Leaf: Addr:", details.split("The .rsrc Resource Directory section:")[-1])) == 1,
             "Unexpected resource count")
-    (logs / "guard-pe-imports-exports.txt").write_text(details + "\n")
-    (logs / "guard-pe-sections.txt").write_text(sections + "\n")
+    (logs / f"{feature}-pe-imports-exports.txt").write_text(details + "\n")
+    (logs / f"{feature}-pe-sections.txt").write_text(sections + "\n")
     manifest = dict(source_revision=REVISION, protocol_revision=PROTOCOL_REVISION,
                     patches={p.name: hashlib.sha256(p.read_bytes()).hexdigest() for _, p, _ in specs},
                     sha256=hashlib.sha256(blob).hexdigest(), size_bytes=len(blob),
@@ -128,7 +130,7 @@ def main():
                     compiler=output("i686-w64-mingw32-g++", "--version").splitlines()[0],
                     protoc=output("protoc", "--version"))
     (artifact / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
-    print(f"Guard DLL: {dll}\nSHA-256: {manifest['sha256']}")
+    print(f"{feature} DLL: {dll}\nSHA-256: {manifest['sha256']}")
 
 
 if __name__ == "__main__":

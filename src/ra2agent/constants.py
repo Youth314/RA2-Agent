@@ -48,6 +48,7 @@ class UnitAction(IntEnum):
     # Local DLL extension v1; deliberately excluded from the old action whitelist.
     GUARD_CURRENT = 13
     GUARD_POSITION = 14
+    PLAYER_STOP = 15
 
 
 #: 服务端 `UnitOrder` 的 switch 实际实现的动作。

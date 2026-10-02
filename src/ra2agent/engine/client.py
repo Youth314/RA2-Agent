@@ -252,6 +252,13 @@ class Client:
                 pointer, action, native_id, house_pointer, basis_frame, coordinates),
             poll_timeout_ms)
 
+    def stop_order(self, pointer, native_id, house_pointer, basis_frame,
+                   poll_timeout_ms=5000) -> CommandResult:
+        """L0-only Stop v1 transport; no fallback to legacy STOP."""
+        return self.send_command(
+            NS + "UnitOrder", payloads.stop_order(
+                pointer, native_id, house_pointer, basis_frame), poll_timeout_ms)
+
     def click_event(self, units, event, poll_timeout_ms=5000) -> CommandResult:
         """下发 `ClickEvent`。"""
         return self.send_command(NS + "ClickEvent",

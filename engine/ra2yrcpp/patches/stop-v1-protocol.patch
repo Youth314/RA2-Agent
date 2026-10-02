@@ -1,0 +1,49 @@
+diff --git a/ra2yrproto/commands_game.proto b/ra2yrproto/commands_game.proto
+index a829b38..4ac086a 100644
+--- a/ra2yrproto/commands_game.proto
++++ b/ra2yrproto/commands_game.proto
+@@ -9,6 +9,10 @@ message UnitOrder {
+   ra2yrproto.ra2yr.UnitAction action = 2;
+   uint32 target_object = 3;
+   ra2yrproto.ra2yr.Coordinates coordinates = 4;
++  // Required for local guard extension; exactly one actor per request.
++  uint32 expected_native_id = 5;
++  uint32 expected_house = 6;
++  uint32 basis_frame = 7;
+ }
+ 
+ message ProduceOrder {
+diff --git a/ra2yrproto/ra2yr.proto b/ra2yrproto/ra2yr.proto
+index 7780bd3..6a27107 100644
+--- a/ra2yrproto/ra2yr.proto
++++ b/ra2yrproto/ra2yr.proto
+@@ -259,6 +259,8 @@ message Object {
+   Mission current_mission = 18;
+   bool in_limbo = 19;
+   bool on_map = 20;
++  // Local extension v1: native UniqueID, only for own Techno objects.
++  optional uint32 native_id = 21;
+ }
+ 
+ enum LoadStage {
+@@ -573,6 +575,10 @@ message GameState {
+   int32 tech_level = 14;
+   repeated Cell cells_difference = 15;
+   uint32 crc = 16;
++  // Local extension: 0/absent means no controlled guard implementation.
++  uint32 guard_interface_version = 17;
++  // Local controlled player Stop/Idle extension; independent of Guard.
++  uint32 stop_interface_version = 18;
+ }
+ 
+ message StorageValue {
+@@ -598,6 +604,9 @@ enum UnitAction {
+   UNIT_ACTION_STOP = 10;
+   UNIT_ACTION_SELL_CELL = 11;
+   UNIT_ACTION_ATTACK_MOVE = 12;
++  UNIT_ACTION_GUARD_CURRENT = 13;
++  UNIT_ACTION_GUARD_POSITION = 14;
++  UNIT_ACTION_PLAYER_STOP = 15;
+ }
+ 
+ enum ProduceAction {

@@ -92,7 +92,7 @@ class NativeEvent:
     """一个列表槽的观测；重复观测和 out/do 转移不等于重复下令。
 
     is_executed 仅保留上游标志，不作为本次 Agent 请求的 applied 证明。
-    未接入的载荷（包括当前 DLL 的 Idle 对象）保留在 raw 中。
+    Idle 仅解析 Target.whom；旧 DLL 未提供时为 None，其他载荷保留在 raw 中。
     """
 
     source: str
@@ -103,6 +103,7 @@ class NativeEvent:
     is_executed: bool
     mega_mission: NativeMission | None
     raw: bytes = field(repr=False)
+    idle_actor: NativeTarget | None = None
 
     @classmethod
     def parse(cls, blob, source):
@@ -114,11 +115,14 @@ class NativeEvent:
                    if payload_number is not None else None)
         mission = (None if payload is None
                    else NativeMission.parse(payload, event_type))
+        idle_payload = _message(data, 7) if event_type == 6 else None
+        idle_actor = (None if idle_payload is None
+                      else _target(fmap(idle_payload), 1))
         return cls(source=source, event_type=event_type,
                    house_index=signed64(_integer(data, 2)),
                    frame=_integer(data, 3), timing=_integer(data, 19),
                    is_executed=bool(_integer(data, 1)),
-                   mega_mission=mission, raw=bytes(blob))
+                   mega_mission=mission, raw=bytes(blob), idle_actor=idle_actor)
 
 
 def parse_native_events(data) -> tuple[NativeEvent, ...]:

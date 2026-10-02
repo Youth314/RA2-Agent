@@ -278,6 +278,7 @@ class GameState:
     _by_pointer: dict = field(repr=False, default_factory=dict)
     _native_events: tuple[NativeEvent, ...] = field(repr=False, default=())
     guard_interface_version: int = 0
+    stop_interface_version: int = 0
 
     def __post_init__(self):
         self._by_pointer = {o.pointer: o for o in self.objects}
@@ -298,6 +299,7 @@ class GameState:
             raw=bytes(payload),
             _native_events=parse_native_events(fields),
             guard_interface_version=_optional_uint32(fields, 17) or 0,
+            stop_interface_version=_optional_uint32(fields, 18) or 0,
         )
 
     @property

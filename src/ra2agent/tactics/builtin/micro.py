@@ -5,10 +5,15 @@
 """
 from ...data.catalogue import own_building_cells
 from ...runtime.formation import blocked_cells, formation_cells
-from ...runtime.intents import Attack, Hold, MoveTo, Stance
+from ...runtime.intents import Attack, Hold, MoveTo, Stance, Stop
 from ..core import (REQUIRED, Param, Tactic, TacticInfo, is_cell,
                     is_non_negative_int, is_optional_cell, is_positive_number,
                     is_stance)
+
+
+def _stop(context):
+    """单车辆玩家输入；完整适用性由 L0 复查。"""
+    return (context.intent(Stop, units=context.subject.agents()),)
 
 
 def _hold(context):
@@ -134,6 +139,13 @@ def _retreat(context):
 
 
 TACTICS = (
+    Tactic(TacticInfo(
+        name="stop",
+        summary="实验 Stop v1：向单个己方车辆提交一次玩家 S 输入；真机效果待核验；"
+                "输入确认后释放租约，不保证永久停车或禁火",
+        requires=("has_units", "has_map", "stop_v1"),
+    ), _stop),
+
     Tactic(TacticInfo(
         name="hold_position",
         summary="让这队单位原地驻守",

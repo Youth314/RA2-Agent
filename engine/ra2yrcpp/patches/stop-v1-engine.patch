@@ -1,0 +1,151 @@
+diff --git a/src/commands_game.cpp b/src/commands_game.cpp
+index 8f894f6..dc323bd 100644
+--- a/src/commands_game.cpp
++++ b/src/commands_game.cpp
+@@ -10,6 +10,7 @@
+ #include "ra2/common.hpp"
+ #include "ra2/state_context.hpp"
+ #include "ra2/yrpp_export.hpp"
++#include "utility/array_iterator.hpp"
+ #include "types.h"
+ 
+ #include <fmt/core.h>
+@@ -148,7 +149,100 @@ struct UnitOrderCtx {
+     }
+   }
+ 
++  // Controlled, single-actor extension. Resolve from live game objects before
++  // touching an address. These checks happen on the game thread, not the cache.
++  TechnoClass* controlled_vehicle() {
++    if (uo().object_addresses_size() != 1 || !uo().expected_native_id() ||
++        !uo().expected_house()) {
++      throw std::runtime_error("controlled order requires one actor, native ID and house");
++    }
++    auto* player = HouseClass::CurrentPlayer.get();
++    if (!player || player->Defeated || player->IsWinner || player->IsLoser ||
++        reinterpret_cast<u32>(player) != uo().expected_house()) {
++      throw std::runtime_error("controlled player context changed");
++    }
++    const auto frame = static_cast<u32>(Unsorted::CurrentFrame);
++    if (uo().basis_frame() > frame || frame - uo().basis_frame() > 150) {
++      throw std::runtime_error("controlled basis frame is stale");
++    }
++    TechnoClass* actor = nullptr;
++    for (auto* object : ra2::abi::DVCIterator(TechnoClass::Array.get())) {
++      if (reinterpret_cast<u32>(object) == uo().object_addresses(0)) {
++        actor = object;
++        break;
++      }
++    }
++    if (!actor || actor->Owner != player || actor->InLimbo ||
++        !actor->IsOnMap || actor->Health <= 0 ||
++        actor->UniqueID != uo().expected_native_id() ||
++        ra2::abi::AbstractClass_WhatAmI::call(ctx_->abi_, actor) != UnitClass::AbsID ||
++        is_illegal_mission(static_cast<r2p::Mission>(actor->CurrentMission))) {
++      throw std::runtime_error("controlled actor absent, changed or unsupported");
++    }
++    auto* unit = static_cast<UnitClass*>(actor);
++    if (unit->IsDeploying || unit->Deploying || unit->Undeploying) {
++      throw std::runtime_error("controlled actor is transforming");
++    }
++    return actor;
++  }
++
++  void player_stop() {
++    auto* actor = controlled_vehicle();
++    if (uo().target_object() || uo().has_coordinates()) {
++      throw std::runtime_error("stop does not accept a target");
++    }
++    if (!ctx_->abi_->ClickEvent(reinterpret_cast<u32>(actor),
++                                r2p::NETWORK_EVENT_Idle)) {
++      throw std::runtime_error("stop input was rejected");
++    }
++  }
++
++  void guard() {
++    auto* actor = controlled_vehicle();
++    if (uo().target_object()) {
++      throw std::runtime_error("guard does not accept an object target");
++    }
++    const bool current = uo().action() == r2p::UNIT_ACTION_GUARD_CURRENT;
++    if ((current && uo().has_coordinates()) ||
++        (!current && !uo().has_coordinates())) {
++      throw std::runtime_error("guard target shape mismatch");
++    }
++    auto location = actor->Location;
++    if (!current) {
++      const auto& c = uo().coordinates();
++      if (c.z() != 0 || c.x() < 0 || c.y() < 0 ||
++          c.x() >= 512 * 256 || c.y() >= 512 * 256) {
++        throw std::runtime_error("guard coordinates out of range");
++      }
++      location = CoordStruct{c.x(), c.y(), 0};
++    }
++    const auto cell = CellClass::Coord2Cell(location);
++    auto* map = MapClass::Instance.get();
++    const auto& bounds = map->MapCoordBounds;
++    if (cell.X < bounds.Left || cell.Y < bounds.Top ||
++        cell.X > bounds.Right || cell.Y > bounds.Bottom) {
++      throw std::runtime_error("guard cell outside map bounds");
++    }
++    // Native G stores its Cell in Target, not Destination. Only the checked
++    // Cell pointer below can occupy ClickMission's packed-target argument.
++    auto* target = map->TryGetCellAt(cell);
++    if (!target || !ra2::abi::ClickMission::call(
++          ctx_->abi_, reinterpret_cast<u32>(actor), Mission::Area_Guard,
++          reinterpret_cast<u32>(target), nullptr, nullptr)) {
++      throw std::runtime_error("guard input was rejected");
++    }
++  }
++
+   void perform() {
++    if (uo().action() == r2p::UNIT_ACTION_PLAYER_STOP) {
++      player_stop();
++      return;
++    }
++    if (uo().action() == r2p::UNIT_ACTION_GUARD_CURRENT ||
++        uo().action() == r2p::UNIT_ACTION_GUARD_POSITION) {
++      guard();
++      return;
++    }
+     if (uo().action() == r2p::UnitAction::UNIT_ACTION_SELL_CELL) {
+       unit_action();
+     } else {
+diff --git a/src/hooks_yr.cpp b/src/hooks_yr.cpp
+index 088c38e..08ec001 100644
+--- a/src/hooks_yr.cpp
++++ b/src/hooks_yr.cpp
+@@ -143,6 +143,8 @@ struct StateSave : public GameDataInterface {
+ 
+     gbuf->set_crc(EventClass::CurrentFrameCRC);
+     gbuf->set_current_frame(Unsorted::CurrentFrame);
++    gbuf->set_guard_interface_version(1);
++    gbuf->set_stop_interface_version(1);
+     gbuf->set_tech_level(Game::TechLevel);
+     ra2::parse_HouseClasses(gbuf);
+     ra2::parse_Objects(gbuf, abi());
+diff --git a/src/ra2/state_parser.cpp b/src/ra2/state_parser.cpp
+index 268e1ed..3c9aa91 100644
+--- a/src/ra2/state_parser.cpp
++++ b/src/ra2/state_parser.cpp
+@@ -76,6 +76,10 @@ void ClassParser::Techno() {
+   auto* P = reinterpret_cast<TechnoClass*>(c.src);
+   T->set_pointer_house(reinterpret_cast<u32>(P->Owner));
+   T->set_pointer_initial_owner(reinterpret_cast<u32>(P->InitialOwner));
++  T->clear_native_id();
++  if (P->Owner == HouseClass::CurrentPlayer.get()) {
++    T->set_native_id(P->UniqueID);
++  }
+   // TODO: armor multiplier
+ }
+ 
+@@ -322,6 +326,9 @@ void EventParser::parse() {
+   T->set_frame(src->Frame);
+   T->set_timing(time);
+   switch (src->Type) {
++    case EventType::IDLE:
++      parse_TargetClass(src->Data.Target.Whom, T->mutable_target()->mutable_whom());
++      break;
+     case EventType::DEPLOY:
+       Deploy();
+       break;

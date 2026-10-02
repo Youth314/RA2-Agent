@@ -12,3 +12,9 @@
 先使用 tools/build_engine.sh 准备未修改基线，再运行 `python3 tools/build_guard_engine.py`。脚本复制独立源码目录、应用两份补丁并复用已准备依赖；重复运行要求源码差异与补丁严格一致，不覆盖未识别的修改。构建不联网、不更改系统依赖、不替换游戏 DLL。
 
 协议沿用 UnitOrder，增加 action=13/14 和字段 expected_native_id=5、expected_house=6、basis_frame=7；GameState.guard_interface_version=17 声明 v1，己方 Object.native_id=21 为可选 UniqueID 回读。通过固定 YRpp 布局读取字段，避免跨编译器直接 Fetch_ID 虚调用；合法 Cell 经固定 ClickMission 编码到 Target，Destination 保持空。字段与枚举仅为本地扩展，不代表上游已采用。版本缺失时 L0 拒绝 Guard，不回退任意 MissionClicked。
+
+## Stop v1 切片
+
+`patches/stop-v1-engine.patch` 与 `patches/stop-v1-protocol.patch` 相对上表同一未修改基线生成，包含 Guard v1；不得在 Guard 补丁之上叠加。`ENGINE_FEATURE=stop PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard_engine.py` 生成独立源码、构建目录和 stop-v1 产物，默认仍构建 Guard。Stop 的 action=15、GameState.stop_interface_version=18 独立于 Guard 版本；Idle 使用既有 Event.Target.whom 字段回读。原 STOP action=10 保留。
+
+当前仅编译与相关离线回归通过，尚未部署；证据、指纹与限制见 [Stop 玩家接口验证](../../.agents/notes/验证/Stop玩家接口验证.md)，临时环境范围及回滚见 [Stop 部署与对照](../../.agents/notes/环境/Stop部署与对照.md)。

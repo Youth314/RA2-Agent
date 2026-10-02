@@ -255,7 +255,15 @@ class Attack(Intent):
 @register("hold")
 @dataclass
 class Hold(Intent):
-    """停止并原地驻守。"""
+    """旧 Mission_Stop 兼容意图；不承诺玩家 S 等价或永久驻守。"""
+
+    units: tuple[int, ...] = ()
+
+
+@register("stop")
+@dataclass
+class Stop(Intent):
+    """一次玩家 S 输入；不承诺永久停车、禁火或清空计划。"""
 
     units: tuple[int, ...] = ()
 

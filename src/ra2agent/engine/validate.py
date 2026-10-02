@@ -149,24 +149,34 @@ class Validator:
 
     def check_guard(self, state, pointers, coordinates=None):
         """Extension v1: single, own, live vehicle and a supported DLL."""
-        from ..constants import AbstractType
-
         self.check_state(state)
         if state.guard_interface_version != 1:
             raise InvalidCommand("unsupported: DLL 未提供 Guard 接口 v1")
+        return self._check_controlled_vehicle(state, pointers, coordinates)
+
+    def check_stop(self, state, pointers):
+        """Player Stop v1; capability is independent of Guard v1."""
+        self.check_state(state)
+        if state.stop_interface_version != 1:
+            raise InvalidCommand("unsupported: DLL 未提供 Stop 接口 v1")
+        return self._check_controlled_vehicle(state, pointers)
+
+    def _check_controlled_vehicle(self, state, pointers, coordinates=None):
+        from ..constants import AbstractType
+
         if len(pointers) != 1:
-            raise InvalidCommand("Guard v1 每条意图只接受一个车辆对象")
+            raise InvalidCommand("受控操作 v1 每条意图只接受一个车辆对象")
         objects = self.resolve(state, pointers)
         house = state.player_house()
         for obj in objects:
             # allow_foreign cannot weaken the DLL's mandatory ownership check.
             if obj.house != house.pointer:
-                raise InvalidCommand("Guard 只能控制己方对象")
+                raise InvalidCommand("受控操作只能控制己方对象")
             if (obj.object_type != AbstractType.UNIT or not obj.on_map
                     or obj.health <= 0 or obj.deploying or obj.undeploying):
-                raise InvalidCommand("Guard 对象当前不可用或类型 unsupported")
+                raise InvalidCommand("受控对象当前不可用或类型 unsupported")
             if obj.native_id is None or not 0 < obj.native_id <= 0xFFFFFFFF:
-                raise InvalidCommand("unsupported: Guard 对象缺少原版 ID")
+                raise InvalidCommand("unsupported: 受控对象缺少原版 ID")
         self.check_mission(objects)
         self.check_coordinates(coordinates or objects[0].coordinates)
         return objects[0]

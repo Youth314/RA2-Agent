@@ -234,6 +234,7 @@ class Executor:
         "move_to": "_plan_move",
         "attack": "_plan_attack",
         "hold": "_plan_hold",
+        "stop": "_plan_stop",
         "deploy": "_plan_deploy",
         "produce": "_plan_produce",
         "place": "_plan_place",
@@ -366,6 +367,9 @@ class Executor:
     # ------------------------------------------------------------ 发送
     def _deliver(self, plan) -> CommandResult:
         """按选路结果调用客户端方法。"""
+        if plan.action == UnitAction.PLAYER_STOP:
+            return self.client.stop_order(
+                plan.pointers[0], plan.native_id, plan.house_pointer, plan.basis_frame)
         if plan.verify_basis == "native_input":
             return self.client.guard_order(
                 plan.pointers[0], plan.action, plan.native_id, plan.house_pointer,
@@ -436,6 +440,34 @@ class Executor:
         return self._read().frame - before.frame >= 1
 
     # ------------------------------------------------------------ 选路
+    def _plan_stop(self, intent, state):
+        pointers = self._pointers(intent.units)
+        obj = self.validator.check_stop(state, pointers)
+        house = state.player_house()
+        before = {(e.house_index, e.timing, e.event_type, e.idle_actor)
+                  for e in state.native_events}
+
+        def verify(current):
+            actor = current.object(pointers[0])
+            if (actor is None or actor.native_id != obj.native_id
+                    or actor.house != house.pointer or actor.in_limbo
+                    or not actor.on_map or actor.health <= 0):
+                return False
+            return any(
+                e.event_type == 6 and e.frame >= state.frame
+                and e.idle_actor is not None and e.idle_actor.m_rtti == 52
+                and (e.idle_actor.m_id & 0xFFFFFFFF) == obj.native_id
+                and (e.house_index, e.timing, e.event_type, e.idle_actor) not in before
+                for e in current.native_events)
+
+        return CommandPlan(
+            kind=intent.kind, command="UnitOrder", action=UnitAction.PLAYER_STOP,
+            pointers=pointers, verify=verify, native_id=obj.native_id,
+            house_pointer=house.pointer, basis_frame=state.frame,
+            verify_basis="native_input",
+            facts={**self._facts(state, pointers), "native_id": obj.native_id,
+                   "basis_frame": state.frame, "verification": "native_input"})
+
     def _plan_guard(self, intent, state):
         pointers = self._pointers(intent.units)
         coordinates = None
