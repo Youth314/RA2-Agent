@@ -259,6 +259,10 @@ message Object {
   Mission current_mission = 18;
   bool in_limbo = 19;
   bool on_map = 20;
+  // Local extension v1: native UniqueID, only for own Techno objects.
+  optional uint32 native_id = 21;
+  // Own actor current target, filtered for legal observation.
+  ActualTargetObservation actual_target = 22;
 }
 
 enum LoadStage {
@@ -432,6 +436,20 @@ message TunnelPacket {
   bytes data = 3;
 }
 
+message ActualTargetObservation {
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_UNOBSERVABLE = 1;
+    STATUS_NONE = 2;
+    STATUS_OBJECT = 3;
+  }
+  Status status = 1;
+  TargetClass reference = 2;
+  AbstractType object_type = 3;
+  // Same-frame mapping only. Never a public or persistent target ID.
+  uint32 object_pointer = 4;
+}
+
 message TargetClass {
   int32 m_id = 1;
   int32 m_rtti = 2;
@@ -573,6 +591,12 @@ message GameState {
   int32 tech_level = 14;
   repeated Cell cells_difference = 15;
   uint32 crc = 16;
+  // Local extension: 0/absent means no controlled guard implementation.
+  uint32 guard_interface_version = 17;
+  // Local controlled player Stop/Idle extension; independent of Guard.
+  uint32 stop_interface_version = 18;
+  // v1 read-only current target; does not declare controlled Attack.
+  uint32 target_observation_version = 19;
 }
 
 message StorageValue {
@@ -598,6 +622,9 @@ enum UnitAction {
   UNIT_ACTION_STOP = 10;
   UNIT_ACTION_SELL_CELL = 11;
   UNIT_ACTION_ATTACK_MOVE = 12;
+  UNIT_ACTION_GUARD_CURRENT = 13;
+  UNIT_ACTION_GUARD_POSITION = 14;
+  UNIT_ACTION_PLAYER_STOP = 15;
 }
 
 enum ProduceAction {

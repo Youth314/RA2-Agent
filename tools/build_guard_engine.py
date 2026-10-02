@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build patched Guard v1 or Stop v1 (ENGINE_FEATURE=stop) using the already prepared, clean baseline dependencies.
+"""Build Guard, Stop or Target v1 using prepared, clean baseline dependencies.
 
 No installation, network access, game launch or DLL deployment. See
 engine/ra2yrcpp/README.md and the project's Guard validation record.
@@ -31,7 +31,8 @@ def require(condition, message):
 def main():
     root = Path(os.environ.get("ENGINE_BUILD_ROOT", PROJECT / ".agents/tmp/engine-build")).resolve()
     feature = os.environ.get("ENGINE_FEATURE", "guard")
-    require(feature in ("guard", "stop"), "ENGINE_FEATURE must be guard or stop")
+    require(feature in ("guard", "stop", "target"),
+            "ENGINE_FEATURE must be guard, stop or target")
     jobs = os.environ.get("ENGINE_BUILD_JOBS", "4")
     require(re.fullmatch(r"[1-9][0-9]*", jobs), "ENGINE_BUILD_JOBS must be positive")
     baseline = root / "sources/ra2yrcpp"
@@ -58,6 +59,11 @@ def main():
         for directory, patch, _ in specs:
             subprocess.run(["git", "-C", str(source / directory), "apply", "--check", str(patch)], check=True)
             subprocess.run(["git", "-C", str(source / directory), "apply", str(patch)], check=True)
+        if feature == "target":
+            # Track the new header as intent-to-add so diff includes its patch
+            # while the staged diff remains empty. No commit is created.
+            subprocess.run(["git", "-C", str(source), "add", "--intent-to-add", "--",
+                            "src/ra2/target_observation.hpp"], check=True)
     for directory, patch, revision in specs:
         repo = source / directory
         require(output("git", "-C", str(repo), "rev-parse", "HEAD") == revision,
@@ -70,6 +76,8 @@ def main():
         allowed = ({"src/commands_game.cpp", "src/hooks_yr.cpp", "src/ra2/state_parser.cpp",
                     "src/protocol/ra2yrproto"} if directory == Path(".") else
                    {"ra2yrproto/commands_game.proto", "ra2yrproto/ra2yr.proto"})
+        if feature == "target" and directory == Path("."):
+            allowed.add("src/ra2/target_observation.hpp")
         status = subprocess.check_output(["git", "-C", str(repo), "status", "--porcelain"], text=True)
         require(all(line[3:] in allowed for line in status.splitlines()),
                 "Unexpected modified files/submodules in feature source")

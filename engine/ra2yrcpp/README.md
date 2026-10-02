@@ -17,4 +17,10 @@
 
 `patches/stop-v1-engine.patch` 与 `patches/stop-v1-protocol.patch` 相对上表同一未修改基线生成，包含 Guard v1；不得在 Guard 补丁之上叠加。`ENGINE_FEATURE=stop PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard_engine.py` 生成独立源码、构建目录和 stop-v1 产物，默认仍构建 Guard。Stop 的 action=15、GameState.stop_interface_version=18 独立于 Guard 版本；Idle 使用既有 Event.Target.whom 字段回读。原 STOP action=10 保留。
 
-当前编译、相关离线回归及 Grizzly 三项限定真机对照通过，临时部署已回滚；证据、指纹与限制见 [Stop 玩家接口验证](../../.agents/notes/验证/Stop玩家接口验证.md)，临时环境范围及回滚见 [Stop 部署与对照](../../.agents/notes/环境/Stop部署与对照.md)。
+当前 Stop v1 已长期启用，编译、相关离线回归、Grizzly 三项限定真机对照及运行加载检查通过；证据与限制见 [Stop 玩家接口验证](../../.agents/notes/验证/Stop玩家接口验证.md)，部署指纹与回滚见 [Stop 部署与对照](../../.agents/notes/环境/Stop部署与对照.md)。
+
+## Target v1 只读切片
+
+`patches/target-v1-engine.patch` 与 `patches/target-v1-protocol.patch` 相对同一未修改固定基线生成，包含 Stop/Guard v1；不与旧补丁叠加。新字段为 `Object.actual_target=22` 和 `GameState.target_observation_version=19`，只读己方 actor 的合法当前对象目标，区分未提供、不可观测、无目标和对象；RTTI=52 的原版引用与具体对象类型分开，L1 经 Observer 投影为稳定 Agent ID。Cell、灰雾/隐形/伪装或无法确认的目标不导出有效引用，不代表受控 Attack 已完成。
+
+`ENGINE_FEATURE=target PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard_engine.py` 生成独立源码、构建与 target-v1 产物。补丁新增纯策略头文件，构建脚本在复制的源码仓库中用 intent-to-add 纳入 diff 校验，不提交该临时仓库；其他版本构建路径不变。布局 static_assert 使用锁定 YRpp/i686 偏移。相关离线检查和构建通过，产物未加载/部署；指纹、合法观测及未验边界见 [U08 验证](../../.agents/notes/验证/U08实际目标回读验证.md)。

@@ -67,28 +67,54 @@ def _read_varint(buf, pos):
         shift += 7
 
 
-def fields(message):
+def fields(message, *, strict=False):
     """逐条产出 `(field_no, wire_type, value)`。
 
     length-delimited 字段的值是 `bytes`，varint 字段是 `int`，定长字段是原始
     字节。服务端把 repeated 标量按 packed 编码，故调用方可能拿到 `bytes` 而非
     `int`，需要 `packed_varints` 解开。
+    strict=True 时拒绝截断、无效字段号和超出 uint64 的 varint。
     """
     pos = 0
     end = len(message)
+
+    def read(pos):
+        if not strict:
+            return _read_varint(message, pos)
+        value = 0
+        for shift in range(0, 70, 7):
+            if pos >= end:
+                raise ProtocolError("protobuf varint 被截断")
+            byte = message[pos]
+            pos += 1
+            if shift == 63 and byte > 1:
+                raise ProtocolError("protobuf varint 超出 uint64")
+            value |= (byte & 0x7F) << shift
+            if not byte & 0x80:
+                return value, pos
+        raise ProtocolError("protobuf varint 超出 uint64")
+
     while pos < end:
-        key, pos = _read_varint(message, pos)
+        key, pos = read(pos)
         field, wire = key >> 3, key & 7
+        if strict and (field == 0 or field >= 1 << 29):
+            raise ProtocolError("protobuf 字段号无效")
         if wire == 0:
-            value, pos = _read_varint(message, pos)
+            value, pos = read(pos)
         elif wire == 2:
-            length, pos = _read_varint(message, pos)
+            length, pos = read(pos)
+            if strict and length > end - pos:
+                raise ProtocolError("protobuf 消息被截断")
             value = message[pos:pos + length]
             pos += length
         elif wire == 5:
+            if strict and end - pos < 4:
+                raise ProtocolError("protobuf fixed32 被截断")
             value = message[pos:pos + 4]
             pos += 4
         elif wire == 1:
+            if strict and end - pos < 8:
+                raise ProtocolError("protobuf fixed64 被截断")
             value = message[pos:pos + 8]
             pos += 8
         else:
@@ -96,10 +122,10 @@ def fields(message):
         yield field, wire, value
 
 
-def fmap(message):
+def fmap(message, *, strict=False):
     """把一条消息按字段号聚成 `{字段号: [(线类型, 值)]}`。"""
     out = {}
-    for field, wire, value in fields(message):
+    for field, wire, value in fields(message, strict=strict):
         out.setdefault(field, []).append((wire, value))
     return out
 

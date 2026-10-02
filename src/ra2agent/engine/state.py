@@ -13,7 +13,7 @@ from typing import Iterator
 from ..constants import LEPTONS_PER_CELL
 from ..errors import ProtocolError
 from .proto import fmap, one, repeated_ints, signed64, sub
-from .native_events import NativeEvent, parse_native_events
+from .native_events import NativeEvent, NativeTarget, parse_native_events
 
 # ---------------------------------------------------------------- 基础类型
 @dataclass(frozen=True)
@@ -59,6 +59,69 @@ def parse_coordinates(blob) -> Coordinates:
 
 # ---------------------------------------------------------------- 实体
 @dataclass(frozen=True)
+class ActualTarget:
+    """DLL 的当帧目标；仅供 Observer 投影，不直接作为 L1 目标。
+
+    1=不可观测，2=无目标，3=合法对象；字段缺失由 None 表示。
+    对象引用 RTTI=52，object_type 是 WhatAmI 的具体类型。
+    """
+
+    status: int
+    reference: NativeTarget | None = None
+    object_type: int | None = None
+    object_pointer: int | None = None
+
+    @property
+    def native_id(self) -> int | None:
+        return None if self.reference is None else self.reference.m_id & 0xFFFFFFFF
+
+    @classmethod
+    def parse(cls, blob) -> "ActualTarget":
+        try:
+            data = fmap(blob, strict=True)
+            status = _target_scalar(data, 1)
+            if status not in (1, 2, 3):
+                raise ProtocolError("actual_target 状态未知或缺失")
+            if status != 3:
+                if any(number in data for number in (2, 3, 4)):
+                    raise ProtocolError("不可观测/无目标不得携带目标引用")
+                return cls(status)
+            reference_blob = _target_field(data, 2, 2)
+            if reference_blob is None:
+                raise ProtocolError("actual_target 缺少对象引用")
+            reference_data = fmap(reference_blob, strict=True)
+            encoded_id = _target_scalar(reference_data, 1)
+            if encoded_id is None:
+                encoded_id = 0  # proto3 omits an explicitly set int32 zero.
+            rtti = _target_scalar(reference_data, 2)
+            if (rtti != 52 or
+                    not (0 <= encoded_id <= 0xFFFFFFFF or
+                         0xFFFFFFFF80000000 <= encoded_id <= 0xFFFFFFFFFFFFFFFF)):
+                raise ProtocolError("actual_target 对象引用需要 Abstract RTTI/native ID")
+            reference = NativeTarget.parse(reference_blob)
+            kind = _target_scalar(data, 3)
+            pointer = _target_scalar(data, 4)
+            if kind not in (1, 2, 6, 15) or not pointer or pointer > 0xFFFFFFFF:
+                raise ProtocolError("actual_target 对象类型或映射指针无效")
+            return cls(status, reference, kind, pointer)
+        except (IndexError, TypeError) as error:
+            raise ProtocolError("actual_target 消息不完整") from error
+
+
+def _target_field(data, number, wire):
+    entries = data.get(number)
+    if not entries:
+        return None
+    if len(entries) != 1 or entries[0][0] != wire:
+        raise ProtocolError(f"actual_target 字段 {number} 重复或 wire 无效")
+    return entries[0][1]
+
+
+def _target_scalar(data, number):
+    return _target_field(data, number, 0)
+
+
+@dataclass(frozen=True)
 class GameObject:
     """`Object`。字段名沿用 proto，便于对照。"""
 
@@ -81,6 +144,8 @@ class GameObject:
     undeploying: bool = False
     # Extension v1; None means that the DLL did not provide an own native ID.
     native_id: int | None = None
+    # Raw same-frame reference; Observation only exposes its stable-ID projection.
+    actual_target: ActualTarget | None = field(default=None, repr=False)
 
     @property
     def is_building(self) -> bool:
@@ -164,7 +229,7 @@ class Cell:
 
 def parse_object(blob) -> GameObject:
     """解析 `Object`。"""
-    fields = fmap(blob)
+    fields = fmap(blob, strict=True)
     get = lambda f, d=0: fields.get(f, [(0, d)])[0][1]  # noqa: E731
     return GameObject(
         pointer=get(10),
@@ -184,6 +249,8 @@ def parse_object(blob) -> GameObject:
         destination=parse_coordinates(sub(blob, 17)),
         initial_owner=get(11),
         native_id=_optional_uint32(fields, 21),
+        actual_target=(ActualTarget.parse(_target_field(fields, 22, 2))
+                       if 22 in fields else None),
     )
 
 
@@ -279,6 +346,7 @@ class GameState:
     _native_events: tuple[NativeEvent, ...] = field(repr=False, default=())
     guard_interface_version: int = 0
     stop_interface_version: int = 0
+    target_observation_version: int = 0
 
     def __post_init__(self):
         self._by_pointer = {o.pointer: o for o in self.objects}
@@ -286,7 +354,7 @@ class GameState:
     @classmethod
     def parse(cls, payload) -> "GameState":
         """解析 `GetGameState` 响应中的 `GameState` 字节。"""
-        fields = fmap(payload)
+        fields = fmap(payload, strict=True)
         return cls(
             frame=one(payload, 1, 0),
             stage=one(payload, 7, 0),
@@ -300,6 +368,7 @@ class GameState:
             _native_events=parse_native_events(fields),
             guard_interface_version=_optional_uint32(fields, 17) or 0,
             stop_interface_version=_optional_uint32(fields, 18) or 0,
+            target_observation_version=_optional_uint32(fields, 19) or 0,
         )
 
     @property

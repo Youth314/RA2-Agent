@@ -11,12 +11,20 @@
 
 迷雾的语义与限制见「可见性」一节。
 """
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 
 from ..constants import AbstractType
 from .events import EventLog
 from .identity import IdentityTable
 from .state import GameObject, GameState, House, MapData, TypeTable
+
+
+@dataclass(frozen=True)
+class ObservedTarget:
+    """合法当前目标；不证明输入、开火或任务完成，不含 native 地址。"""
+
+    status: str
+    agent_id: int | None = None
 
 
 @dataclass
@@ -38,6 +46,8 @@ class Observation:
     types: TypeTable | None = field(default=None, repr=False)
     #: 可造目录（前提 / 造价 / 科技等级）。同样是公开知识，整局共用一份。
     catalogue: object | None = field(default=None, repr=False)
+    #: 己方 actor 的 Agent ID → 当帧合法目标，旧 DLL 为 not_provided。
+    actual_targets: dict[int, ObservedTarget] = field(default_factory=dict)
 
     @property
     def units(self) -> tuple[GameObject, ...]:
@@ -129,10 +139,59 @@ class Observer:
                 neutral.append(obj)
             else:
                 enemies.append(obj)
-        return Observation(frame=state.frame, house=house, own=tuple(own),
-                           visible_enemies=tuple(enemies), neutral=tuple(neutral),
+        legal = {obj.pointer: obj for obj in (*own, *enemies, *neutral)
+                 if obj.on_map and obj.health > 0}
+        targets = {}
+        for actor in own:
+            agent = self.identity.agent_id(actor.pointer)
+            if agent is not None:
+                targets[agent] = self._actual_target(state, actor, legal)
+        # Raw target references must not accompany GameObjects exposed to L1.
+        clean = lambda objects: tuple(replace(obj, actual_target=None)
+                                      if obj.actual_target is not None else obj
+                                      for obj in objects)
+        return Observation(frame=state.frame, house=house, own=clean(own),
+                           visible_enemies=clean(enemies), neutral=clean(neutral),
                            state=state, map_data=self.map_data, types=self.types,
-                           catalogue=self.catalogue)
+                           catalogue=self.catalogue, actual_targets=targets)
+
+    def _actual_target(self, state, actor, legal):
+        raw = actor.actual_target
+        if state.target_observation_version != 1 or raw is None:
+            return ObservedTarget("not_provided")
+        if (not actor.on_map or actor.health <= 0 or actor.in_limbo
+                or actor.native_id is None
+                or actor.object_type not in (1, 2, 6, 15)):
+            return ObservedTarget("unobservable")
+        actor_agent = self.identity.agent_id(actor.pointer)
+        actor_tracked = (self.identity.tracked(actor_agent)
+                         if actor_agent is not None else None)
+        if (actor_tracked is None or actor_tracked.last_seen_frame != state.frame
+                or actor_tracked.house != actor.house
+                or actor_tracked.object_type != actor.object_type
+                or actor_tracked.native_id != actor.native_id):
+            return ObservedTarget("unobservable")
+        if raw.status == 2:
+            return ObservedTarget("none")
+        if raw.status != 3:
+            return ObservedTarget("unobservable")
+        target = legal.get(raw.object_pointer)
+        if target is None or target.object_type != raw.object_type:
+            return ObservedTarget("unobservable")
+        # The v1 DLL only emits foreign references under verified FogOfWar=No,
+        # shroud and cloak/disguise gates. Recheck the client's legal set too.
+        if target.house == actor.house and target.native_id != raw.native_id:
+            return ObservedTarget("unobservable")
+        agent = self.identity.agent_id(target.pointer)
+        tracked = self.identity.tracked(agent) if agent is not None else None
+        if (tracked is None or tracked.last_seen_frame != state.frame
+                or tracked.pointer != target.pointer
+                or tracked.object_type != target.object_type
+                or tracked.house != target.house
+                or (target.native_id is not None
+                    and tracked.native_id != target.native_id)):
+            return ObservedTarget("unobservable")
+        return ObservedTarget("object", agent)
 
     # ------------------------------------------------------------ 可见性
     def is_visible(self, obj: GameObject) -> bool:
