@@ -1,6 +1,6 @@
 # Stop 部署与对照
 
-日期：2026-10-02。状态：用户已明确确认并完成临时部署与三项对照；游戏/采集结束，四个启动配置及两侧 Guard DLL 已恢复，独立复核通过。实现与产物指纹在[Stop 玩家接口验证](../验证/Stop玩家接口验证.md)维护；当前长期 Guard 部署及旧备份见[Guard 部署](Guard部署与联调.md)。
+更新日期：2026-10-03。状态：用户已明确确认并完成临时部署与三项对照；游戏/采集结束，四个启动配置及两侧 Guard DLL 已恢复，独立复核通过。实现与产物指纹在[Stop 玩家接口验证](../验证/Stop玩家接口验证.md)维护；当前长期 Guard 部署及旧备份见[Guard 部署](Guard部署与联调.md)。
 
 ## 环境范围与回滚
 
@@ -45,3 +45,13 @@ report.status=capture_stopped；本次游戏进程已关闭、14521/14522 关闭
 补测停止前核对末尾正例窗口终点 573，两侧已落盘录制分别到 Alpha 633/Beta 641；保存后再关闭游戏。脚本导入 tests 需要仓库根目录，执行命令为 PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. python3 <run.py>；首次缺少根目录导入失败发生于游戏与启动配置修改前。
 
 独立复核两个运行的四个启动配置、所有原配置/崩溃报告、持久 Guard 备份、两侧 Guard DLL 指纹与 samefile、rolled_back 清单通过；最终只读 preflight 再确认无游戏和开放探针，源 Stop 产物未变。DSH/MCP 未接管。本批不需要人工按键，模型动作仍经正式 stop 技法；固定错误由开发测试传输层注入。当前长期启用保持 Guard，Stop 未长期部署，后续环境调整按具体范围说明。
+
+## 长期启用候选（待确认）
+
+本轮只读 stop_deploy.py check 通过：源产物指纹匹配，两侧当前 Guard DLL 指纹与硬链接关系符合预期，无 gamemd 进程和开放探针端口。预检不是部署授权，执行前须重新检查；当前 Stop 尚未长期启用。本次候选复用已通过三项 Grizzly 正例及 12 项限定拒绝的同一产物，不重建、不下载；指纹和未验范围由[Stop 验证](../验证/Stop玩家接口验证.md)维护。
+
+待用户确认的改动为长期替换 D:\Games\ra2probe\libra2yrcpp.dll 与 D:\Games\ra2probe-b\libra2yrcpp.dll，保留硬链接。沿用本页 apply 流程，在 D:\Games\ra2probe\.ra2-agent-backups\stop-v1-<时间>\ 新增当前 Guard DLL 副本与 deployment.json，核对源、备份、两侧目标及配置/崩溃报告；安装成功后保留新 DLL，不做本轮临时测试式自动回滚。失败时按脚本恢复 Guard；后续人工要求回滚时，先确认无活动游戏，再对实际清单执行本页 rollback。旧备份保留。
+
+批准范围仅为 DLL 长期替换及持久备份；不自动启动对局、修改 spawn.ini/ra2yrcpp.json、安装依赖或接管 DSH/MCP。运行中 DSH 可能缓存旧 Python 模块，用户在适合的时点关闭关联会话并重启 DSH，然后自行启动新局；只开关 bundle 不能保证旧进程回收。等待用户重启/启动时，Agent 复核部署清单、备份、两侧指纹和只读接口版本，并准备卡片检查；不重复已经完成的人工 S 对照。
+
+新对局需只读确认 guard_interface_version=1 与 stop_interface_version=1，以及 stop 卡片显示而 halt 仍隐藏；不将文件替换当作已加载或 DSH 完整生命周期验收。若用户没有启动新局，本轮仅报告部署落盘，保留运行加载待验。确认后先完成部署与留证，再继续 A1 的 U02 模式确认或 U08 实际目标回读调查；建筑/变身等动态 Stop 测试仍保持未验。

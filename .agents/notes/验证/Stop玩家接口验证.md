@@ -1,6 +1,6 @@
 # Stop 玩家接口验证
 
-日期：2026-10-02。状态：A0 已完成 34 项覆盖矩阵与首组契约；A1 首个 Stop 切片已实现、离线回归和独立 DLL 构建通过，已完成 Grizzly 三项正例及 12 项服务端限定拒绝对照，测试后恢复 Guard DLL。计划与契约见[建设计划](../设计/玩家操作接口建设计划.md)和[接口审计](../../drafts/接口/L1基础接口契约与现状审计.md#a0-玩家能力覆盖矩阵)。
+更新日期：2026-10-03。状态：A0 已完成 34 项覆盖矩阵与首组契约；A1 首个 Stop 切片已实现、离线回归和独立 DLL 构建通过，已完成 Grizzly 三项正例及 12 项服务端限定拒绝对照，测试后恢复 Guard DLL。计划与契约见[建设计划](../设计/玩家操作接口建设计划.md)和[接口审计](../../drafts/接口/L1基础接口契约与现状审计.md#a0-玩家能力覆盖矩阵)。
 
 ## 玩家语义核验与切片选择
 
@@ -36,9 +36,30 @@ ENGINE_FEATURE=stop PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard_engine.p
 
 产物为 .agents/tmp/engine-build/artifacts/stop-v1/libra2yrcpp.dll，SHA-256=cf7bab758ea29152c032c83f2b3adf9b5b3d849a0bf1326c16313ea7226a5978，大小 8249061 字节，manifest.game_loaded=false。具体临时部署、备份和回滚见[Stop 部署与对照](../环境/Stop部署与对照.md)。
 
+## 使用方审计与最小迁移
+
+隐藏零件 halt v2 改为 ctx.call("stop")，复用正式 Stop 的策略、版本门、作用域与输入结算；requires=has_units/has_map/stop_v1，收窄为单个己方车辆，不在对战卡片中直接暴露。旧 DLL 或未知版本明确拒绝，不降级为 Hold。仓库正式技法没有调用 halt；本批用测试专用组合入口验证完整调用链，不据此声称生产组合或 DSH 已实测。
+
+| 使用方 | 当前行为与本批决定 | 后续迁移条件 |
+|---|---|---|
+| halt | 已迁移为一次 Stop 输入；输入确认后释放租约，未知不重发，cancel 不发 Stop | 真机证据复用正式 stop 的 Grizzly 限定范围，其他型号与生产组合未验 |
+| hold_position | 多单位旧 Hold；按既有状态谓词结算，不保证玩家 S 等价或永久驻守；保留执行路径并修正卡片 | 明确单次停止与持续位置管理需求，再决定旧名兼容和多对象部分结果 |
+| hold_and_fire | 无目标发旧 Hold；有目标发 Attack，可能追击并进入接战管理；保留执行路径并修正卡片 | 明确选敌与位置约束、混合单位类型和攻击生命周期 |
+| focus_fire | 无目标或远目标且 chase=false 时发旧 Hold；默认远目标发 MoveTo；保留执行路径并修正卡片 | 先补 U08 实际目标回读与追近后过早结算问题，不把停止入口替换当连续集火修复 |
+| guard_area | 再次求值发现到期时发旧 Hold；接战中可能延后求值，max_frames 不是硬截止；保留执行路径并修正卡片 | 先明确持续管理、截止与租约语义，再迁移收尾动作 |
+| MoveTo(hold)，含 advance_to_cell、retreat、advance_covering | 忽略目的地并发旧 STOP；保留兼容，修正推进卡片中驻守及禁火承诺 | 后续分离移动模式与停止操作，不能解释为抵达后驻守 |
+
+本批不更改组合的选敌、攻击、移动或到期逻辑；没有新真机实验、DLL 替换或 DSH 重启。长期部署仍为 Guard，Stop 和 halt 的版本门保持关闭。部署候选及回滚方案见[长期启用候选](../环境/Stop部署与对照.md#长期启用候选待确认)。
+
+新增七项行为测试覆盖 UnitPool → halt → stop 与 Commander → 测试组合 → halt → stop 的作用域、单次输入与释放；同时检查隐藏入口、旧/未知版本、地图缺失、内层 stop 被禁用、不支持对象或批量、未知输入延后回读、取消及 hold_position 双版本批量兼容。内部策略拒绝沿用 Micro 的有限等待，不记为立即成功或失败；测试随后取消释放租约。卡片说明修正后，按当前内容更新“推进”的查询预期。420 项相关测试通过，git diff --check 通过；离线测试不扩大真实 Stop 效果范围。
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python3 -m unittest tests.test_stop_interface tests.test_stop_fault_transport tests.test_guard_interface tests.test_guard_tactics tests.test_tactics tests.test_tactic_actions tests.test_field_tactics tests.test_intents tests.test_executor tests.test_micro tests.test_command
+```
+
 ## 未验与下一步
 
-新 DLL 加载、Idle actor 回读、Grizzly 移动中断及静止再次输入限定通过；12 项固定请求的服务端拒绝与无输入窗口已验证，建筑及变身等动态拒绝仍未验。当前未迁移 hold_position、halt、guard_area 或 focus_fire，A1 整体仍未完成。
+新 DLL 加载、Idle actor 回读、Grizzly 移动中断及静止再次输入限定通过；12 项固定请求的服务端拒绝与无输入窗口已验证，建筑及变身等动态拒绝仍未验。直接使用方审计与 halt 最小迁移已完成；hold_position 与组合中的 Hold 保留兼容路径，迁移条件见使用方审计。A1 整体仍未完成。
 
 持续暂停恢复、完整 DSH idle/dispose、玩家子 Agent 冷恢复、完整联机同步、跨局身份、动态乘员、计划清空及其他型号 Stop 行为保持未验。HARV 与空 FV 对照未重新列为前置。U02 模式确认与 U08 实际目标回读仍待后续切片。
 
