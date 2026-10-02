@@ -142,4 +142,4 @@ PYTHONPATH=src python3 -m unittest tests.test_guard_interface tests.test_guard_f
 3. 与 S2 原版输入和预期效果对照；GuardPosition 观察实际移动和到达，输入确认与任务效果分别记录。双实例验证不能用不同采样时刻的 frame 差代替同步判据。
 4. 所有本轮进程与连接关闭，恢复原 DLL/配置并复核哈希、硬链接、端口和崩溃报告。后续仅按未测问题选择多态与拒绝场景，不要求执行全矩阵。
 
-本组 GuardCurrent / GuardPosition 的限定实现、正例与关键拒绝验收已收尾，可进入对应 S4 技法接入。下一步先审计 builtin economy.py / combat.py 与自动层的既有采矿和 guard_area 语义，选择已验证范围内的一次原生输入接入点；卡片承诺、旧 DLL unsupported、租约释放和原生 AI 持续性须明确，禁止每拍重发。正式迁移与新 DLL 的长期启用尚未实施，不能因测试通过就默认覆盖游戏文件或新增公开工具。对象护送、建筑保护、HARV 实测、动态载员回读、完整请求结果契约、长期任务和 S4–S6 未完成。持续暂停恢复未确认，S 不代表游戏暂停；Beta 的既有场景为 Americans，不假定苏军。完整 DSH idle/dispose 生命周期仍未验。
+本组 GuardCurrent / GuardPosition 的限定实现、正例与关键拒绝验收已收尾。对应 S4 最小接入、正式技法接线验证和下一步启用边界在[Guard 技法迁移验证](Guard技法迁移验证.md)维护；不能因测试通过就默认覆盖游戏文件。底层未测范围保留：对象护送、建筑保护、HARV 实测、动态载员回读、完整请求结果契约和长期任务尚未完成。持续暂停恢复未确认，S 不代表游戏暂停；Beta 为 Americans。完整 DSH idle/dispose 生命周期仍未验。

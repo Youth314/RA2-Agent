@@ -88,7 +88,7 @@ return (ctx.intent(Wake, text="基地被打了，3 个建筑在掉血"),)
 | `ctx.params` | 本次调用的参数，已按名片补好默认值 |
 | `ctx.frame` | 当前游戏帧 |
 | `ctx.attempt` | 第几次尝试；卡住重来时由运行时递增，用来换落点。**脉冲恒为 0** |
-| `ctx.memo` | 跨帧记事本，按「技法名 + 键」隔离。**编队任务结束清空**；脉冲目前每拍都是新的空记事本，攒不下进度 |
+| `ctx.memo` | 跨帧记事本，按「技法名 + 键」隔离。**编队任务结束清空**；自动脉冲共用 Autopilot.memo，可跨拍保存冷却，按技法名与键隔离 |
 | `ctx.call(name, **params, optional=False)` | 调另一条技法 |
 | `ctx.intent(cls, **payload)` | 按信封约定造意图 |
 | `ctx.types` | 对象类型表；没取到时为 `None` |
@@ -98,16 +98,14 @@ return (ctx.intent(Wake, text="基地被打了，3 个建筑在掉血"),)
 
 **`subject` 的两种形态，写法要同时适配：**
 
-- 模型 `call` 受理、以及自动脉冲运行时，它是 `UnitPool`——**己方全部对象**，含完工待放置的建筑（`pending()`），但**不含已在别的任务里的单位**这一信息；
+- 模型 `call` 受理时它是 `UnitPool`——己方对象的全池；Commander 的自动脉冲默认用排除在管单位的 `UnitPool`，发送前再检查租约。待放置建筑可通过 `pending()` 寻址，但不出现在 `agents()`；独立使用 Autopilot 时主体和 available 由调用者提供。
 - 技法在编队任务里真跑起来时，它是 `Squad`——**只有这条任务名下的单位**，没有 `pending()`。
 
 **能用 `ctx.observation` 判的就别碰 `subject`。** 碰了要保证两种形态下都对：只认
 `UnitPool` 的写法（例如调 `subject.pending()`）会让技法受理通过、运行时却永远调不动。
 需要单位名单时用 `ctx.subject.agents()`，它两边都有。
 
-**自动触发的 subject 是全池**——一条自动技法会把模型正在调动、正在进攻的部队一起
-算进去。要自动跑又要限定范围时，自己在 `run` 里按 `ctx.subject.object_of(id)` 逐个筛，
-别假设"只有空闲单位"。
+**自动触发的 subject 不是所选编队**。Commander 默认排除在管单位，但没有 Agent 租约的玩家行为、原生任务仍可能正在运行；自动技法应按合法观测筛选，不能把“没有租约”解释为“没有任务”。从 state 枚举对象时，也要确认对应 Agent ID 在 `subject.agents()` 中，避免给已排除单位生成意图并消耗冷却。
 
 ## 四、能返回的意图
 
@@ -125,7 +123,7 @@ return (ctx.intent(Wake, text="基地被打了，3 个建筑在掉血"),)
 | `Wake` | `text` | **不落到引擎**：请求唤醒模型，`split_wakes` 把它交给唤醒桥。限度见下 |
 | `TacticCall` | `tactic`、`params` | 指挥层意图，不是你要返回的东西——它是模型 `call` 的载荷 |
 
-Guard 首版只有限定新 DLL 场景通过，具体已验证对象、适用性与剩余边界见[Guard 接口验证](../../notes/验证/Guard接口验证.md)。未经声明 v1 的 DLL 会被 L0 明确拒绝；禁止为新意图自行连接 Client、开放任意 Mission 或每拍重发。正式薄技法、持续任务与自动经济迁移属于 S4，不因类已注册而视为完成。
+Guard 首版只有限定新 DLL 场景通过，具体已验证对象、适用性与剩余边界见[Guard 接口验证](../../notes/验证/Guard接口验证.md)。未经声明 v1 的 DLL 会被 L0 明确拒绝；禁止为新意图自行连接 Client、开放任意 Mission 或每拍重发。S4 的正式 native_guard、CMIN 采矿兼容分支和自动冷却已最小接入，证据与长期启用边界见[Guard 技法迁移验证](../../notes/验证/Guard技法迁移验证.md)；持续任务与完整迁移仍未完成。
 
 ### `Wake` 的节制
 
@@ -190,6 +188,7 @@ Tactic(TacticInfo(
 |---|---|---|
 | `has_units` | 这一队至少有一个可用单位 | |
 | `has_map` | 已有底图 | |
+| `guard_v1` | GameState 声明 Guard 接口版本恰为 1；不含具体单位适用性 | |
 | `has_enemies` / `no_enemies` | 当前看不看得见敌人 | |
 | `has_pending_building` | 手上有完工待放置的建筑 | |
 | `has_construction_yard` | 己方有一栋建造厂 | |
