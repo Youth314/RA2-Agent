@@ -82,7 +82,7 @@ class TestRegistration(unittest.TestCase):
 
     def test_builtin_library_loads(self):
         registry = TacticRegistry().load_builtin()
-        self.assertEqual(len(registry), 20)
+        self.assertEqual(len(registry), 21)
         self.assertIn("advance_covering", registry.names())
         self.assertIn("hold_and_fire", registry.names())
         self.assertIn("deploy_mcv", registry.names())
@@ -92,6 +92,7 @@ class TestRegistration(unittest.TestCase):
         self.assertIn("place_ready_building", registry.names())
         self.assertIn("focus_fire", registry.names())
         self.assertIn("guard_area", registry.names())
+        self.assertIn("native_guard", registry.names())
 
     def test_opening_tactic_declares_a_trigger(self):
         registry = TacticRegistry().load_builtin()

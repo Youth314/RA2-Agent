@@ -60,6 +60,7 @@ def check_conditions(names, context) -> tuple:
 #: 条件名 → 给模型看的人话。只写「光看名字等于没说」的那几条：拒因要能指导下一步，
 #: 否则模型只知道「此刻用不上」，不知道该补什么。
 HINTS = {
+    "guard_v1": "DLL 未声明 Guard 接口 v1；不能使用原生警戒输入",
     "prereq_met": "建造前提没满足，或这个类型不在可造清单里（见 status 的「可造」段）",
     "cell_passable": "目标格不可通行或在地图外（水、岩石、墙）",
     "can_afford": "钱不够",
@@ -84,6 +85,13 @@ def has_units(context) -> bool:
 def has_map(context) -> bool:
     """已有底图，坐标类技法才谈得上。"""
     return context.observation.map_data is not None
+
+
+@condition("guard_v1")
+def guard_v1(context) -> bool:
+    """仅使用已声明且认识的接口版本，不通过下令探测能力。"""
+    state = context.observation.state
+    return state is not None and state.guard_interface_version == 1
 
 
 @condition("has_enemies")

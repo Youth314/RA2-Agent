@@ -14,9 +14,18 @@
 先 `hold_position` 让它们停下、再 `guard_area` 守住，是这对技法的正常用法：前者的
 任务结算后单位交还，后者只负责开火，不会再让它们挪窝。
 """
-from ...runtime.intents import Attack, Hold, MoveTo, Stance
+from ...runtime.intents import Attack, GuardCurrent, GuardPosition, Hold, MoveTo, Stance
 from ..core import (REQUIRED, Param, Tactic, TacticInfo, is_bool,
-                    is_positive_number)
+                    is_optional_cell, is_positive_number)
+
+
+def _native_guard(context):
+    """一次原版警戒输入；单位数量、身份与适用性统一由 L0 校验。"""
+    units = context.subject.agents()
+    cell = context.params["cell"]
+    if cell is None:
+        return (context.intent(GuardCurrent, units=units),)
+    return (context.intent(GuardPosition, units=units, cell=cell),)
 
 
 def _distance_sq(one, other):
@@ -106,6 +115,15 @@ def _guard_area(context):
 
 
 TACTICS = (
+    Tactic(TacticInfo(
+        name="native_guard",
+        summary="向单个己方车辆提交一次原生警戒；省略 cell 等同 G，提供 cell 为地点警戒；"
+                "回执只确认输入，随后释放租约，不保证到达、持续保护或维修，cancel 不停止原生行为",
+        params=(Param("cell", None, "可选地点 (x, y)；不填则在执行时的当前位置警戒",
+                      is_optional_cell),),
+        requires=("has_units", "has_map", "guard_v1"),
+    ), _native_guard),
+
     Tactic(TacticInfo(
         name="focus_fire",
         summary="集火指定的敌方 id；半径外或目标已消失的单位原地驻守",

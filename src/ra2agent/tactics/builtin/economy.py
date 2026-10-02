@@ -2,15 +2,14 @@
 
 玩家把这两样合称「发展」，而它们的共同点是**眼睛一闭也该发生**：
 
-- 矿车被 `STOP` 过就不会自己恢复采矿——引擎没有采矿动作（`Mission.HARVEST` 只能从
-  观测里读到、下不去），唯一的路是把它**移回矿格**让游戏自身的采矿 AI 接管。实测
-  一局因矿车停工、资金长期停在 100，什么也造不出来。
+- 停工矿车需要恢复采矿。Guard v1 的 CMIN 使用一次原版 G 输入；旧 DLL 与其他
+  矿车型号保留移回已探索矿格的兼容路径。两者都不以输入回执承诺采矿效果。
 - 电力入不敷出会让生产变慢，而补一座电厂是无判断余地的动作。
 
 故主路径做成自动脉冲：不占单位租约、空转不报给模型，模型只在被唤醒时做取舍。
 """
 from ...constants import MISSION_NONE, Mission
-from ...runtime.intents import MoveTo, Stance
+from ...runtime.intents import GuardCurrent, MoveTo, Stance
 from ...data.catalogue import pending_building_ids
 from ..core import (Param, Tactic, TacticInfo, Trigger, is_positive_int)
 
@@ -28,14 +27,13 @@ POWER_EVERY_FRAMES = 120
 #: 找矿时从矿车往外搜多远（格）。更远的矿不如让模型自己决定去哪一片。
 ORE_SEARCH_RADIUS = 40
 
-#: 同一台矿车派往同一片矿的最短间隔，免得每拍重发同一条移动令。
+#: 同一台矿车重复相同恢复输入的最短间隔，免得每拍重发打断原生 AI。
 REPEAT_EVERY_FRAMES = 600
 
 #: 矿车处于这些任务时视为「停工」：没在采矿，也没在往返的路上。
 #: 正在采矿（`HARVEST`）与正在往返（`MOVE`/`RETURN`/`ENTER`/`UNLOAD`）的不去打扰——
-#: 每拍重发移动令会让它永远在路上。
-IDLE_MISSIONS = (Mission.STOP, Mission.GUARD, Mission.SLEEP,
-                 Mission.AREA_GUARD, MISSION_NONE)
+#: AREA_GUARD 已交给原生 AI，不能仅因尚未进入 HARVEST 就判成停工。
+IDLE_MISSIONS = (Mission.STOP, Mission.GUARD, Mission.SLEEP, MISSION_NONE)
 
 #: 默认想维持的矿车数量。
 DEFAULT_HARVESTER_TARGET = 4
@@ -125,50 +123,62 @@ def _ring(cell, step):
 
 
 def _harvest(context):
-    """把点名的矿车移到最近的矿格。
-
-    模块没有采矿动作，故「采矿」= 移到矿上，剩下的交给游戏自身的 AI。
-    """
-    map_data = context.observation.map_data
+    """恢复点名矿车：已验证的 CMIN 优先原生 G，否则使用矿格移动。"""
     out = []
     for agent, obj in _subject_harvesters(context):
-        cell = nearest_ore(map_data, obj.coordinates.cell)
-        if cell is None:
-            continue
-        out.append(context.intent(MoveTo, units=(agent,), cell=cell,
-                                  stance=Stance.PASSIVE))
+        intent = _harvest_intent(context, agent, obj)
+        if intent is not None:
+            out.append(intent)
     return tuple(out)
 
 
-def _auto_harvest(context):
-    """停工的矿车自动派回最近的矿格。
+def _harvest_intent(context, agent, obj):
+    """不把未实测型号或未知接口版本当成已验证的原生采矿能力。"""
+    state = context.observation.state
+    entry = _entry_of(context, obj)
+    if (state is not None and state.guard_interface_version == 1
+            and entry is not None and entry.id == "CMIN"):
+        # 缺失身份等错误仍交给 L0 拒绝，不能用旧移动掩盖 v1 数据异常。
+        return context.intent(GuardCurrent, units=(agent,))
+    cell = nearest_ore(context.observation.map_data, obj.coordinates.cell)
+    if cell is None:
+        return None
+    return context.intent(MoveTo, units=(agent,), cell=cell, stance=Stance.PASSIVE)
 
-    只碰停工的：详情见 `IDLE_MISSIONS` 的注释。同一台车派往同一片矿有最短间隔，
-    免得它到了却没恢复采矿时每拍重发同一条移动令（那会把它钉在原地）。
-    """
+
+def _auto_harvest(context):
+    """恢复停工矿车；相同原生 G 或矿格移动使用跨拍冷却，不打断原生 AI。"""
     map_data = context.observation.map_data
-    if map_data is None:
+    state = context.observation.state
+    if map_data is None or state is None:
         return ()
     frame = context.frame
-    seen = dict(context.recall("recent") or {})
+    # Agent ID 隔离同指针的新对象，避免旧矿车的冷却污染复用地址后的新单位。
+    harvesters = _own_harvesters(context)
+    # CMIN 回矿厂时可短暂 limbo；仍存在的己方身份保留冷却。
+    available = {context.subject.agent_id(obj.pointer)
+                 for obj in state.own_objects()}
+    seen = {agent: value for agent, value in (context.recall("recent") or {}).items()
+            if agent in available}
+    allowed = set(context.subject.agents())
     out = []
-    for pointer, obj in _own_harvesters(context):
+    for pointer, obj in harvesters:
         if obj.mission not in IDLE_MISSIONS:
             continue
-        cell = nearest_ore(map_data, obj.coordinates.cell)
-        if cell is None:
-            continue
-        when, cell_was = seen.get(pointer, (None, None))
-        if when is not None and frame - when < REPEAT_EVERY_FRAMES and cell_was == cell:
-            continue
         agent = context.subject.agent_id(pointer)
-        if agent is None:
+        if agent is None or agent not in allowed:
             continue
-        seen[pointer] = (frame, cell)
-        out.append(context.intent(MoveTo, units=(agent,), cell=cell,
-                                  stance=Stance.PASSIVE))
-    if out:
-        context.remember("recent", seen)
+        intent = _harvest_intent(context, agent, obj)
+        if intent is None:
+            continue
+        operation = (intent.kind, getattr(intent, "cell", None))
+        when, previous = seen.get(agent, (None, None))
+        if (when is not None and 0 <= frame - when < REPEAT_EVERY_FRAMES
+                and previous == operation):
+            continue
+        seen[agent] = (frame, operation)
+        out.append(intent)
+    context.remember("recent", seen)
     return tuple(out)
 
 
@@ -223,14 +233,17 @@ def _keep_power(context):
 TACTICS = (
     Tactic(TacticInfo(
         name="harvest",
-        summary="把点名的矿车移到最近的矿石格；采矿交给游戏自己的 AI",
+        summary="恢复点名矿车采矿：Guard v1 的 CMIN 提交一次 G，其他情况移向已探索矿格；"
+                "回执不保证已开始采矿，结算释放租约后原生 AI 继续运行",
+        version=2,
         requires=("has_units", "has_map"),
         idle_ends_task=True,
     ), _harvest),
 
     Tactic(TacticInfo(
         name="auto_harvest",
-        summary="自己跑：把停工（没在采矿也没在往返）的矿车派回最近的矿格",
+        summary="停工矿车自动恢复：v1 CMIN 使用一次 G，其他情况移向矿格；不打断采矿、往返或地点警戒",
+        version=2,
         trigger=Trigger.every(HARVEST_EVERY_FRAMES),
         idle_ends_task=True,
     ), _auto_harvest),
