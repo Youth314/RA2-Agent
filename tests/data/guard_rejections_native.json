@@ -1,0 +1,249 @@
+{
+  "provenance": {
+    "record": ".agents/tmp/engine-build/backups/guard-reject-20261002-175234/validation.json",
+    "dll_sha256": "862a8c318a7193c5b4a6ec6899af26ecebef47b05b0270ce86debef6ef11010c",
+    "scope": "Fixed test-only transport faults after normal Commander/MicroLayer/Executor validation; bounded refusal observation, not a full replay"
+  },
+  "actor": {
+    "pointer": 304861344,
+    "type_pointer": 287234824,
+    "health": 300,
+    "coordinates": {
+      "x": 7808,
+      "y": 20608,
+      "z": 0
+    },
+    "house": 300169488,
+    "array_index": 0,
+    "object_type": 1,
+    "selected": false,
+    "deployed": false,
+    "mission": 5,
+    "in_limbo": false,
+    "on_map": true,
+    "destination": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "initial_owner": 300169488,
+    "deploying": false,
+    "undeploying": false,
+    "native_id": 1043819
+  },
+  "house_index": 1,
+  "fault_identities": {
+    "other_house": 300079176,
+    "foreign_pointer": 304845160,
+    "foreign_native_id": 1043808,
+    "infantry_pointer": 296156616,
+    "infantry_native_id": 1043824
+  },
+  "foreign_pairing": "house array index, unit type and exact initial world coordinates",
+  "cases": [
+    {
+      "label": "wrong_native_id",
+      "valid_request_hex": "08a0a1af9101100d28ebda3f3090f2908f01388d03",
+      "request_hex": "08a0a1af9101100d28ecda3f3090f2908f01388d03",
+      "result": {
+        "type": "ra2yrproto.commands.UnitOrder",
+        "payload": "08a0a1af9101100d28ecda3f3090f2908f01388d03",
+        "code": 1,
+        "error": "guard actor absent, changed or unsupported",
+        "command_id": 52
+      },
+      "before_frame": 394,
+      "after_frame": 449,
+      "tracked_unchanged_after_refusal": true,
+      "no_new_own_actor_input_in_window": true,
+      "transmissions": 1
+    },
+    {
+      "label": "wrong_house",
+      "valid_request_hex": "08a0a1af9101100d28ebda3f3090f2908f0138d903",
+      "request_hex": "08a0a1af9101100d28ebda3f30c8b08b8f0138d903",
+      "result": {
+        "type": "ra2yrproto.commands.UnitOrder",
+        "payload": "08a0a1af9101100d28ebda3f30c8b08b8f0138d903",
+        "code": 1,
+        "error": "guard player context changed",
+        "command_id": 61
+      },
+      "before_frame": 470,
+      "after_frame": 524,
+      "tracked_unchanged_after_refusal": true,
+      "no_new_own_actor_input_in_window": true,
+      "transmissions": 1
+    },
+    {
+      "label": "stale_basis",
+      "valid_request_hex": "08a0a1af9101100d28ebda3f3090f2908f0138a704",
+      "request_hex": "08a0a1af9101100d28ebda3f3090f2908f013800",
+      "result": {
+        "type": "ra2yrproto.commands.UnitOrder",
+        "payload": "08a0a1af9101100d28ebda3f3090f2908f013800",
+        "code": 1,
+        "error": "guard basis frame is stale",
+        "command_id": 70
+      },
+      "before_frame": 548,
+      "after_frame": 593,
+      "tracked_unchanged_after_refusal": true,
+      "no_new_own_actor_input_in_window": true,
+      "transmissions": 1
+    },
+    {
+      "label": "future_basis",
+      "valid_request_hex": "08a0a1af9101100d28ebda3f3090f2908f0138ec04",
+      "request_hex": "08a0a1af9101100d28ebda3f3090f2908f01388c9206",
+      "result": {
+        "type": "ra2yrproto.commands.UnitOrder",
+        "payload": "08a0a1af9101100d28ebda3f3090f2908f01388c9206",
+        "code": 1,
+        "error": "guard basis frame is stale",
+        "command_id": 78
+      },
+      "before_frame": 615,
+      "after_frame": 665,
+      "tracked_unchanged_after_refusal": true,
+      "no_new_own_actor_input_in_window": true,
+      "transmissions": 1
+    },
+    {
+      "label": "current_with_coordinates",
+      "valid_request_hex": "08a0a1af9101100d28ebda3f3090f2908f0138b605",
+      "request_hex": "08a0a1af9101100d28ebda3f3090f2908f0138b60522080880011080011800",
+      "result": {
+        "type": "ra2yrproto.commands.UnitOrder",
+        "payload": "08a0a1af9101100d28ebda3f3090f2908f0138b60522080880011080011800",
+        "code": 1,
+        "error": "guard target shape mismatch",
+        "command_id": 86
+      },
+      "before_frame": 689,
+      "after_frame": 743,
+      "tracked_unchanged_after_refusal": true,
+      "no_new_own_actor_input_in_window": true,
+      "transmissions": 1
+    },
+    {
+      "label": "position_without_coordinates",
+      "valid_request_hex": "08a0a1af9101100d28ebda3f3090f2908f0138ff05",
+      "request_hex": "08a0a1af9101100e28ebda3f3090f2908f0138ff05",
+      "result": {
+        "type": "ra2yrproto.commands.UnitOrder",
+        "payload": "08a0a1af9101100e28ebda3f3090f2908f0138ff05",
+        "code": 1,
+        "error": "guard target shape mismatch",
+        "command_id": 94
+      },
+      "before_frame": 764,
+      "after_frame": 811,
+      "tracked_unchanged_after_refusal": true,
+      "no_new_own_actor_input_in_window": true,
+      "transmissions": 1
+    },
+    {
+      "label": "object_target",
+      "valid_request_hex": "08a0a1af9101100d28ebda3f3090f2908f0138bb06",
+      "request_hex": "08a0a1af9101100d28ebda3f3090f2908f0138bb0618a0a1af9101",
+      "result": {
+        "type": "ra2yrproto.commands.UnitOrder",
+        "payload": "08a0a1af9101100d28ebda3f3090f2908f0138bb0618a0a1af9101",
+        "code": 1,
+        "error": "guard does not accept an object target",
+        "command_id": 103
+      },
+      "before_frame": 825,
+      "after_frame": 876,
+      "tracked_unchanged_after_refusal": true,
+      "no_new_own_actor_input_in_window": true,
+      "transmissions": 1
+    },
+    {
+      "label": "negative_coordinates",
+      "valid_request_hex": "08a0a1af9101100d28ebda3f3090f2908f0138ff06",
+      "request_hex": "08a0a1af9101100e28ebda3f3090f2908f0138ff06221008ffffffffffffffffff011080011800",
+      "result": {
+        "type": "ra2yrproto.commands.UnitOrder",
+        "payload": "08a0a1af9101100e28ebda3f3090f2908f0138ff06221008ffffffffffffffffff011080011800",
+        "code": 1,
+        "error": "guard coordinates out of range",
+        "command_id": 113
+      },
+      "before_frame": 892,
+      "after_frame": 938,
+      "tracked_unchanged_after_refusal": true,
+      "no_new_own_actor_input_in_window": true,
+      "transmissions": 1
+    },
+    {
+      "label": "outside_map",
+      "valid_request_hex": "08a0a1af9101100d28ebda3f3090f2908f0138b907",
+      "request_hex": "08a0a1af9101100e28ebda3f3090f2908f0138b907220a0880ff071080ff071800",
+      "result": {
+        "type": "ra2yrproto.commands.UnitOrder",
+        "payload": "08a0a1af9101100e28ebda3f3090f2908f0138b907220a0880ff071080ff071800",
+        "code": 1,
+        "error": "guard cell outside map bounds",
+        "command_id": 122
+      },
+      "before_frame": 952,
+      "after_frame": 1002,
+      "tracked_unchanged_after_refusal": true,
+      "no_new_own_actor_input_in_window": true,
+      "transmissions": 1
+    },
+    {
+      "label": "unknown_actor",
+      "valid_request_hex": "08a0a1af9101100d28ebda3f3090f2908f0138fa07",
+      "request_hex": "0801100d28ebda3f3090f2908f0138fa07",
+      "result": {
+        "type": "ra2yrproto.commands.UnitOrder",
+        "payload": "0801100d28ebda3f3090f2908f0138fa07",
+        "code": 1,
+        "error": "guard actor absent, changed or unsupported",
+        "command_id": 132
+      },
+      "before_frame": 1017,
+      "after_frame": 1065,
+      "tracked_unchanged_after_refusal": true,
+      "no_new_own_actor_input_in_window": true,
+      "transmissions": 1
+    },
+    {
+      "label": "foreign_actor",
+      "valid_request_hex": "08a0a1af9101100d28ebda3f3090f2908f0138bd08",
+      "request_hex": "08e8a2ae9101100d28e0da3f3090f2908f0138bd08",
+      "result": {
+        "type": "ra2yrproto.commands.UnitOrder",
+        "payload": "08e8a2ae9101100d28e0da3f3090f2908f0138bd08",
+        "code": 1,
+        "error": "guard actor absent, changed or unsupported",
+        "command_id": 141
+      },
+      "before_frame": 1082,
+      "after_frame": 1133,
+      "tracked_unchanged_after_refusal": true,
+      "no_new_own_actor_input_in_window": true,
+      "transmissions": 1
+    },
+    {
+      "label": "infantry_actor",
+      "valid_request_hex": "08a0a1af9101100d28ebda3f3090f2908f0138fd08",
+      "request_hex": "08c8fb9b8d01100d28f0da3f3090f2908f0138fd08",
+      "result": {
+        "type": "ra2yrproto.commands.UnitOrder",
+        "payload": "08c8fb9b8d01100d28f0da3f3090f2908f0138fd08",
+        "code": 1,
+        "error": "guard actor absent, changed or unsupported",
+        "command_id": 151
+      },
+      "before_frame": 1147,
+      "after_frame": 1195,
+      "tracked_unchanged_after_refusal": true,
+      "no_new_own_actor_input_in_window": true,
+      "transmissions": 1
+    }
+  ]
+}
