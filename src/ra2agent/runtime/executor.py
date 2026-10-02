@@ -9,8 +9,9 @@
 |---|---|---|---|
 | `MoveTo{stance=aggressive}` | `UnitOrder` | `ATTACK_MOVE` | 移动并迎击 |
 | `MoveTo{stance=passive}` | `UnitOrder` | `MOVE` | 只移动 |
-| `MoveTo{stance=hold}` | `UnitOrder` | `STOP` | 原地驻守 |
+| `MoveTo{stance=hold}` | `UnitOrder` | `STOP` | 旧停止，忽略目标格，不保证永久驻守 |
 | `Hold` | `UnitOrder` | `STOP` | 同上 |
+| `Stop` | 受控 `UnitOrder` | `PLAYER_STOP` | 玩家 Idle 输入，独立 Stop v1 门 |
 | `Attack` | `UnitOrder` | `ATTACK` | 任务类动作 |
 | `Sell` | `ClickEvent` | `Sell` | 刚放置的建筑处于 `Mission_Construction`，`UnitOrder` 会拒绝 |
 | `Deploy` | `ClickEvent` | `Deploy` | 同上 |

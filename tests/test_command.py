@@ -248,7 +248,7 @@ class TestTactics(Case):
 
     def test_filters_by_query(self):
         names = [card.name for card in self.commander.tactics("推进")]
-        self.assertEqual(names, ["advance_covering", "advance_to_cell"])
+        self.assertEqual(names, ["advance_covering", "advance_to_cell", "focus_fire"])
 
     def test_query_without_match_returns_empty(self):
         self.assertEqual(self.commander.tactics("没有这种技法"), ())

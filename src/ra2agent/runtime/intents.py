@@ -91,7 +91,7 @@ class Stance(StrEnum):
 
     AGGRESSIVE = "aggressive"   # 移动并迎击，对应 ATTACK_MOVE
     PASSIVE = "passive"         # 只移动，不主动交战，对应 MOVE
-    HOLD = "hold"               # 原地不动，对应 STOP
+    HOLD = "hold"               # 旧 STOP，忽略目标格；不保证永久不动
 
 
 class Scope:

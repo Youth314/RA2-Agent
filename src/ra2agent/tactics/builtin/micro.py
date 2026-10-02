@@ -17,9 +17,14 @@ def _stop(context):
 
 
 def _hold(context):
-    """原地驻守：一条命令带全部对象，实测多对象同令可用。"""
+    """旧 Mission_Stop 兼容入口；一次提交，不保证永久驻守。"""
     units = context.subject.agents()
     return (context.intent(Hold, units=units),)
+
+
+def _halt(context):
+    """组合零件复用正式 Stop 技法及其门控，不降级为旧 Hold。"""
+    return context.call("stop")
 
 
 def _advance_to_cell(context):
@@ -80,11 +85,7 @@ def _nearest(mine, enemies, radius):
 
 
 def _hold_and_fire(context):
-    """停止这队单位的移动，对半径内最近的可见敌人开火。
-
-    有目标的单位下攻击令、其余下停止令：整队不再推进，武器仍指向开火半径内
-    的敌人。半径是开火的界线，更远的敌人不打，免得为追敌又移动起来。
-    """
+    """半径内选敌发 Attack，无目标则发旧 Hold；攻击可能追击。"""
     radius = float(context.params["radius"])
     enemies = context.observation.visible_enemies
     out = []
@@ -148,17 +149,19 @@ TACTICS = (
 
     Tactic(TacticInfo(
         name="hold_position",
-        summary="让这队单位原地驻守",
+        summary="向这队单位提交一次旧 STOP；不承诺玩家 S 等价、永久驻守或禁火",
         params=(),
         requires=("has_units",),
     ), _hold),
 
     Tactic(TacticInfo(
         name="halt",
-        summary="停止这队单位；零件，供组合技法调用",
-        requires=("has_units",),
+        summary="Stop v1 单车辆停止零件，经 stop 提交一次玩家 S 输入；Grizzly 已验，其他型号未验；"
+                "输入确认后释放租约，不保证永久停车或禁火",
+        requires=("has_units", "has_map", "stop_v1"),
         expose=False,
-    ), _hold),
+        version=2,
+    ), _halt),
 
     Tactic(TacticInfo(
         name="advance_to_cell",
@@ -167,8 +170,8 @@ TACTICS = (
             Param("cell", REQUIRED, "目标格 (x, y)", is_cell),
             Param("stance", Stance.AGGRESSIVE,
                   "接战姿态。aggressive＝**遇到敌人会追**，可能被拽离目标格、甚至被拖进"
-                  "敌人建筑群的射程里；只想走到位置、不追敌就用 passive，只想原地开火"
-                  "就用 hold",
+                  "敌人建筑群的射程里；只想走到位置、不追敌就用 passive；hold 忽略目标格，"
+                  "仅发送旧 STOP，不保证永久不动或禁火",
                   is_stance),
             Param("spread", 1, "队形展开；0 表示全去中心格", is_non_negative_int),
         ),
@@ -184,8 +187,8 @@ TACTICS = (
 
     Tactic(TacticInfo(
         name="hold_and_fire",
-        summary="停止这队单位的移动，对半径内最近的可见敌人开火",
-        params=(Param("radius", 8, "开火半径（格）；更远的敌人不打，免得追敌移动",
+        summary="对半径内最近的可见敌人发攻击令，无目标时发旧 STOP；攻击可能追击，不保证驻守",
+        params=(Param("radius", 8, "选敌半径（格）；不限制攻击令发出后的追击距离",
                       is_positive_number),),
         requires=("has_units",),
     ), _hold_and_fire),
@@ -208,7 +211,7 @@ TACTICS = (
             Param("radius", 8, "接战半径（格）", is_positive_number),
             Param("stance", Stance.AGGRESSIVE,
                   "推进姿态。aggressive＝路上遇敌会追（实测有玩家因此被拽到敌方建筑群里"
-                  "送掉 4 台）；要卡位就 passive，配合 guard_area 精确守点", is_stance),
+                  "送掉 4 台）；只想推进到位置就用 passive；guard_area 的攻击仍可能追击", is_stance),
             Param("spread", 1, "队形展开；0 表示全去中心格", is_non_negative_int),
         ),
         requires=("has_units", "has_map", "cell_passable"),
