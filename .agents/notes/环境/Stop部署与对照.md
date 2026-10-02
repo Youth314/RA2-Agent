@@ -35,3 +35,9 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python3 .agents/tmp/engine-build/stop_d
 持久清单为 /mnt/d/Games/ra2probe/.ra2-agent-backups/stop-v1-20261002-231826/deployment.json，当前 status=rolled_back，原 Guard 备份保留。临时部署哈希/硬链接核对通过；本次 Alpha PID=32944、Beta PID=24044，双侧 Guard/Stop v1 加载、帧推进及三项限定对照通过。采集 session=83307、移动调用 session=64028、静止调用 session=89559 均正常退出，不能复用为活动 session。
 
 report.status=capture_stopped；本次游戏进程已关闭、14521/14522 关闭，四个启动配置恢复。独立再次核对配置哈希、四份既有崩溃报告、两侧 Guard SHA-256 与 samefile、持久备份及 rolled_back 状态，全部通过。两侧逐帧录制已保存到项目实验目录。当前长期启用仍为 Guard，新 Stop 构建产物保留但未长期启用；DSH/MCP 由用户管理，不据此声称已重启或关闭。
+
+## 下一批拒绝测试部署准备
+
+第一批拒绝补测已获工作授权，环境临时替换仍待本次明确确认。复用同一已验证 Stop 产物，不重建 DLL：先用 stop_deploy.py apply 新建独立持久备份并替换两侧 DLL，再运行 .agents/tmp/a1-stop-rejections/run.py；临时生成四个启动配置、启动现有双实例，完成两次正例和 12 个拒绝测试后关闭本次实例并恢复配置，再以本次清单 rollback 恢复 Guard 与硬链接。既有 a1-stop 证据及原回滚备份保留。预检无游戏/端口，当前两侧仍为预期 Guard，源 Stop 指纹一致。
+
+本批自动场景无需人工 S，不调用普通 DSH 游戏工具；运行期间用户保持游戏推进且不操作测试单位，Agent 核对逐案回执与逐帧证据。建筑与变身补测尚无已授权具体场景步骤，继续标未验；若需要人工准备，再说明动作、结束判据及等待期间采集工作。等待环境确认时仅等待，不提前替换。

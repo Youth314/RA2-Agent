@@ -55,3 +55,13 @@ ENGINE_FEATURE=stop PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard_engine.p
 三个窗口两侧位置/Mission 转换帧逐项相同，属于本次对象与短窗口的一致性证据，不是完整联机同步验收。两次技法各只有一条 command_sent，任务释放租约且无后续重发。停止后 destination 仍保留原目标，说明旧 destination 不代表仍在执行移动；输入 is_executed 元数据也不替代实际效果。
 
 原始录制与三条提取样本的来源指纹见 tests/data/stop_native.json。新增真实样本测试初次因错误沿用合成对象 native_id 失败，修正为样本 ID 后 236 项相关回归通过；没有修改产品谓词迎合样本。停止不是即时固定坐标、永久禁火或计划清空；不推广至 CMIN/FV、步兵或其他状态。
+
+## 服务端拒绝补测准备
+
+测试专用 tests/stop_fault_transport.py 在正式 stop 技法、作用域和 L0 校验之后，只对一次 UnitOrder.PLAYER_STOP 载荷注入固定错误；不增加模型可调用工具，不修改生产校验，不接受任意 action。12 项为 wrong_native_id、wrong_house、stale_basis、future_basis、empty_actors、multiple_actors、missing_native_id、missing_house、coordinates、object_target、foreign_actor、infantry_actor。预期服务端错误文本按当前 Stop 固定补丁逐分支定义，当前尚无本批真实拒绝回执。
+
+对应离线测试覆盖固定字段差异、错误基线/夹具拒绝、每种合成拒绝回执只发送一次且不解析回声、故障单次消费及传输未知不重试。相关 232 项回归通过（test_stop_fault_transport、test_stop_interface、test_guard_fault_transport、test_executor、test_micro、test_command）。合成拒绝回执不是 DLL 实测证明。
+
+本批脚本在 .agents/tmp/a1-stop-rejections/；run.py 复用已有启动/配置备份恢复流程，probe.py 经正式 stop 注册表、Commander/Micro 和测试传输层运行，两次合法正例夹住 12 个非法请求；每例要求明确服务端拒绝、任务失败且非 unverified、释放租约、恰好一次发送，随后至少 45 个推进帧内对象状态不变且无新 Idle。两侧逐帧录制另行复核以弥补轮询漏采；当前脚本仅语法检查，真机执行待本次临时部署确认。
+
+建筑对象及变身期间拒绝仍未执行：默认开局没有建筑，变身状态需隔离至实际游戏线程检查时点；不通过改内存或合成状态冒充真机结果。其余在场/死亡/limbo 等动态边界也不由这 12 项自动覆盖；是否准备场景按具体证据成本决定。
