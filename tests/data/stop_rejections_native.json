@@ -1,0 +1,335 @@
+{
+  "provenance": {
+    "record": ".agents/tmp/a1-stop-rejections/report.json",
+    "record_sha256": "c3696575e2c7dc1ae35709f3801e29a1d51602ba20bb9ba4fe57989fdab73f84",
+    "dll_sha256": "cf7bab758ea29152c032c83f2b3adf9b5b3d849a0bf1326c16313ea7226a5978",
+    "scope": "Twelve real fixed-fault server replies after normal stop tactic validation; first ten full recorded windows, last two completed in separate tail run."
+  },
+  "actor": {
+    "pointer": 304863656,
+    "type_pointer": 287234824,
+    "health": 300,
+    "coordinates": {
+      "x": 7808,
+      "y": 20608,
+      "z": 0
+    },
+    "house": 300169488,
+    "array_index": 0,
+    "object_type": 1,
+    "selected": false,
+    "deployed": false,
+    "mission": 5,
+    "in_limbo": false,
+    "on_map": true,
+    "destination": {
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    "initial_owner": 300169488,
+    "deploying": false,
+    "undeploying": false,
+    "native_id": 1043819
+  },
+  "house_index": 1,
+  "fault_identities": {
+    "other_house": 300079176,
+    "foreign_pointer": 304852096,
+    "foreign_native_id": 1043808,
+    "infantry_pointer": 296156616,
+    "infantry_native_id": 1043824
+  },
+  "cases": [
+    {
+      "label": "wrong_native_id",
+      "valid_request_hex": "08a8b3af9101100f28ebda3f3090f2908f01388503",
+      "request_hex": "08a8b3af9101100f28ecda3f3090f2908f01388503",
+      "result": {
+        "type": "ra2yrproto.commands.UnitOrder",
+        "payload": "08a8b3af9101100f28ecda3f3090f2908f01388503",
+        "code": 1,
+        "error": "controlled actor absent, changed or unsupported",
+        "command_id": 56
+      },
+      "transmissions": 1,
+      "tracked_unchanged_after_refusal": true
+    },
+    {
+      "label": "wrong_house",
+      "valid_request_hex": "08a8b3af9101100f28ebda3f3090f2908f0138cd03",
+      "request_hex": "08a8b3af9101100f28ebda3f30c8b08b8f0138cd03",
+      "result": {
+        "type": "ra2yrproto.commands.UnitOrder",
+        "payload": "08a8b3af9101100f28ebda3f30c8b08b8f0138cd03",
+        "code": 1,
+        "error": "controlled player context changed",
+        "command_id": 67
+      },
+      "transmissions": 1,
+      "tracked_unchanged_after_refusal": true
+    },
+    {
+      "label": "stale_basis",
+      "valid_request_hex": "08a8b3af9101100f28ebda3f3090f2908f01389404",
+      "request_hex": "08a8b3af9101100f28ebda3f3090f2908f013800",
+      "result": {
+        "type": "ra2yrproto.commands.UnitOrder",
+        "payload": "08a8b3af9101100f28ebda3f3090f2908f013800",
+        "code": 1,
+        "error": "controlled basis frame is stale",
+        "command_id": 79
+      },
+      "transmissions": 1,
+      "tracked_unchanged_after_refusal": true
+    },
+    {
+      "label": "future_basis",
+      "valid_request_hex": "08a8b3af9101100f28ebda3f3090f2908f0138d604",
+      "request_hex": "08a8b3af9101100f28ebda3f3090f2908f0138f69106",
+      "result": {
+        "type": "ra2yrproto.commands.UnitOrder",
+        "payload": "08a8b3af9101100f28ebda3f3090f2908f0138f69106",
+        "code": 1,
+        "error": "controlled basis frame is stale",
+        "command_id": 91
+      },
+      "transmissions": 1,
+      "tracked_unchanged_after_refusal": true
+    },
+    {
+      "label": "empty_actors",
+      "valid_request_hex": "08a8b3af9101100f28ebda3f3090f2908f01389705",
+      "request_hex": "100f28ebda3f3090f2908f01389705",
+      "result": {
+        "type": "ra2yrproto.commands.UnitOrder",
+        "payload": "100f28ebda3f3090f2908f01389705",
+        "code": 1,
+        "error": "controlled order requires one actor, native ID and house",
+        "command_id": 104
+      },
+      "transmissions": 1,
+      "tracked_unchanged_after_refusal": true
+    },
+    {
+      "label": "multiple_actors",
+      "valid_request_hex": "08a8b3af9101100f28ebda3f3090f2908f0138da05",
+      "request_hex": "08a8b3af9101100f28ebda3f3090f2908f0138da0508a8b3af9101",
+      "result": {
+        "type": "ra2yrproto.commands.UnitOrder",
+        "payload": "08a8b3af9101100f28ebda3f3090f2908f0138da0508a8b3af9101",
+        "code": 1,
+        "error": "controlled order requires one actor, native ID and house",
+        "command_id": 118
+      },
+      "transmissions": 1,
+      "tracked_unchanged_after_refusal": true
+    },
+    {
+      "label": "missing_native_id",
+      "valid_request_hex": "08a8b3af9101100f28ebda3f3090f2908f01389b06",
+      "request_hex": "08a8b3af9101100f3090f2908f01389b06",
+      "result": {
+        "type": "ra2yrproto.commands.UnitOrder",
+        "payload": "08a8b3af9101100f3090f2908f01389b06",
+        "code": 1,
+        "error": "controlled order requires one actor, native ID and house",
+        "command_id": 131
+      },
+      "transmissions": 1,
+      "tracked_unchanged_after_refusal": true
+    },
+    {
+      "label": "missing_house",
+      "valid_request_hex": "08a8b3af9101100f28ebda3f3090f2908f0138d806",
+      "request_hex": "08a8b3af9101100f28ebda3f38d806",
+      "result": {
+        "type": "ra2yrproto.commands.UnitOrder",
+        "payload": "08a8b3af9101100f28ebda3f38d806",
+        "code": 1,
+        "error": "controlled order requires one actor, native ID and house",
+        "command_id": 148
+      },
+      "transmissions": 1,
+      "tracked_unchanged_after_refusal": true
+    },
+    {
+      "label": "coordinates",
+      "valid_request_hex": "08a8b3af9101100f28ebda3f3090f2908f01389407",
+      "request_hex": "08a8b3af9101100f28ebda3f3090f2908f013894072200",
+      "result": {
+        "type": "ra2yrproto.commands.UnitOrder",
+        "payload": "08a8b3af9101100f28ebda3f3090f2908f013894072200",
+        "code": 1,
+        "error": "stop does not accept a target",
+        "command_id": 165
+      },
+      "transmissions": 1,
+      "tracked_unchanged_after_refusal": true
+    },
+    {
+      "label": "object_target",
+      "valid_request_hex": "08a8b3af9101100f28ebda3f3090f2908f0138d107",
+      "request_hex": "08a8b3af9101100f28ebda3f3090f2908f0138d10718a8b3af9101",
+      "result": {
+        "type": "ra2yrproto.commands.UnitOrder",
+        "payload": "08a8b3af9101100f28ebda3f3090f2908f0138d10718a8b3af9101",
+        "code": 1,
+        "error": "stop does not accept a target",
+        "command_id": 183
+      },
+      "transmissions": 1,
+      "tracked_unchanged_after_refusal": true
+    },
+    {
+      "label": "foreign_actor",
+      "valid_request_hex": "08a8b3af9101100f28ebda3f3090f2908f01388e08",
+      "request_hex": "0880d9ae9101100f28e0da3f3090f2908f01388e08",
+      "result": {
+        "type": "ra2yrproto.commands.UnitOrder",
+        "payload": "0880d9ae9101100f28e0da3f3090f2908f01388e08",
+        "code": 1,
+        "error": "controlled actor absent, changed or unsupported",
+        "command_id": 201
+      },
+      "transmissions": 1,
+      "tracked_unchanged_after_refusal": true
+    },
+    {
+      "label": "infantry_actor",
+      "valid_request_hex": "08a8b3af9101100f28ebda3f3090f2908f0138c908",
+      "request_hex": "08c8fb9b8d01100f28f0da3f3090f2908f0138c908",
+      "result": {
+        "type": "ra2yrproto.commands.UnitOrder",
+        "payload": "08c8fb9b8d01100f28f0da3f3090f2908f0138c908",
+        "code": 1,
+        "error": "controlled actor absent, changed or unsupported",
+        "command_id": 218
+      },
+      "transmissions": 1,
+      "tracked_unchanged_after_refusal": true
+    }
+  ],
+  "recording_windows": {
+    "wrong_native_id": {
+      "source": ".agents/tmp/a1-stop-rejections/Alpha-record.pb.gz",
+      "source_sha256": "fe9851b05200918167815aa63e7b85cd60477b8bf2cb962befdd900cad3427ee",
+      "unchanged": true,
+      "first_frame": 386,
+      "last_frame": 434,
+      "unique_frames": 49,
+      "new_idle_count": 0,
+      "complete_window": true
+    },
+    "wrong_house": {
+      "source": ".agents/tmp/a1-stop-rejections/Alpha-record.pb.gz",
+      "source_sha256": "fe9851b05200918167815aa63e7b85cd60477b8bf2cb962befdd900cad3427ee",
+      "unchanged": true,
+      "first_frame": 457,
+      "last_frame": 505,
+      "unique_frames": 49,
+      "new_idle_count": 0,
+      "complete_window": true
+    },
+    "stale_basis": {
+      "source": ".agents/tmp/a1-stop-rejections/Alpha-record.pb.gz",
+      "source_sha256": "fe9851b05200918167815aa63e7b85cd60477b8bf2cb962befdd900cad3427ee",
+      "unchanged": true,
+      "first_frame": 528,
+      "last_frame": 574,
+      "unique_frames": 47,
+      "new_idle_count": 0,
+      "complete_window": true
+    },
+    "future_basis": {
+      "source": ".agents/tmp/a1-stop-rejections/Alpha-record.pb.gz",
+      "source_sha256": "fe9851b05200918167815aa63e7b85cd60477b8bf2cb962befdd900cad3427ee",
+      "unchanged": true,
+      "first_frame": 595,
+      "last_frame": 640,
+      "unique_frames": 46,
+      "new_idle_count": 0,
+      "complete_window": true
+    },
+    "empty_actors": {
+      "source": ".agents/tmp/a1-stop-rejections/Alpha-record.pb.gz",
+      "source_sha256": "fe9851b05200918167815aa63e7b85cd60477b8bf2cb962befdd900cad3427ee",
+      "unchanged": true,
+      "first_frame": 660,
+      "last_frame": 705,
+      "unique_frames": 46,
+      "new_idle_count": 0,
+      "complete_window": true
+    },
+    "multiple_actors": {
+      "source": ".agents/tmp/a1-stop-rejections/Alpha-record.pb.gz",
+      "source_sha256": "fe9851b05200918167815aa63e7b85cd60477b8bf2cb962befdd900cad3427ee",
+      "unchanged": true,
+      "first_frame": 727,
+      "last_frame": 772,
+      "unique_frames": 46,
+      "new_idle_count": 0,
+      "complete_window": true
+    },
+    "missing_native_id": {
+      "source": ".agents/tmp/a1-stop-rejections/Alpha-record.pb.gz",
+      "source_sha256": "fe9851b05200918167815aa63e7b85cd60477b8bf2cb962befdd900cad3427ee",
+      "unchanged": true,
+      "first_frame": 793,
+      "last_frame": 839,
+      "unique_frames": 47,
+      "new_idle_count": 0,
+      "complete_window": true
+    },
+    "missing_house": {
+      "source": ".agents/tmp/a1-stop-rejections/Alpha-record.pb.gz",
+      "source_sha256": "fe9851b05200918167815aa63e7b85cd60477b8bf2cb962befdd900cad3427ee",
+      "unchanged": true,
+      "first_frame": 853,
+      "last_frame": 898,
+      "unique_frames": 46,
+      "new_idle_count": 0,
+      "complete_window": true
+    },
+    "coordinates": {
+      "source": ".agents/tmp/a1-stop-rejections/Alpha-record.pb.gz",
+      "source_sha256": "fe9851b05200918167815aa63e7b85cd60477b8bf2cb962befdd900cad3427ee",
+      "unchanged": true,
+      "first_frame": 913,
+      "last_frame": 960,
+      "unique_frames": 48,
+      "new_idle_count": 0,
+      "complete_window": true
+    },
+    "object_target": {
+      "source": ".agents/tmp/a1-stop-rejections/Alpha-record.pb.gz",
+      "source_sha256": "fe9851b05200918167815aa63e7b85cd60477b8bf2cb962befdd900cad3427ee",
+      "unchanged": true,
+      "first_frame": 974,
+      "last_frame": 1019,
+      "unique_frames": 46,
+      "new_idle_count": 0,
+      "complete_window": true
+    },
+    "foreign_actor": {
+      "source": ".agents/tmp/a1-stop-rejections-tail/Alpha-record.pb.gz",
+      "source_sha256": "2e81980fd1e96dbe2dc570057bcfc795319ddf09911e2f5498e7effff2632bbd",
+      "unchanged": true,
+      "first_frame": 389,
+      "last_frame": 435,
+      "unique_frames": 47,
+      "new_idle_count": 0,
+      "complete_window": true
+    },
+    "infantry_actor": {
+      "source": ".agents/tmp/a1-stop-rejections-tail/Alpha-record.pb.gz",
+      "source_sha256": "2e81980fd1e96dbe2dc570057bcfc795319ddf09911e2f5498e7effff2632bbd",
+      "unchanged": true,
+      "first_frame": 456,
+      "last_frame": 501,
+      "unique_frames": 46,
+      "new_idle_count": 0,
+      "complete_window": true
+    }
+  }
+}

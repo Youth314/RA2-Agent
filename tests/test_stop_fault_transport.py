@@ -1,11 +1,15 @@
 """Isolated fixed faults; synthetic replies are not evidence of DLL rejection."""
 import unittest
+import json
+from pathlib import Path
+from dataclasses import replace
 from unittest.mock import Mock
 from ra2agent.constants import UnitAction
 from ra2agent.engine import payloads
 from ra2agent.engine.client import CommandResult
 from ra2agent.engine.identity import IdentityTable
-from ra2agent.engine.proto import fmap, pb_uint
+from ra2agent.engine.proto import fmap, pb_uint, repeated_ints
+from ra2agent.engine.state import Coordinates, GameObject
 from ra2agent.engine.validate import Validator
 from ra2agent.errors import CommandFailed, Timeout
 from ra2agent.runtime.executor import Executor
@@ -19,6 +23,54 @@ FIXTURES = dict(other_house=456, foreign_pointer=789, foreign_native_id=888,
 
 
 class TestStopFaultTransport(unittest.TestCase):
+    def test_real_replies_echo_fixed_faults_and_recorded_windows(self):
+        fixture = json.loads((Path(__file__).parent/'data/stop_rejections_native.json').read_text())
+        self.assertEqual({c['label'] for c in fixture['cases']}, set(FAULT_ERRORS))
+        for case in fixture['cases']:
+            with self.subTest(fault=case['label']):
+                body=bytes.fromhex(case['request_hex'])
+                original=bytes.fromhex(case['valid_request_hex'])
+                self.assertEqual(body, fault_request(original,case['label'],**fixture['fault_identities']))
+                reply=case['result']
+                self.assertEqual(reply['code'],1)
+                self.assertEqual(reply['error'],FAULT_ERRORS[case['label']])
+                query,echo=fmap(body),fmap(bytes.fromhex(reply['payload']))
+                self.assertEqual(list(repeated_ints(query.get(1,()))),list(repeated_ints(echo.get(1,()))))
+                for n in (2,3,5,6,7):
+                    self.assertEqual(query.get(n,[(0,0)])[0][1],echo.get(n,[(0,0)])[0][1])
+                self.assertEqual(query.get(4),echo.get(4))
+                self.assertEqual(case['transmissions'],1)
+                window=fixture['recording_windows'][case['label']]
+                self.assertTrue(window['complete_window'])
+                self.assertTrue(window['unchanged'])
+                self.assertEqual(window['new_idle_count'],0)
+                self.assertGreaterEqual(window['last_frame']-window['first_frame'],45)
+
+    def test_real_refusal_through_executor_no_retry_or_echo_parse(self):
+        fixture = json.loads((Path(__file__).parent/'data/stop_rejections_native.json').read_text())
+        for case in fixture['cases']:
+            with self.subTest(fault=case['label']):
+                actor_data=dict(fixture['actor'])
+                for key in ('coordinates','destination'):
+                    actor_data[key]=Coordinates(**actor_data[key])
+                actor=GameObject(**actor_data)
+                frame=fmap(bytes.fromhex(case['valid_request_hex']))[7][0][1]
+                base=state(frame)
+                house=replace(base.player_house(),pointer=actor.house,array_index=fixture['house_index'])
+                initial=replace(base,objects=(actor,),houses=(house,))
+                client=StopClient([initial]);ids=IdentityTable();ids.update(initial)
+                reply=dict(case['result']);reply['payload']=bytes.fromhex(reply['payload'])
+                client.send_command=Mock(return_value=CommandResult(**reply))
+                adapter=StopFaultTransport(client);adapter.arm(case['label'],**fixture['fault_identities'])
+                executor=Executor(adapter,ids,validator=Validator(make_map(144)))
+                with self.assertRaises(CommandFailed) as caught:
+                    executor.execute(Stop(units=(ids.agent_id(actor.pointer),)),initial)
+                self.assertIn(case['result']['error'],str(caught.exception))
+                self.assertEqual(adapter.requests[0]['request_hex'],case['request_hex'])
+                self.assertEqual(len(adapter.requests),1)
+                self.assertEqual(client.state_calls,1)
+                self.assertEqual(client.sent,[])
+
     def test_fixed_payloads(self):
         body = payloads.stop_order(TANK, 111, 123, 300)
         baseline = fmap(body)
