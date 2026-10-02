@@ -1,6 +1,6 @@
 # Stop 玩家接口验证
 
-日期：2026-10-02。状态：A0 已完成 34 项覆盖矩阵与首组契约；A1 首个 Stop 切片已实现、离线回归和独立 DLL 构建通过，尚未部署或执行新入口真机对照。计划与契约见[建设计划](../设计/玩家操作接口建设计划.md)和[接口审计](../../drafts/接口/L1基础接口契约与现状审计.md#a0-玩家能力覆盖矩阵)。
+日期：2026-10-02。状态：A0 已完成 34 项覆盖矩阵与首组契约；A1 首个 Stop 切片已实现、离线回归和独立 DLL 构建通过，已完成临时部署及 Grizzly 三项限定真机对照，测试后恢复 Guard DLL。计划与契约见[建设计划](../设计/玩家操作接口建设计划.md)和[接口审计](../../drafts/接口/L1基础接口契约与现状审计.md#a0-玩家能力覆盖矩阵)。
 
 ## 玩家语义核验与切片选择
 
@@ -10,7 +10,7 @@
 
 ## 已实现契约
 
-正式薄技法 `stop` → Stop 意图 → Executor/Validator → UnitOrder.PLAYER_STOP(action=15) → DLL 游戏线程复查 → ClickEvent(Idle)。模型仅调用技法，不增加原始事件工具。卡片标明实验与真机待核验，requires=has_units/has_map/stop_v1；当前 Guard DLL 未声明 stop_interface_version=1 时隐藏卡片并拒绝调用，不降级到旧 STOP。
+正式薄技法 `stop` → Stop 意图 → Executor/Validator → UnitOrder.PLAYER_STOP(action=15) → DLL 游戏线程复查 → ClickEvent(Idle)。模型仅调用技法，不增加原始事件工具。卡片标明 Grizzly 已验及其他型号未验，requires=has_units/has_map/stop_v1；当前 Guard DLL 未声明 stop_interface_version=1 时隐藏卡片并拒绝调用，不降级到旧 STOP。
 
 首版每条意图及每次技法调用只接受一个己方车辆；首个效果验收对象限定 Grizzly Battle Tank，其他车辆仅具备类型门内的候选适用性。复用 Guard 的稳定 ID、实时车辆解析、归属、在场、存活、当前 Mission 与变身检查，以及 expected_native_id/expected_house/basis_frame；游戏线程允许依据帧落后至多 150 帧。Guard v1 的门和行为继续保留，Stop 版本独立查询。步兵、建筑、多车辆及目标参数不在首版支持范围内。
 
@@ -20,7 +20,7 @@ GameState.stop_interface_version 使用字段 18；Python NativeEvent.idle_actor
 
 ## 离线与构建证据
 
-[Stop 测试](../../../tests/test_stop_interface.py)覆盖序列化、版本/身份字段、Idle 活动载荷与残留字段、旧 DLL、错误归属/类型/变身/目标数量、旧输入重排、错误 actor/house、发送前身份变化、既有 STOP/GUARD 不构成输入确认、超时未知不重发，以及正式注册表 → Commander.call → Micro → Executor 的单次结算、租约释放、延后回读和取消。Idle 对象样本为合成，不能标为新增真机证据；Guard 真实样本回归继续通过。
+[Stop 测试](../../../tests/test_stop_interface.py)覆盖序列化、版本/身份字段、Idle 活动载荷与残留字段、旧 DLL、错误归属/类型/变身/目标数量、旧输入重排、错误 actor/house、发送前身份变化、既有 STOP/GUARD 不构成输入确认、超时未知不重发，以及正式注册表 → Commander.call → Micro → Executor 的单次结算、租约释放、延后回读和取消。初轮 Idle 对象样本为合成；本次增加 tests/data/stop_native.json 的人工 S、移动 Stop、静止 Stop 三条真实 Idle 及源录制指纹，针对本次样本与卡片改动的 236 项相关回归通过。Guard 真实样本回归继续通过。
 
 相关回归 624 项通过，未运行无关全量测试：
 
@@ -38,6 +38,20 @@ ENGINE_FEATURE=stop PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard_engine.p
 
 ## 未验与下一步
 
-新 DLL 加载、Idle actor 真值、移动中断、静止再次输入与服务端拒绝场景均待验证；没有把编译或合成测试计为玩家等价。完成最小 Grizzly 对照后再扩大支持声明或迁移组合使用方；当前未迁移 hold_position、halt、guard_area 或 focus_fire。
+新 DLL 加载、Idle actor 回读、Grizzly 移动中断及静止再次输入限定通过；服务端拒绝场景尚未专门真机验证。当前未迁移 hold_position、halt、guard_area 或 focus_fire，A1 整体仍未完成。
 
 持续暂停恢复、完整 DSH idle/dispose、玩家子 Agent 冷恢复、完整联机同步、跨局身份、动态乘员、计划清空及其他型号 Stop 行为保持未验。HARV 与空 FV 对照未重新列为前置。U02 模式确认与 U08 实际目标回读仍待后续切片。
+
+## 本次真机证据
+
+现场目录 .agents/tmp/a1-stop/ 保存 report.json、两侧逐帧录制、recording-evidence.json、两次正式技法决策与结果。对象为 Alpha 的 Grizzly Battle Tank，native_id=1043823；Beta 对应对象由初始位置 (38,76)、类型/健康和连续轨迹关联，仅作诊断，不向 L1 提供敌方隐藏信息。测试没有自动技法或 DSH 游戏工具参与，模型动作只经 stop 技法。
+
+| 场景 | 输入与效果 | 结论 |
+|---|---|---|
+| 人工 S | 2401 帧开始前往 (54,76)，2463 帧录到 Idle/actor=1043823；2488 帧在 (45,76) 回 GUARD | 到达前中断移动；用户确认人工按键 |
+| 正式 stop 移动对照 | 5821 帧 MOVE，目标 (65,80)；5823 帧提交一次，5825 帧录到 Idle，5826 帧 native_input_observed/operation_observed 结算；5873 帧在 (47,77) 回 GUARD | 输入早于停车；用户确认刚起步即停止；窗口 5790–6370 仅一次该 actor Idle |
+| 静止再次 stop | 8572 帧原为 GUARD；8574 帧录到不同 timing 的 Idle，8575 帧输入结算；8550–9120 保持 (47,77)/GUARD | 旧 GUARD 不冒充新输入；窗口内仅一次 Idle，无重复提交 |
+
+三个窗口两侧位置/Mission 转换帧逐项相同，属于本次对象与短窗口的一致性证据，不是完整联机同步验收。两次技法各只有一条 command_sent，任务释放租约且无后续重发。停止后 destination 仍保留原目标，说明旧 destination 不代表仍在执行移动；输入 is_executed 元数据也不替代实际效果。
+
+原始录制与三条提取样本的来源指纹见 tests/data/stop_native.json。新增真实样本测试初次因错误沿用合成对象 native_id 失败，修正为样本 ID 后 236 项相关回归通过；没有修改产品谓词迎合样本。停止不是即时固定坐标、永久禁火或计划清空；不推广至 CMIN/FV、步兵或其他状态。

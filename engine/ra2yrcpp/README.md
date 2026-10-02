@@ -17,4 +17,4 @@
 
 `patches/stop-v1-engine.patch` 与 `patches/stop-v1-protocol.patch` 相对上表同一未修改基线生成，包含 Guard v1；不得在 Guard 补丁之上叠加。`ENGINE_FEATURE=stop PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard_engine.py` 生成独立源码、构建目录和 stop-v1 产物，默认仍构建 Guard。Stop 的 action=15、GameState.stop_interface_version=18 独立于 Guard 版本；Idle 使用既有 Event.Target.whom 字段回读。原 STOP action=10 保留。
 
-当前仅编译与相关离线回归通过，尚未部署；证据、指纹与限制见 [Stop 玩家接口验证](../../.agents/notes/验证/Stop玩家接口验证.md)，临时环境范围及回滚见 [Stop 部署与对照](../../.agents/notes/环境/Stop部署与对照.md)。
+当前编译、相关离线回归及 Grizzly 三项限定真机对照通过，临时部署已回滚；证据、指纹与限制见 [Stop 玩家接口验证](../../.agents/notes/验证/Stop玩家接口验证.md)，临时环境范围及回滚见 [Stop 部署与对照](../../.agents/notes/环境/Stop部署与对照.md)。

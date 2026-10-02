@@ -113,7 +113,7 @@ return (ctx.intent(Wake, text="基地被打了，3 个建筑在掉血"),)
 |---|---|---|
 | `MoveTo` | `units`、`cell`、`stance` | 移动；`stance` 取 `aggressive` / `passive` / `hold` |
 | `Hold` | `units` | 旧 Mission_Stop 兼容路径，不承诺玩家 S 等价 |
-| `Stop` | `units`（单个己方车辆 Agent ID） | 实验 Stop v1；一次玩家 Idle 输入，当前离线/构建通过，真机待验，见[Stop 验证](../../notes/验证/Stop玩家接口验证.md) |
+| `Stop` | `units`（单个己方车辆 Agent ID） | 实验 Stop v1；一次玩家 Idle 输入，当前离线/构建通过，Grizzly 限定真机通过，其他型号未验，见[Stop 验证](../../notes/验证/Stop玩家接口验证.md) |
 | `GuardCurrent` | `units`（单个己方车辆 Agent ID） | 实验 Guard v1；一次原版 G 输入，当前位置由 DLL 执行时确定；回执不承诺后续效果 |
 | `GuardPosition` | `units`（单个己方车辆 Agent ID）、`cell` | 实验 Guard v1；一次地点警戒输入，确认不表示已到达或持续保护 |
 | `Attack` | `units`、`target` | 攻击指定对象 |
