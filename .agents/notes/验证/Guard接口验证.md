@@ -1,8 +1,8 @@
 # Guard 接口验证
 
-日期：2026-10-02。范围：S3 GuardCurrent / GuardPosition 首版受控接口、己方原版身份回读与可追溯 DLL 补丁。状态：相关离线回归、编译、单个 Grizzly 的限定双实例真机验证及 CMIN / Engineer-FV 的 GuardCurrent 多态正例通过；空 FV 对照按用户决定跳过，完整车辆多态、所有服务端拒绝边界与完整联机同步未验。本轮临时替换两侧 DLL 并启动测试，已停止本轮进程并恢复原 DLL、启动配置及硬链接关系，未安装新依赖或改变 DSH。基线的限定加载证据见[基线 DLL 加载验证](基线DLL加载验证.md)，不得用于替代新操作验收。
+日期：2026-10-02。范围：S3 GuardCurrent / GuardPosition 首版受控接口、己方原版身份回读与可追溯 DLL 补丁。状态：相关离线回归、编译、单个 Grizzly 的限定双实例真机验证及 CMIN / Engineer-FV 的 GuardCurrent 多态正例通过；服务端 12 个受控拒绝场景及前后合法对照通过；空 FV 对照按用户决定跳过，其他车辆多态、未覆盖的拒绝分支与完整联机同步未验。本轮临时替换两侧 DLL 并启动测试，已停止本轮进程并恢复原 DLL、启动配置及硬链接关系，未安装新依赖或改变 DSH。基线的限定加载证据见[基线 DLL 加载验证](基线DLL加载验证.md)，不得用于替代新操作验收。
 
-实现提交：d5a145e；基线构建与加载记录提交：a0d8cbf。车辆多态输入样本与回归提交：df5534c。测试样本与源码补丁已入库，临时 DLL 和完整备份日志保留在忽略目录。
+实现提交：d5a145e；基线构建与加载记录提交：a0d8cbf。车辆多态输入样本与回归提交：df5534c。服务端拒绝适配器、真实样本与回归提交：85be279。测试样本与源码补丁已入库，临时 DLL 和完整备份日志保留在忽略目录。
 
 ## 请求、回读与边界
 
@@ -37,10 +37,12 @@ ExecutionOutcome.receipt 保持 observed_match，新增 evidence=native_input_ob
 永久测试为 [test_guard_interface.py](../../../tests/test_guard_interface.py)，28 项测试，包含合成状态、假客户端与真机最小样本；原版输入字节依据见[原版操作测绘](原版操作测绘.md)，新增 [guard_interface_native.json](../../../tests/data/guard_interface_native.json) 保存三次 Grizzly 和两次 CMIN / Engineer-FV 的新接口输入及己方对象回读，含场景和 DLL 指纹；它是输入样本，不是完整回放。
 
 ```sh
-PYTHONPATH=src python3 -m unittest tests.test_guard_interface tests.test_identity tests.test_intents tests.test_payloads tests.test_wire tests.test_validate tests.test_state tests.test_native_events tests.test_executor tests.test_micro tests.test_autopilot tests.test_command tests.test_mcp tests.test_replay
+PYTHONPATH=src python3 -m unittest tests.test_guard_interface tests.test_guard_fault_transport tests.test_identity tests.test_intents tests.test_payloads tests.test_wire tests.test_validate tests.test_state tests.test_native_events tests.test_executor tests.test_micro tests.test_autopilot tests.test_command tests.test_mcp tests.test_replay
 ```
 
-结果：521 项通过，未运行全量测试。覆盖版本与可选字段解析、非法线类型/范围、载荷字段、序列化、客户端路由、单车辆限制、越权不可放宽、对象不可用、地点边界、纯计划无 I/O、新输入与错误事件、旧事件 out/do 转移、未知结果单次发送、发送前指针复用拒绝以及变身身份兼容、同一旧事件重新调度为未来帧、Commander.call → MicroLayer → Executor 完整调用与作用域/租约结算、空单位/无地图/参数错误拒绝、五次真实输入与原版 ID/目标格关联、HARVEST 等多态效果任务不作为输入回执的额外限制。新增真实样本回归初跑沿用了合成坦克的固定指针，已修正测试装配为样本真实 pointer、house_index 与 144×144 地图后重跑通过；未因此修改运行时实现。WebSocket 回环测试在沙箱内因 socket 权限失败，已获执行批准后重跑通过；不存在名为 tests.test_client 的模块，最终命令使用实际 tests.test_wire 与 Guard 客户端路由测试。
+结果：527 项通过，未运行全量测试。覆盖版本与可选字段解析、非法线类型/范围、载荷字段、序列化、客户端路由、单车辆限制、越权不可放宽、对象不可用、地点边界、纯计划无 I/O、新输入与错误事件、旧事件 out/do 转移、未知结果单次发送、发送前指针复用拒绝以及变身身份兼容、同一旧事件重新调度为未来帧、Commander.call → MicroLayer → Executor 完整调用与作用域/租约结算、空单位/无地图/参数错误拒绝、五次真实输入与原版 ID/目标格关联、HARVEST 等多态效果任务不作为输入回执的额外限制。新增真实样本回归初跑沿用了合成坦克的固定指针，已修正测试装配为样本真实 pointer、house_index 与 144×144 地图后重跑通过；未因此修改运行时实现。WebSocket 回环测试在沙箱内因 socket 权限失败，已获执行批准后重跑通过；不存在名为 tests.test_client 的模块，最终命令使用实际 tests.test_wire 与 Guard 客户端路由测试。
+
+新增 [test_guard_fault_transport.py](../../../tests/test_guard_fault_transport.py) 的 6 项测试，覆盖固定故障集合、未知/非法基底拒绝、单次注入、非零回声不解析为状态、12 条真机拒绝回声的语义一致性与 Executor 拒绝重放。真实样本为 [guard_rejections_native.json](../../../tests/data/guard_rejections_native.json)；重复标量会被服务端重编码为 packed，默认零字段可省略，比较按字段语义进行，不要求请求与回声字节完全相等。它是拒绝回复样本，不是完整原始流量或回放。
 
 ## 构建与可追溯产物
 
@@ -102,6 +104,35 @@ PYTHONPATH=src python3 -m unittest tests.test_guard_interface tests.test_identit
 
 临时驱动已改为保留场景只读等待帧恢复，连续两次采样确认两侧推进后重新读取对象并发一次输入；停帧期间不下令，未知结果不重发。等待上限 20 分钟，到期进入 finally 恢复；效果观察仅累计两侧帧推进时的采样时间。完整己方对象从 state.objects 按归属跟踪，避免 observation.own 的 limbo 过滤将矿车瞬态误判为消失。方法经验：人工准备后优先保留可恢复场景，短暂卡顿不能作为接口失败；将阶段名称、实际载员条件与用户变更范围明确关联；允许按用户决定跳过价值较低的对照，原始日志和限定范围结果分别留存。此项修正只属于临时驱动，不代表生产 MCP 已修改或持续暂停测试已完成。
 
+## 服务端拒绝边界：限定场景通过
+
+正式记录为 .agents/tmp/engine-build/backups/guard-reject-20261002-175234/validation.json，status=passed；逐次观测为 rejection-observations.jsonl，任务与回执日志为 rejection-decisions.jsonl。复跑入口为 .agents/tmp/engine-build/guard_rejections_check.py，场景逻辑为 guard_rejections.py。两侧使用同一已验证 DLL、既有名册和 single_step=False；不生产单位、不安装依赖、不修改生产代码、DLL 源码、显示配置或 DSH，不要求人工操作。
+
+测试动作仍从隔离测试技法 guard_current 经 Commander → MicroLayer → Executor 下发；生产 Validator 和作用域/租约检查未放宽。[GuardFaultTransport](../../../tests/guard_fault_transport.py) 仅在测试中作为 Executor 的 client 适配器，将已通过正常 L0 校验的 GuardCurrent 请求转换为固定错误载荷，注入消费一次，不支持任意 Mission 或公开原始下令。技术采集层从完整状态取得错误对象对照，不进入模型合法观测或正式对象目标选择。使用明确的 Beta house array_index 排除中立对象；非己方车辆以阵营索引、类型和精确初始世界坐标与 Beta 的己方对象唯一配对，取得真实 native_id=1043808，避免把归属错误与原版 ID 错误混在同一用例。己方测试 Grizzly 的 native_id=1043819；Infantry 用例也使用该步兵真实的己方 native_id。
+
+| 场景 | 错误载荷 | 服务端 error_message |
+|---|---|---|
+| wrong_native_id | 同一己方车辆，expected_native_id 错误 | guard actor absent, changed or unsupported |
+| wrong_house | expected_house 为 Beta 在 Alpha 进程中的 house pointer | guard player context changed |
+| stale_basis / future_basis | basis_frame=0 / 当前依据帧+100000 | guard basis frame is stale |
+| current_with_coordinates / position_without_coordinates | action=13 带坐标 / action=14 不带坐标 | guard target shape mismatch |
+| object_target | Guard 附带非零 target_object | guard does not accept an object target |
+| negative_coordinates | GuardPosition 的 x=-1 | guard coordinates out of range |
+| outside_map | GuardPosition 的目标格 (511,511)，在全局坐标范围内、超出当前地图包围范围 | guard cell outside map bounds |
+| unknown_actor | object_addresses 的唯一值为 1，不属于活 Techno 集合 | guard actor absent, changed or unsupported |
+| foreign_actor | Alpha 进程中的 Beta Grizzly pointer 及其真实 native_id，当前玩家仍为 Alpha | guard actor absent, changed or unsupported |
+| infantry_actor | 真实己方 Infantry pointer/native_id，RTTI 非 UnitClass | guard actor absent, changed or unsupported |
+
+12 个场景均取得 CommandResult.code=1 与表中原文，单次发送；Commander 受理成功后，MicroLayer 将服务端拒绝记录为 failed、unverified=0、receipts=[]，移除任务并释放租约，下一项可重新受理同一车辆。Guard 服务端原文目前保留在任务 reason 中，归一化 reason_for 仍可能为 unknown；本轮没有新增结构化错误码。错误响应中的 payload 是请求回声，不能因存在 UnitOrder 字段或 payload 就按状态/成功结果处理。
+
+每次拒绝后观察至少 45 个推进帧：被跟踪的己方 Grizzly、己方 Infantry 与 Beta Grizzly 的 Mission、精确世界位置、HP 和可读 native_id 未改变；当前玩家采集窗口没有出现与被测己方车辆/步兵关联的新输入。该窗口和当前玩家事件不是无限期、完整队列或 Beta 全部输入的无副作用证明；服务端显式拒绝和源码的校验顺序是主要证据。未知回复立即中止、不重发；停帧只读等待上限 120 秒，不在停帧期间建新输入。
+
+前后合法 GuardCurrent 对照分别在准备帧 318 / 1211 被受理，命令 ID=42 / 161，均确认 native_input_observed；观察窗口结束帧为 373 / 1267。它们证明本轮连接与正常请求路径在拒绝前后仍可用，不提升输入确认至 applied。后续四组只读状态继续推进。最终 DLL/配置哈希及 DLL 硬链接恢复、端口关闭、仅本轮游戏进程停止，崩溃报告字节一致；两侧已恢复原 DLL。完整联机同步未验证。
+
+准备修正记录同在 backups/：174506 在可见敌人为空时选择对象失败，尚未下令；174625 的 12 个请求已拒绝，但非己方对象选中了中立车辆且沿用了己方 native_id，不能用于单独确认 Beta 归属拒绝；175045 的配对预检识别到该中立对象并在下令前停止。上述尝试均完整恢复、无新增崩溃报告；正式样本仅取 175234 的明确 Beta 配对结果。经验：先核对故障场景是否只触发待验证约束，不能以同一错误原文证明每个可能分支；技术对照对象须按真实阵营定位，不能用“第一个非己方对象”代替。
+
+本组未覆盖无对象/多对象、零身份、死亡/limbo/变身、非法当前 Mission、无效 Cell、ClickMission 返回 false、败局、真实跨局次 nonce、运行中对象身份竞争或帧时效的 150/151 临界值。离线覆盖与源码判断不能升级为这些真机场景通过；不要求在对应 S4 迁移前建立完整测试平台或执行全矩阵。
+
 ## 后续受控验证步骤
 
 本轮临时替换已获用户确认并恢复；再次替换执行前按当轮范围告知并核对授权：对 D:/Games/ra2probe 与 D:/Games/ra2probe-b 的 DLL、spawn.ini 及既有 spawn.ini.render-bak 备份，经临时文件替换两侧 DLL并启动现有双实例配置。停止及恢复须进入 finally，保留 DLL 哈希、配置哈希与原硬链接关系，不改 DSH 或系统依赖。
@@ -111,4 +142,4 @@ PYTHONPATH=src python3 -m unittest tests.test_guard_interface tests.test_identit
 3. 与 S2 原版输入和预期效果对照；GuardPosition 观察实际移动和到达，输入确认与任务效果分别记录。双实例验证不能用不同采样时刻的 frame 差代替同步判据。
 4. 所有本轮进程与连接关闭，恢复原 DLL/配置并复核哈希、硬链接、端口和崩溃报告。后续仅按未测问题选择多态与拒绝场景，不要求执行全矩阵。
 
-本轮 Grizzly 与 CMIN、Engineer-FV 的限定正例已收尾。下一步优先补服务端错误身份、归属、旧依据帧等受控拒绝边界，场景无需生产单位，可复用现有内部测试技法链并在测试传输适配层构造错误依据；生产校验不得放宽，不能直接开放原始下令工具。再按证据选择 S4 技法迁移，避免默认要求低价值全矩阵；上述拒绝分支仍未真机验证。对象护送、建筑保护、HARV 实测、动态载员回读、完整请求结果契约、长期任务和 S4–S6 未完成。持续暂停恢复未确认，S 不代表游戏暂停；Beta 的既有场景为 Americans，不假定苏军。完整 DSH idle/dispose 生命周期仍未验。
+本组 GuardCurrent / GuardPosition 的限定实现、正例与关键拒绝验收已收尾，可进入对应 S4 技法接入。下一步先审计 builtin economy.py / combat.py 与自动层的既有采矿和 guard_area 语义，选择已验证范围内的一次原生输入接入点；卡片承诺、旧 DLL unsupported、租约释放和原生 AI 持续性须明确，禁止每拍重发。正式迁移与新 DLL 的长期启用尚未实施，不能因测试通过就默认覆盖游戏文件或新增公开工具。对象护送、建筑保护、HARV 实测、动态载员回读、完整请求结果契约、长期任务和 S4–S6 未完成。持续暂停恢复未确认，S 不代表游戏暂停；Beta 的既有场景为 Americans，不假定苏军。完整 DSH idle/dispose 生命周期仍未验。
