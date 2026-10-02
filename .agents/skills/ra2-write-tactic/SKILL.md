@@ -125,7 +125,7 @@ return (ctx.intent(Wake, text="基地被打了，3 个建筑在掉血"),)
 | `Wake` | `text` | **不落到引擎**：请求唤醒模型，`split_wakes` 把它交给唤醒桥。限度见下 |
 | `TacticCall` | `tactic`、`params` | 指挥层意图，不是你要返回的东西——它是模型 `call` 的载荷 |
 
-Guard 首版只经过单个 Grizzly 的限定新 DLL 验证，适用性与剩余边界见[Guard 接口验证](../../notes/验证/Guard接口验证.md)。未经声明 v1 的 DLL 会被 L0 明确拒绝；禁止为新意图自行连接 Client、开放任意 Mission 或每拍重发。正式薄技法、持续任务与自动经济迁移属于 S4，不因类已注册而视为完成。
+Guard 首版只有限定新 DLL 场景通过，具体已验证对象、适用性与剩余边界见[Guard 接口验证](../../notes/验证/Guard接口验证.md)。未经声明 v1 的 DLL 会被 L0 明确拒绝；禁止为新意图自行连接 Client、开放任意 Mission 或每拍重发。正式薄技法、持续任务与自动经济迁移属于 S4，不因类已注册而视为完成。
 
 ### `Wake` 的节制
 
