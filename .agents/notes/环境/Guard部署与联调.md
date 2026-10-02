@@ -1,6 +1,6 @@
 # Guard 部署与联调
 
-日期：2026-10-02。当前状态：部署方案与一次性脚本已准备，只读预检通过；长期启用与当前 DSH 重启尚待用户确认，未替换文件或重启服务。功能证据见[Guard 技法迁移验证](../验证/Guard技法迁移验证.md)，底层产物与未测边界见[Guard 接口验证](../验证/Guard接口验证.md)。
+日期：2026-10-02。当前状态：用户已明确确认长期替换并保留备份；DLL 已部署，独立复核通过。用户已关闭旧 DSH、重新启动普通 ra2 测试会话；双实例与只读采集运行中，普通会话联调进行中，采矿迁移尚待实测。功能证据见[Guard 技法迁移验证](../验证/Guard技法迁移验证.md)，底层产物与未测边界见[Guard 接口验证](../验证/Guard接口验证.md)。
 
 ## 具体部署范围
 
@@ -20,10 +20,22 @@ PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python3 .agents/tmp/engine-build/guard_
 
 如果临时脚本已被清理，仍可从持久备份回退：先关闭游戏并核对部署清单与备份 SHA-256，通过独立暂存文件换回 Alpha，再以 Alpha 为源原子换回 Beta 硬链接，复核两侧原哈希与 samefile。不得用未经核验的其他 DLL 或直接原位覆盖硬链接。
 
+## 本次长期部署结果
+
+持久清单：/mnt/d/Games/ra2probe/.ra2-agent-backups/guard-v1-20261002-214431/deployment.json，status=installed。原 DLL 在同目录 original-libra2yrcpp.dll，SHA-256=59b8d235a44398f20d290b44b60b92d7127fada1353cfe1d2bfd0a8b646a0b28；部署 DLL SHA-256=862a8c318a7193c5b4a6ec6899af26ecebef47b05b0270ce86debef6ef11010c。脚本核对后，独立再次复核两侧哈希、原备份哈希、DLL samefile 和清单所列配置/崩溃报告哈希，均通过。没有重装工具、修改 DLL 源码或游戏其他配置；此次授权后，新 DLL 长期保留。
+
+本次回滚命令为下列命令；先关闭游戏，不自动终止用户对局。若清理过项目临时脚本，依照上节从持久清单和备份手工恢复。
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src python3 .agents/tmp/engine-build/guard_deploy.py rollback /mnt/d/Games/ra2probe/.ra2-agent-backups/guard-v1-20261002-214431/deployment.json
+```
+
+当前联调目录为 .agents/tmp/s4-dsh/run-20261002-214431/，capture.py 使用两个只读 Observer，保存 observations.jsonl、原版事件、新事件对应原始状态、阶段标记和 latest.json；独占写入者为 DSH 中的模型/自动层。启动前备份两側 spawn.ini/spawn.ini.render-bak 和诊断留证，退出 finally 恢复测试配置；不恢复已获长期启用授权的 DLL。首次 status 连接 GameSession 会启动既有自动层，可能展开 MCV、开始生产，不能将该入口称为完全无游戏动作；自动行为与显式 native_guard 按对象/原版事件分别归因。
+
 ## 当前宿主与最小联调
 
-只读观察到 DSH 的 pnpm dsh web --no-open 进程与默认 ra2agent.mcp 自 16:36 起运行，早于 S4 技法改动，不能认为它们已加载最新 Python 代码。按照[指挥层的加载说明](../设计/指挥层.md#挂载方式)，联调前重启 DSH；现有服务重启会短暂中断 Web 连接与正在运行的模型回合，应单独说明并取得确认。不通过启停 bundle 热换或强杀 MCP 诱导重连，不改 preset 默认配置。
+旧 DSH 与 MCP 已由用户关闭。重新启动的 DSH PID=185141（21:46:40）、默认 MCP PID=185173（21:46:45）；MCP cwd=/home/youthz/ra2-agent，PYTHONPATH=/home/youthz/ra2-agent/src，启动时间晚于 S4 提交。用户负责普通 ra2 会话的任务投递；未派玩家子 Agent，未启停 bundle 热换、强杀 MCP 或修改 preset。宿主加载约束见[指挥层](../设计/指挥层.md#挂载方式)。
 
-确认后先核对新 MCP 的启动时间、cwd、PYTHONPATH 及唯一控制者，再启动既有双实例名册，观察 stage、游戏帧、guard_interface_version 与己方原版身份。通过正常 status/tactics/call/cancel 入口验证卡片和单次输入，随后准备 CMIN 检查 harvest/auto_harvest 的真正接线、原生循环和重复下令情况；必要准备可请用户完成。测试采用独占指令写入者，其他连接只读；日志保存到项目忽略目录，不读取凭据或无关会话内容。
+已核对新 MCP 的启动时间、cwd、PYTHONPATH 并启动既有双实例名册；Alpha PID=25228、Beta PID=39028，两側 stage=2、guard_interface_version=1，max_connections=16 为此次配置回读值。通过正常 status/tactics/call/cancel 入口验证卡片和单次输入，随后准备 CMIN 检查 harvest/auto_harvest 的真正接线、原生循环和重复下令情况；必要准备可请用户完成。测试采用独占指令写入者，其他连接只读；日志保存到项目忽略目录，不读取凭据或无关会话内容。
 
 本轮不以完整模型策略评测、冷玩家唤醒、idle/dispose、持续暂停或完整联机同步为前置验收。原版输入确认与实际采矿效果分别记录；短暂切屏停帧等待恢复，未知结果不重发。测试结束关闭本轮连接和进程、恢复测试生成的配置；已明确获准的长期 DLL 启用保持，异常则按部署清单回退并更新状态。

@@ -58,7 +58,7 @@ PYTHONPATH=src python3 -m unittest tests.test_guard_interface tests.test_guard_f
 | 清单与日志 | 同目录 manifest.json；.agents/tmp/engine-build/logs/guard-* |
 | 独立源码 | .agents/tmp/engine-build/sources/ra2yrcpp-guard |
 
-本轮复用已安装工具与依赖；加入独立源码和构建、尚未积累本轮真机备份时 .agents/tmp/engine-build 合计约 765 MiB；逐轮备份另计。研究源码与未修改基线保持独立，游戏仍使用恢复后的原 DLL。
+本轮复用已安装工具与依赖；加入独立源码和构建、尚未积累本轮真机备份时 .agents/tmp/engine-build 合计约 765 MiB；逐轮备份另计。研究源码与未修改基线保持独立；当前游戏 DLL 的后续长期启用状态见[部署记录](../环境/Guard部署与联调.md)。
 
 ## 限定真机结果与修复经验
 
@@ -85,7 +85,7 @@ PYTHONPATH=src python3 -m unittest tests.test_guard_interface tests.test_guard_f
 
 首次导入脚本缺少项目根路径，在触碰游戏文件前失败；最终命令使用 `PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. python3 .agents/tmp/engine-build/guard_check.py`。首次加载失败后中断信号未找到脚本，实际由加载超时进入 finally 完成恢复；后续加入新崩溃报告立即退出的检查。除首轮真实崩溃外，其余退出均由脚本按验证结果主动停止，前后崩溃报告字节一致；切屏会影响帧推进，现有证据不支持将首轮崩溃归因于切屏。
 
-所有完成的真机尝试均记录恢复成功：原 DLL/配置哈希匹配、DLL 原硬链接关系恢复、端口关闭、本轮进程停止。最终两侧仍使用原 DLL SHA-256=59b8d235a44398f20d290b44b60b92d7127fada1353cfe1d2bfd0a8b646a0b28。首轮生成的崩溃报告与日志作为诊断留证，后续未覆盖为旧报告；恢复范围为 DLL 和启动配置，不宣称日志未变化。
+所有完成的真机尝试均记录恢复成功：原 DLL/配置哈希匹配、DLL 原硬链接关系恢复、端口关闭、本轮进程停止。本组临时验证结束时两侧恢复原 DLL SHA-256=59b8d235a44398f20d290b44b60b92d7127fada1353cfe1d2bfd0a8b646a0b28。首轮生成的崩溃报告与日志作为诊断留证，后续未覆盖为旧报告；恢复范围为 DLL 和启动配置，不宣称日志未变化。
 
 ## 车辆多态补测：限定正例通过
 
