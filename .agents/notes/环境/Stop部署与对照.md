@@ -58,8 +58,12 @@ report.status=capture_stopped；本次游戏进程已关闭、14521/14522 关闭
 
 回滚路径：标准 rollback 子命令硬编码校验 original_sha256 等于 Guard v1 指纹，长期部署后按该子命令会拒绝执行；回滚须在以实际清单为参数前先由修改后的脚本处理，或先确认无活动游戏，再把 deployment.json 的 backup 路径复制回两个目标并重建硬链接。改善该脚本属于后续独立改动，不混入本次部署。
 
-## 运行加载检查（待执行）
+## 运行加载检查（已通过）
 
-用户将在适当时点关闭关联会话并重启 DSH，然后自行启动新局；只开关 bundle 不能保证旧进程回收，运行中 DSH 仍可能缓存旧 Python 模块。加载检查由用户操作、Agent 用只读查询核对：新对局需确认 guard_interface_version=1 与 stop_interface_version=1，且 stop 卡片显示而 halt 仍隐藏。未确认前不将文件替换当作已加载，也不重复已完成的人工 S 对照；若本轮没有新局，仅报告部署落盘并保留运行加载待验。
+用户已授权 Agent 直接启动对局，未改任何配置文件。启动复用现有 config/match.json 名册与两侧既有 spawn.ini，只经 MatchHost.launch 起两个 gamemd；起局前拒绝现存 gamemd 与开放探针端口，起局前后核对 10 个配置/崩溃报告文件指纹完全一致。就绪探针走 Client 直连读一帧，不经过 MCP 的 GameSession，故本局没有由该入口建立自动层。
 
-检查完成后再推进 A1 的 U02 移动模式确认与 U08 实际目标回读调查；建筑/变身等动态 Stop 测试仍保持未验。
+Alpha PID=9228、Beta PID=20056，两側 stage=2；只读回读 guard_interface_version=1、stop_interface_version=1，证明新 DLL 已在对局中加载并被解析。MATCH 模式下 stop 卡片显示、halt 隐藏。证据 .agents/tmp/a1-stop-load/launch-20261003-003905.json；脚本 load_check_readonly.py 与 launch_match.py 同为该目录的一次性脚本，不入库。
+
+通过范围仅限「新 DLL 已加载且两种能力版本可读」，不等于完整 DSH 生命周期验收，也不代表用户的 DSH 会话已切到新局；完整 DSH idle/dispose、跨局身份与建筑/变身等动态 Stop 仍未验。
+
+检查完成后推进 A1 的 U02 移动模式确认与 U08 实际目标回读调查；两类实验都需要对局内显式游戏动作，属新的动作范围，执行前单独说明并确认。
