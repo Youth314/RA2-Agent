@@ -1,6 +1,6 @@
 # Stop 部署与对照
 
-更新日期：2026-10-03。状态：用户已明确确认并完成临时部署与三项对照；游戏/采集结束，四个启动配置及两侧 Guard DLL 已恢复，独立复核通过。实现与产物指纹在[Stop 玩家接口验证](../验证/Stop玩家接口验证.md)维护；当前长期 Guard 部署及旧备份见[Guard 部署](Guard部署与联调.md)。
+更新日期：2026-10-03。状态：用户已明确确认长期启用；两侧已由 Guard v1 替换为 Stop v1，独立复核通过，运行加载检查待用户重启 DSH 并启动新局。实现与产物指纹在[Stop 玩家接口验证](../验证/Stop玩家接口验证.md)维护；被替换的 Guard v1 长期部署及旧备份见[Guard 部署](Guard部署与联调.md)。
 
 ## 环境范围与回滚
 
@@ -46,12 +46,20 @@ report.status=capture_stopped；本次游戏进程已关闭、14521/14522 关闭
 
 独立复核两个运行的四个启动配置、所有原配置/崩溃报告、持久 Guard 备份、两侧 Guard DLL 指纹与 samefile、rolled_back 清单通过；最终只读 preflight 再确认无游戏和开放探针，源 Stop 产物未变。DSH/MCP 未接管。本批不需要人工按键，模型动作仍经正式 stop 技法；固定错误由开发测试传输层注入。当前长期启用保持 Guard，Stop 未长期部署，后续环境调整按具体范围说明。
 
-## 长期启用候选（待确认）
+## 长期启用执行结果
 
-本轮只读 stop_deploy.py check 通过：源产物指纹匹配，两侧当前 Guard DLL 指纹与硬链接关系符合预期，无 gamemd 进程和开放探针端口。预检不是部署授权，执行前须重新检查；当前 Stop 尚未长期启用。本次候选复用已通过三项 Grizzly 正例及 12 项限定拒绝的同一产物，不重建、不下载；指纹和未验范围由[Stop 验证](../验证/Stop玩家接口验证.md)维护。
+用户已明确确认长期启用范围，本页 apply 流程已执行；范围仅为两侧 DLL 替换与持久备份，复用已通过三项 Grizzly 正例及 12 项限定拒绝的同一产物，不重建、不下载。预检与替换前各做一次只读检查：无 gamemd 进程、无开放探针端口、两侧 Guard v1 指纹与硬链接均符合预期。
 
-待用户确认的改动为长期替换 D:\Games\ra2probe\libra2yrcpp.dll 与 D:\Games\ra2probe-b\libra2yrcpp.dll，保留硬链接。沿用本页 apply 流程，在 D:\Games\ra2probe\.ra2-agent-backups\stop-v1-<时间>\ 新增当前 Guard DLL 副本与 deployment.json，核对源、备份、两侧目标及配置/崩溃报告；安装成功后保留新 DLL，不做本轮临时测试式自动回滚。失败时按脚本恢复 Guard；后续人工要求回滚时，先确认无活动游戏，再对实际清单执行本页 rollback。旧备份保留。
+替换的两个目标为 D:\Games\ra2probe\libra2yrcpp.dll 与 D:\Games\ra2probe-b\libra2yrcpp.dll，安装后 SHA-256=cf7bab758ea29152c032c83f2b3adf9b5b3d849a0bf1326c16313ea7226a5978、8249061 字节，两侧 samefile=true、链接数 2，硬链接关系保留。源产物指纹未变。
 
-批准范围仅为 DLL 长期替换及持久备份；不自动启动对局、修改 spawn.ini/ra2yrcpp.json、安装依赖或接管 DSH/MCP。运行中 DSH 可能缓存旧 Python 模块，用户在适合的时点关闭关联会话并重启 DSH，然后自行启动新局；只开关 bundle 不能保证旧进程回收。等待用户重启/启动时，Agent 复核部署清单、备份、两侧指纹和只读接口版本，并准备卡片检查；不重复已经完成的人工 S 对照。
+新增持久清单 /mnt/d/Games/ra2probe/.ra2-agent-backups/stop-v1-20261003-001402/deployment.json，status=installed；同目录 original-libra2yrcpp.dll 是替换前 Guard v1 副本，SHA-256=862a8c318a7193c5b4a6ec6899af26ecebef47b05b0270ce86debef6ef11010c。记录同时保存目标、源、前后哈希、硬链接标记、构建 manifest 及 10 个未变文件的替换前后指纹；不存在文件记 null。替换前后复核两侧四个启动配置、ra2yrcpp.json 与两份崩溃报告指纹一致，四个既有备份目录未改动。安装成功保留新 DLL，不做临时测试式自动回滚。
 
-新对局需只读确认 guard_interface_version=1 与 stop_interface_version=1，以及 stop 卡片显示而 halt 仍隐藏；不将文件替换当作已加载或 DSH 完整生命周期验收。若用户没有启动新局，本轮仅报告部署落盘，保留运行加载待验。确认后先完成部署与留证，再继续 A1 的 U02 模式确认或 U08 实际目标回读调查；建筑/变身等动态 Stop 测试仍保持未验。
+未改动：spawn.ini、spawn.ini.render-bak、ra2yrcpp.json、EXCEPT_CNCNET.TXT、except.txt、DSH 插件/preset、系统依赖；未自动启动对局，未接管 DSH/MCP。替换只保证文件落盘，不保证已加载或 DSH 生命周期通过；本次未运行部署脚本的自动化测试，仓库既有测试不覆盖该一次性脚本。
+
+回滚路径：标准 rollback 子命令硬编码校验 original_sha256 等于 Guard v1 指纹，长期部署后按该子命令会拒绝执行；回滚须在以实际清单为参数前先由修改后的脚本处理，或先确认无活动游戏，再把 deployment.json 的 backup 路径复制回两个目标并重建硬链接。改善该脚本属于后续独立改动，不混入本次部署。
+
+## 运行加载检查（待执行）
+
+用户将在适当时点关闭关联会话并重启 DSH，然后自行启动新局；只开关 bundle 不能保证旧进程回收，运行中 DSH 仍可能缓存旧 Python 模块。加载检查由用户操作、Agent 用只读查询核对：新对局需确认 guard_interface_version=1 与 stop_interface_version=1，且 stop 卡片显示而 halt 仍隐藏。未确认前不将文件替换当作已加载，也不重复已完成的人工 S 对照；若本轮没有新局，仅报告部署落盘并保留运行加载待验。
+
+检查完成后再推进 A1 的 U02 移动模式确认与 U08 实际目标回读调查；建筑/变身等动态 Stop 测试仍保持未验。

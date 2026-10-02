@@ -1,10 +1,10 @@
 # Guard 部署与联调
 
-日期：2026-10-02。当前状态：用户已明确确认长期替换并保留备份；DLL 已部署，独立复核通过。用户已关闭旧 DSH、重新启动普通 ra2 测试会话；[普通会话联调四项限定通过](../验证/GuardDSH联调验证.md)，本轮游戏与采集已结束、启动配置恢复复核通过。功能证据见[Guard 技法迁移验证](../验证/Guard技法迁移验证.md)，底层产物与未测边界见[Guard 接口验证](../验证/Guard接口验证.md)。
+日期：2026-10-02。当前状态：Guard v1 曾按用户明确确认长期替换并保留备份，独立复核通过，用户已关闭旧 DSH 并重新启动普通 ra2 测试会话；[普通会话联调四项限定通过](../验证/GuardDSH联调验证.md)，该轮游戏与采集已结束、启动配置恢复复核通过。Guard v1 现已由[长期启用的 Stop v1](Stop部署与对照.md#长期启用执行结果)替换，两侧当前 DLL 不是 Guard v1；本页范围与备份继续作为 Guard 部署事实，不表示当前加载版本。功能证据见[Guard 技法迁移验证](../验证/Guard技法迁移验证.md)，底层产物与未测边界见[Guard 接口验证](../验证/Guard接口验证.md)。
 
 ## 具体部署范围
 
-目标仅为 D:\Games\ra2probe\libra2yrcpp.dll 和 D:\Games\ra2probe-b\libra2yrcpp.dll；两者当前互为硬链接。源产物为项目 .agents/tmp/engine-build/artifacts/guard-v1/libra2yrcpp.dll，部署前核对已验证 SHA-256 与 manifest，不重新下载或构建。本轮不修改 ra2yrcpp.json、显示设置、DSH 插件或系统依赖。
+目标仅为 D:\Games\ra2probe\libra2yrcpp.dll 和 D:\Games\ra2probe-b\libra2yrcpp.dll；两者在 Guard 部署时互为硬链接，该关系由后续 Stop 长期部署沿用以致两者仍互为硬链接，当前加载版本见[Stop 部署](Stop部署与对照.md#长期启用执行结果)。源产物为项目 .agents/tmp/engine-build/artifacts/guard-v1/libra2yrcpp.dll，SHA-256=862a8c318a7193c5b4a6ec6899af26ecebef47b05b0270ce86debef6ef11010c，部署前核对已验证 SHA-256 与 manifest，不重新下载或构建。本轮不修改 ra2yrcpp.json、显示设置、DSH 插件或系统依赖。
 
 原 DLL、部署清单及源 manifest 保存到 D:\Games\ra2probe\.ra2-agent-backups\guard-v1-<时间>\，目录在项目 tmp 外，避免临时产物清理后失去回滚副本。替换采用独立暂存文件加 os.replace，不能直接覆盖原硬链接内容；Alpha 换入新 DLL 后，Beta 以原子替换重新链接 Alpha，核对两侧哈希与 samefile。成功后保留新 DLL，后续游戏启动加载它；备份不自动删除。
 
