@@ -1,0 +1,26 @@
+{
+  "recording_sha256": "7dd93f6838485cb2477428f8c273813e0545e46ada1894a2fafe007c509f20c2",
+  "samples": [
+    {
+      "label": "manual",
+      "raw_hex": "08011001189f1320063a080a0608efda3f1034980193c8d1a801",
+      "source": "out",
+      "native_id": 1043823,
+      "observed_frame": 2463
+    },
+    {
+      "label": "moving",
+      "raw_hex": "0801100118c02d20063a080a0608efda3f103498018c94d6a801",
+      "source": "out",
+      "native_id": 1043823,
+      "observed_frame": 5825
+    },
+    {
+      "label": "stationary",
+      "raw_hex": "100118fd4220063a080a0608efda3f10349801c3f2d9a801",
+      "source": "out",
+      "native_id": 1043823,
+      "observed_frame": 8574
+    }
+  ]
+}

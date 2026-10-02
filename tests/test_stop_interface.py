@@ -1,6 +1,7 @@
 """Stop/Idle 离线契约；合成输入不证明玩家效果或已加载 DLL。"""
 from dataclasses import replace
 import json
+from pathlib import Path
 import unittest
 from unittest.mock import Mock
 
@@ -54,6 +55,21 @@ class TestStopInterface(unittest.TestCase):
         self.executor = Executor(self.client, self.identity, validator=Validator(make_map()),
                                  sleep=lambda _: self.client.advance(), **options)
         return self.executor.plan(self.intent, states[0])
+
+    def test_real_manual_and_interface_idle_samples(self):
+        fixture = json.loads((Path(__file__).parent / 'data/stop_native.json').read_text())
+        self.assertEqual({s['label'] for s in fixture['samples']}, {'manual', 'moving', 'stationary'})
+        for sample in fixture['samples']:
+            native = NativeEvent.parse(bytes.fromhex(sample['raw_hex']), sample['source'])
+            self.assertEqual(native.event_type, 6)
+            self.assertEqual(native.idle_actor.m_id, sample['native_id'])
+            self.assertEqual(native.idle_actor.m_rtti, 52)
+            initial = state(sample['observed_frame']-2, native_id=sample['native_id'])
+            initial = replace(initial, houses=tuple(replace(h, array_index=1) for h in initial.houses))
+            plan = self.build(initial)
+            observed = replace(initial, frame=sample['observed_frame'], _native_events=(native,))
+            self.assertTrue(plan.verify(observed))
+            self.assertFalse(plan.verify(replace(observed, _native_events=())))
 
     def test_protocol_and_roundtrip(self):
         original = Stop(units=(1,))

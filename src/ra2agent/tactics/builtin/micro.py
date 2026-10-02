@@ -141,7 +141,7 @@ def _retreat(context):
 TACTICS = (
     Tactic(TacticInfo(
         name="stop",
-        summary="实验 Stop v1：向单个己方车辆提交一次玩家 S 输入；真机效果待核验；"
+        summary="Stop v1：向单个己方车辆提交一次玩家 S 输入；Grizzly 移动中断与静止输入已验，其他型号未验；"
                 "输入确认后释放租约，不保证永久停车或禁火",
         requires=("has_units", "has_map", "stop_v1"),
     ), _stop),
