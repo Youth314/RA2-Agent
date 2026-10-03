@@ -63,12 +63,19 @@ class IdentityTable:
     """
 
     def __init__(self, match_radius=DEFAULT_MATCH_RADIUS,
-                 grace_frames=DEFAULT_GRACE_FRAMES):
+                 grace_frames=DEFAULT_GRACE_FRAMES, *, start_id=1):
+        if type(start_id) is not int or start_id < 1:
+            raise ValueError("start_id 必须是正整数")
         self.match_radius = match_radius
         self.grace_frames = grace_frames
         self._tracked: dict[int, TrackedObject] = {}
         self._by_pointer: dict[int, int] = {}
-        self._next_id = 1
+        self._next_id = start_id
+
+    @property
+    def next_id(self) -> int:
+        """尚未分配的 ID 起点；重建表时用于避免复用旧 ID。"""
+        return self._next_id
 
     # ------------------------------------------------------------ 查询
     def agent_id(self, pointer) -> int | None:

@@ -8,9 +8,11 @@ import json
 import time
 import unittest
 from types import SimpleNamespace
+from unittest.mock import patch
 
 from ra2agent.constants import LoadStage
 from ra2agent.errors import ProtocolError, Ra2Error
+from ra2agent.engine.identity import IdentityTable
 from ra2agent.deploy.game import GameHost, ProcessInfo
 from ra2agent.mcp import (FALLBACK_PROTOCOL, INSTRUCTIONS, LATEST_PROTOCOL,
                           PROTOCOL_VERSIONS, TOOLS, GameSession, McpServer)
@@ -291,6 +293,7 @@ class TestFrameGate(unittest.TestCase):
             return session._observer.latest
 
         session._observer = SimpleNamespace(poll=poll, observe=lambda: session._observer.latest)
+        session._observer.identity = IdentityTable()
         ticks = []
         session._layer = SimpleNamespace(tick=lambda observation: ticks.append(observation))
         session._commander = object()
@@ -410,6 +413,97 @@ class TestFrameGate(unittest.TestCase):
 
 def refuse_connection():
     raise ConnectionRefusedError("拒绝连接")
+
+
+class TestReconnectContext(unittest.TestCase):
+    """真实连接拼装与 Commander，只有传输和线程换成离线替身。"""
+
+    def setUp(self):
+        from tests.test_observation import FakeClient, make_map, make_state, tank
+        from ra2agent.engine.state import TypeTable
+        from tests.fixtures import build_type_table
+
+        self.clients = [FakeClient(
+            states=[make_state(objects=[tank(0xA1, (1, 1))])],
+            map_data=make_map([[False] * 4 for _ in range(4)]),
+            types=TypeTable.parse(build_type_table([]))) for _ in range(2)]
+        self.closed = []
+        for client in self.clients:
+            client.connect = lambda: None
+            client.close = lambda client=client: self.closed.append(client)
+        self.addCleanup(patch.stopall)
+        patch("ra2agent.mcp.Client", side_effect=self.clients).start()
+        patch("ra2agent.mcp.threading.Thread").start()
+        self.session = GameSession(on_log=lambda text: None)
+        self.addCleanup(self.session.close)
+
+    def request(self, unit):
+        return {"calls": [{"tactic": "advance_to_cell", "units": [unit],
+                           "params": {"cell": [2, 1]}}]}
+
+    def current_id(self):
+        return self.session._observer.identity.agent_id(0xA1)
+
+    def test_first_call_requires_status_and_tactics_cannot_unlock(self):
+        with self.assertRaisesRegex(Ra2Error, "本次请求未受理"):
+            self.session.call_tool("call", self.request(1))
+        self.assertIn("会话上下文 1", self.session.call_tool("tactics", {}))
+        with self.assertRaisesRegex(Ra2Error, "先调用 status"):
+            self.session.call_tool("cancel", {"intent_ids": []})
+        self.assertIn("首次连接", self.session.call_tool("status", {}))
+        self.assertIn("已受理", self.session.call_tool("call", self.request(self.current_id())))
+
+    def test_reconnect_discards_tasks_and_rejects_old_ids_after_status(self):
+        self.session.call_tool("status", {})
+        old_id = self.current_id()
+        self.session.call_tool("call", self.request(old_id))
+        old_layer = self.session._layer
+        self.session._broken = True
+        with self.assertRaisesRegex(Ra2Error, "旧 ID 与任务失效"):
+            self.session.call_tool("call", self.request(old_id))
+        self.assertIn(self.clients[0], self.closed)
+        self.assertIsNot(old_layer, self.session._layer)
+        self.assertGreater(self.current_id(), old_id)
+        text = self.session.call_tool("status", {})
+        self.assertIn("会话上下文 2", text)
+        self.assertIn("原生命令未撤销", text)
+        self.assertIn("在管 0 项", text)
+        self.assertNotIn("已受理", self.session.call_tool("call", self.request(old_id)))
+        self.assertIn("已受理", self.session.call_tool("call", self.request(self.current_id())))
+
+    def test_match_boundary_saves_ids_before_discarding_observer(self):
+        self.session.call_tool("status", {})
+        old_id = self.current_id()
+        self.session._discard_match("游戏帧号回退")
+        self.assertIsNone(self.session._observer)
+        self.assertIn("会话已重建", self.session.call_tool("status", {}))
+        self.assertGreater(self.current_id(), old_id)
+
+    def test_reset_preserves_namespace_and_requires_new_status(self):
+        self.session.call_tool("status", {})
+        old_id = self.current_id()
+        self.session.reset()
+        with self.assertRaisesRegex(Ra2Error, "先调用 status"):
+            self.session.call_tool("cancel", {"intent_ids": []})
+        self.assertGreater(self.current_id(), old_id)
+
+    def test_failed_status_render_does_not_unlock_call(self):
+        self.session.ensure()
+        with patch.object(self.session._commander, "status", side_effect=ValueError("渲染失败")):
+            with self.assertRaisesRegex(ValueError, "渲染失败"):
+                self.session.call_tool("status", {})
+        with self.assertRaisesRegex(Ra2Error, "先调用 status"):
+            self.session.call_tool("call", self.request(self.current_id()))
+
+    def test_boundary_between_ensure_and_dispatch_rejects_request(self):
+        self.session.call_tool("status", {})
+        old_id = self.current_id()
+        def ensure_then_break():
+            self.session._discard_match("游戏帧号回退")
+            return self.session
+        self.session.ensure = ensure_then_break
+        with self.assertRaisesRegex(Ra2Error, "会话已失效"):
+            self.session.call_tool("call", self.request(old_id))
 
 
 class TestGameTool(unittest.TestCase):

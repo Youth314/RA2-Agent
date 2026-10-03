@@ -45,6 +45,20 @@ class TestAssignment(unittest.TestCase):
     def setUp(self):
         self.table = IdentityTable()
 
+    def test_rebuild_starts_after_all_previously_allocated_ids(self):
+        self.table.update(state([unit(TANK)], frame=10))
+        old_id = self.table.agent_id(TANK)
+        self.table.update(state([], frame=100))
+        rebuilt = IdentityTable(start_id=self.table.next_id)
+        rebuilt.update(state([unit(TANK)], frame=101))
+        self.assertGreater(rebuilt.agent_id(TANK), old_id)
+        self.assertIsNone(rebuilt.pointer_of(old_id))
+
+    def test_invalid_start_id_is_rejected(self):
+        for start_id in (0, -1, True, 1.5):
+            with self.subTest(start_id=start_id), self.assertRaises(ValueError):
+                IdentityTable(start_id=start_id)
+
     def test_assigns_ids_to_new_objects(self):
         delta = self.table.update(state([unit(MCV), unit(TANK)], frame=10))
         self.assertEqual(len(delta.appeared), 2)

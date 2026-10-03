@@ -85,7 +85,7 @@ class Observer:
     def __init__(self, client, identity=None, map_data=None, types=None,
                  catalogue=None):
         self.client = client
-        self.identity = identity or IdentityTable()
+        self.identity = identity if identity is not None else IdentityTable()
         self.map_data = map_data
         self.types = types
         #: 可造目录。`mcp` 起服务时挂上，条件与 `status` 都读它。

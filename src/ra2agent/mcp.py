@@ -16,6 +16,7 @@ import time
 
 from . import __version__
 from .engine.client import Client
+from .engine.identity import IdentityTable
 from .command import CallRequest, Commander
 from .data.catalogue import Catalogue
 from .constants import DEFAULT_HOST, DEFAULT_PORT, LoadStage
@@ -52,6 +53,7 @@ INSTRUCTIONS = (
     "开局前先读 skill ra2-play——单位、造价、克制与玩家的黑话都在它指向的 codex/ 里。"
     "任何对局动作都必须经过技法，没有直接向引擎下命令的工具；"
     "单位一律用 status 里给出的 id。"
+    "连接重建后旧 ID 与任务失效，必须重新读 status；已提交的原生命令可能继续，勿盲重发。"
 )
 
 #: 每 tick 之间的秒数。约 2 Hz：单帧观测 11.9 KB，逐帧轮询不值。
@@ -192,6 +194,10 @@ class GameSession:
         self._broken = False
         self._match_player = None
         self._last_polled_frame = None
+        # 只在同一个 MCP 进程内延续分配起点；不保留旧对象或旧任务。
+        self._next_agent_id = 1
+        self._context_generation = 0
+        self._status_generation = None
 
     # ------------------------------------------------------------ 生命周期
     def ensure(self):
@@ -243,6 +249,7 @@ class GameSession:
         if thread is not None and thread.is_alive() and thread is not threading.current_thread():
             thread.join(timeout=2.0)
         with self._lock:
+            self._remember_identity()
             if self._client is not None:
                 self._client.close()
             if self._log is not None:
@@ -256,12 +263,20 @@ class GameSession:
             self._match_player = None
             self._last_polled_frame = None
             self._frame_sample = None
+            self._status_generation = None
+
+    def _remember_identity(self):
+        """丢弃 Observer 前保存已消耗的 ID 范围。调用者持有会话锁。"""
+        if self._observer is not None:
+            self._next_agent_id = max(self._next_agent_id,
+                                      self._observer.identity.next_id)
 
     def _connect(self):
         """连游戏、取底图与类型表、建技法层，并起后台线程。"""
         client = Client(self.host or DEFAULT_HOST, self.port or DEFAULT_PORT)
         client.connect()
-        observer = Observer(client).bootstrap()
+        observer = Observer(client, identity=IdentityTable(
+            start_id=self._next_agent_id)).bootstrap()
         # 技法与文档按注册名说话，而引擎只给显示名，故补一份别名
         aliases = attach_type_aliases(observer.types, self.aliases_path)
         if aliases == 0:
@@ -290,6 +305,8 @@ class GameSession:
         self._observation = observation
         self._match_player = player
         self._last_polled_frame = self._observation.frame
+        self._context_generation += 1
+        self._status_generation = None
         self._emit("已连接游戏：帧 %d，地图 %dx%d，技法 %d 条，库指纹 %s"
                    % (self._observation.frame, observer.map_data.width,
                       observer.map_data.height, len(registry), registry.fingerprint()))
@@ -337,6 +354,7 @@ class GameSession:
     def _discard_match(self, reason):
         """边界变化后停止旧任务；连接由下一次 ensure/reset 关闭重建。"""
         self._broken = True
+        self._remember_identity()
         self._layer = self._commander = self._observer = None
         self._observation = None
         self._match_player = self._last_polled_frame = None
@@ -388,26 +406,45 @@ class GameSession:
         """
         if name == "game":
             return self._game(arguments)
+        if name not in ("status", "tactics", "call", "cancel"):
+            raise ValueError(f"没有这个工具：{name}")
         self.ensure()
         with self._lock:
+            if self._broken or self._commander is None:
+                raise Ra2Error("会话已失效，请重新调用 status；不要重发旧任务。")
             if name == "status":
-                return self._commander.status(self._observation).render()
+                text = self._commander.status(self._observation).render()
+                stamp = self._context_stamp()
+                self._status_generation = self._context_generation
+                return stamp + "\n" + text
             if name == "tactics":
                 with self._lock:
                     observation = self._observation
                 cards = self._commander.tactics(arguments.get("query"), observation)
                 if not cards:
-                    return "此刻没有可用技法"
+                    return self._context_stamp() + "\n此刻没有可用技法"
                 # 带上帧号：卡片是按**那一刻**的局面筛的，不带帧号就没法回答
                 # 「为什么上一拍看不见、这一拍又出现了」这类对不上的争论。
                 stamp = "" if observation is None else f"帧 {observation.frame}｜"
-                return stamp + "\n".join(card.text() for card in cards)
+                return self._context_stamp() + "\n" + stamp + "\n".join(card.text() for card in cards)
+            if name in ("call", "cancel") and self._status_generation != self._context_generation:
+                raise Ra2Error(self._context_stamp() + "\n先调用 status 读取当前对象与任务，"
+                               "再使用本次 ID 下令；本次请求未受理。")
             if name == "call":
                 return self._call(arguments)
             if name == "cancel":
                 return Commander.render_cancels(
                     self._commander.cancel(arguments["intent_ids"]))
         raise ValueError(f"没有这个工具：{name}")
+
+    def _context_stamp(self):
+        stamp = f"会话上下文 {self._context_generation}"
+        if self._status_generation == self._context_generation:
+            return stamp
+        if self._context_generation <= 1:
+            return stamp + "：首次连接，请使用本次 status 的 ID。"
+        return (stamp + "：会话已重建，旧 ID 与任务失效；已提交的原生命令未撤销，"
+                "结果可能未知，勿盲重发。")
 
     # ------------------------------------------------------------ 门外
     def _game(self, arguments) -> str:
