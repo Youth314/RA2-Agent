@@ -1,0 +1,90 @@
+diff --git a/ra2yrproto/commands_game.proto b/ra2yrproto/commands_game.proto
+index a829b38..62aa17e 100644
+--- a/ra2yrproto/commands_game.proto
++++ b/ra2yrproto/commands_game.proto
+@@ -9,6 +9,12 @@ message UnitOrder {
+   ra2yrproto.ra2yr.UnitAction action = 2;
+   uint32 target_object = 3;
+   ra2yrproto.ra2yr.Coordinates coordinates = 4;
++  uint32 expected_native_id = 5;
++  uint32 expected_house = 6;
++  uint32 basis_frame = 7;
++  uint32 expected_target_native_id = 8;
++  uint32 expected_target_house = 9;
++  ra2yrproto.ra2yr.AbstractType expected_target_type = 10;
+ }
+ 
+ message ProduceOrder {
+@@ -19,4 +25,4 @@ message ProduceOrder {
+ message PlaceBuilding {
+   ra2yrproto.ra2yr.Object building = 1;
+   ra2yrproto.ra2yr.Coordinates coordinates = 2;
+-}
+\ No newline at end of file
++}
+diff --git a/ra2yrproto/ra2yr.proto b/ra2yrproto/ra2yr.proto
+index 7780bd3..0371281 100644
+--- a/ra2yrproto/ra2yr.proto
++++ b/ra2yrproto/ra2yr.proto
+@@ -259,6 +259,12 @@ message Object {
+   Mission current_mission = 18;
+   bool in_limbo = 19;
+   bool on_map = 20;
++  // Local extension v1: native UniqueID, only for own Techno objects.
++  optional uint32 native_id = 21;
++  // Own actor current target, filtered for legal observation.
++  ActualTargetObservation actual_target = 22;
++  // Attack v1 internal identity; eligible, legally visible enemy Unit/Building only.
++  optional uint32 order_target_native_id = 23;
+ }
+ 
+ enum LoadStage {
+@@ -432,6 +438,20 @@ message TunnelPacket {
+   bytes data = 3;
+ }
+ 
++message ActualTargetObservation {
++  enum Status {
++    STATUS_UNSPECIFIED = 0;
++    STATUS_UNOBSERVABLE = 1;
++    STATUS_NONE = 2;
++    STATUS_OBJECT = 3;
++  }
++  Status status = 1;
++  TargetClass reference = 2;
++  AbstractType object_type = 3;
++  // Same-frame mapping only. Never a public or persistent target ID.
++  uint32 object_pointer = 4;
++}
++
+ message TargetClass {
+   int32 m_id = 1;
+   int32 m_rtti = 2;
+@@ -573,6 +593,15 @@ message GameState {
+   int32 tech_level = 14;
+   repeated Cell cells_difference = 15;
+   uint32 crc = 16;
++  // Local extension: 0/absent means no controlled guard implementation.
++  uint32 guard_interface_version = 17;
++  // Local controlled player Stop/Idle extension; independent of Guard.
++  uint32 stop_interface_version = 18;
++  // v1 read-only current target; does not declare controlled Attack.
++  uint32 target_observation_version = 19;
++  uint32 attack_interface_version = 20;
++  // v1 single own vehicle guarding a pinned own vehicle/building object.
++  uint32 object_guard_interface_version = 21;
+ }
+ 
+ message StorageValue {
+@@ -598,6 +627,11 @@ enum UnitAction {
+   UNIT_ACTION_STOP = 10;
+   UNIT_ACTION_SELL_CELL = 11;
+   UNIT_ACTION_ATTACK_MOVE = 12;
++  UNIT_ACTION_GUARD_CURRENT = 13;
++  UNIT_ACTION_GUARD_POSITION = 14;
++  UNIT_ACTION_PLAYER_STOP = 15;
++  UNIT_ACTION_PLAYER_ATTACK_TARGET = 16;
++  UNIT_ACTION_GUARD_OBJECT = 17;
+ }
+ 
+ enum ProduceAction {

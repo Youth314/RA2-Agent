@@ -182,6 +182,22 @@ class Validator:
             raise InvalidCommand("unsupported: Attack 目标不在合法可见集合")
         return actor, target
 
+    def check_guard_object(self, state, pointers, target_pointer, target_type):
+        """Own object only, irrespective of allow_foreign; no attack Target gate."""
+        self.check_state(state)
+        if state.object_guard_interface_version != 1:
+            raise InvalidCommand("unsupported: DLL 未提供对象警戒接口 v1")
+        actor = self._check_controlled_vehicle(state, pointers)
+        target = state.object(target_pointer)
+        if (target_type not in (1, 6) or target is None or target.pointer == actor.pointer
+                or target.house != actor.house or target.object_type != target_type
+                or target.in_limbo or not target.on_map or target.health <= 0
+                or target.deploying or target.undeploying
+                or target.native_id is None or not 0 < target.native_id <= 0xFFFFFFFF):
+            raise InvalidCommand("unsupported: 对象警戒目标缺席、改变或不是合法己方目标")
+        self.check_coordinates(target.coordinates)
+        return actor, target
+
     def _check_controlled_vehicle(self, state, pointers, coordinates=None):
         from ..constants import AbstractType
 

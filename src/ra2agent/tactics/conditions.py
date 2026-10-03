@@ -63,6 +63,9 @@ HINTS = {
     "stop_v1": "DLL 未声明 Stop 接口 v1；不能使用玩家停止输入",
     "guard_v1": "DLL 未声明 Guard 接口 v1；不能使用原生警戒输入",
     "attack_v1": "DLL 未声明 Attack/Target 接口 v1；不能使用受控指定攻击",
+    "object_guard_v1": "DLL 未声明对象警戒接口 v1；不能护送单位或保护建筑",
+    "own_guard_vehicle_target": "目标须为当前合法己方车辆",
+    "own_guard_building_target": "目标须为当前合法己方建筑",
     "prereq_met": "建造前提没满足，或这个类型不在可造清单里（见 status 的「可造」段）",
     "cell_passable": "目标格不可通行或在地图外（水、岩石、墙）",
     "can_afford": "钱不够",
@@ -107,6 +110,35 @@ def attack_v1(context) -> bool:
     state = context.observation.state
     return (state is not None and state.attack_interface_version == 1
             and state.target_observation_version == 1)
+
+
+@condition("object_guard_v1")
+def object_guard_v1(context) -> bool:
+    state = context.observation.state
+    return state is not None and state.object_guard_interface_version == 1
+
+
+def _own_guard_target(context, target_type):
+    """Target is outside the actor Squad; resolve through the legal own view."""
+    target_id = context.params.get("target")
+    if type(target_id) is not int or target_id <= 0:
+        return False
+    for obj in context.observation.own:
+        if context.subject.agent_id(obj.pointer) == target_id:
+            return (obj.object_type == target_type and obj.health > 0 and obj.on_map
+                    and not obj.in_limbo and not obj.deploying and not obj.undeploying
+                    and obj.native_id is not None and 0 < obj.native_id <= 0xFFFFFFFF)
+    return False
+
+
+@condition("own_guard_vehicle_target", needs_params=True)
+def own_guard_vehicle_target(context) -> bool:
+    return _own_guard_target(context, 1)
+
+
+@condition("own_guard_building_target", needs_params=True)
+def own_guard_building_target(context) -> bool:
+    return _own_guard_target(context, 6)
 
 
 @condition("has_enemies")

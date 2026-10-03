@@ -353,6 +353,7 @@ class GameState:
     stop_interface_version: int = 0
     target_observation_version: int = 0
     attack_interface_version: int = 0
+    object_guard_interface_version: int = 0
 
     def __post_init__(self):
         self._by_pointer = {o.pointer: o for o in self.objects}
@@ -376,6 +377,7 @@ class GameState:
             stop_interface_version=_optional_uint32(fields, 18) or 0,
             target_observation_version=_optional_uint32(fields, 19) or 0,
             attack_interface_version=_optional_uint32(fields, 20, unique=True) or 0,
+            object_guard_interface_version=_optional_uint32(fields, 21, unique=True) or 0,
         )
 
     @property

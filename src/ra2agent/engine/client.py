@@ -267,6 +267,14 @@ class Client:
             pointer, native_id, house_pointer, basis_frame, target,
             target_native_id, target_house, target_type), poll_timeout_ms)
 
+    def guard_object_order(self, pointer, native_id, house_pointer, basis_frame,
+                           target, target_native_id, target_house, target_type,
+                           poll_timeout_ms=5000) -> CommandResult:
+        """Controlled object Guard v1; no fallback to cell Guard or Move."""
+        return self.send_command(NS + "UnitOrder", payloads.guard_object_order(
+            pointer, native_id, house_pointer, basis_frame, target,
+            target_native_id, target_house, target_type), poll_timeout_ms)
+
     def click_event(self, units, event, poll_timeout_ms=5000) -> CommandResult:
         """下发 `ClickEvent`。"""
         return self.send_command(NS + "ClickEvent",

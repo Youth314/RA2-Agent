@@ -1,0 +1,618 @@
+diff --git a/src/commands_game.cpp b/src/commands_game.cpp
+index 8f894f6..f02f4d2 100644
+--- a/src/commands_game.cpp
++++ b/src/commands_game.cpp
+@@ -7,9 +7,12 @@
+ #include "hooks_yr.hpp"
+ #include "logging.hpp"
+ #include "ra2/abi.hpp"
++#include "ra2/attack_target.hpp"
+ #include "ra2/common.hpp"
++#include "ra2/guard_object.hpp"
+ #include "ra2/state_context.hpp"
+ #include "ra2/yrpp_export.hpp"
++#include "utility/array_iterator.hpp"
+ #include "types.h"
+ 
+ #include <fmt/core.h>
+@@ -148,7 +151,171 @@ struct UnitOrderCtx {
+     }
+   }
+ 
++  // Controlled, single-actor extension. Resolve from live game objects before
++  // touching an address. These checks happen on the game thread, not the cache.
++  TechnoClass* controlled_vehicle() {
++    if (uo().object_addresses_size() != 1 || !uo().expected_native_id() ||
++        !uo().expected_house()) {
++      throw std::runtime_error("controlled order requires one actor, native ID and house");
++    }
++    auto* player = HouseClass::CurrentPlayer.get();
++    if (!player || player->Defeated || player->IsWinner || player->IsLoser ||
++        reinterpret_cast<u32>(player) != uo().expected_house()) {
++      throw std::runtime_error("controlled player context changed");
++    }
++    const auto frame = static_cast<u32>(Unsorted::CurrentFrame);
++    if (uo().basis_frame() > frame || frame - uo().basis_frame() > 150) {
++      throw std::runtime_error("controlled basis frame is stale");
++    }
++    TechnoClass* actor = nullptr;
++    for (auto* object : ra2::abi::DVCIterator(TechnoClass::Array.get())) {
++      if (reinterpret_cast<u32>(object) == uo().object_addresses(0)) {
++        actor = object;
++        break;
++      }
++    }
++    if (!actor || actor->Owner != player || actor->InLimbo ||
++        !actor->IsOnMap || actor->Health <= 0 ||
++        actor->UniqueID != uo().expected_native_id() ||
++        ra2::abi::AbstractClass_WhatAmI::call(ctx_->abi_, actor) != UnitClass::AbsID ||
++        is_illegal_mission(static_cast<r2p::Mission>(actor->CurrentMission))) {
++      throw std::runtime_error("controlled actor absent, changed or unsupported");
++    }
++    auto* unit = static_cast<UnitClass*>(actor);
++    if (unit->IsDeploying || unit->Deploying || unit->Undeploying) {
++      throw std::runtime_error("controlled actor is transforming");
++    }
++    return actor;
++  }
++
++  void player_stop() {
++    auto* actor = controlled_vehicle();
++    if (uo().target_object() || uo().has_coordinates()) {
++      throw std::runtime_error("stop does not accept a target");
++    }
++    if (!ctx_->abi_->ClickEvent(reinterpret_cast<u32>(actor),
++                                r2p::NETWORK_EVENT_Idle)) {
++      throw std::runtime_error("stop input was rejected");
++    }
++  }
++
++  void attack_target() {
++    auto* actor = controlled_vehicle();
++    if (!actor->IsAlive || !uo().target_object() || uo().has_coordinates() ||
++        !uo().expected_target_native_id() || !uo().expected_target_house() ||
++        (uo().expected_target_type() != r2p::ABSTRACT_TYPE_UNIT &&
++         uo().expected_target_type() != r2p::ABSTRACT_TYPE_BUILDING)) {
++      throw std::runtime_error("attack requires one pinned object target, no cell");
++    }
++    TechnoClass* target = nullptr;
++    for (auto* object : ra2::abi::DVCIterator(TechnoClass::Array.get())) {
++      if (reinterpret_cast<u32>(object) == uo().target_object()) {
++        target = object;
++        break;
++      }
++    }
++    // Missing/stale pointers are compared as values and never dereferenced.
++    if (!target || !ra2::attack_policy::matches(
++        ra2::attack_target::snapshot(target, HouseClass::CurrentPlayer.get(), ctx_->abi_),
++        uo().expected_target_native_id(), uo().expected_target_house(),
++        static_cast<int>(uo().expected_target_type()))) {
++      throw std::runtime_error("attack target absent, changed or unsupported");
++    }
++    if (!ra2::abi::ClickMission::call(ctx_->abi_, reinterpret_cast<u32>(actor),
++                                     Mission::Attack, reinterpret_cast<u32>(target),
++                                     nullptr, nullptr)) {
++      throw std::runtime_error("attack input was rejected");
++    }
++  }
++
++  void guard_object() {
++    auto* actor = controlled_vehicle();
++    auto* player = HouseClass::CurrentPlayer.get();
++    if (!uo().target_object() || uo().target_object() == reinterpret_cast<u32>(actor) ||
++        uo().has_coordinates() || !uo().expected_target_native_id() ||
++        uo().expected_target_house() != uo().expected_house() ||
++        (uo().expected_target_type() != r2p::ABSTRACT_TYPE_UNIT &&
++         uo().expected_target_type() != r2p::ABSTRACT_TYPE_BUILDING) ||
++        !ra2::guard_object_policy::matches(
++          ra2::guard_object::snapshot(actor, player, ctx_->abi_),
++          uo().expected_native_id(), uo().expected_house(), 1)) {
++      throw std::runtime_error("object guard requires own live actor and pinned own target, no cell");
++    }
++    TechnoClass* target = nullptr;
++    for (auto* object : ra2::abi::DVCIterator(TechnoClass::Array.get())) {
++      if (reinterpret_cast<u32>(object) == uo().target_object()) {
++        target = object;
++        break;
++      }
++    }
++    // Compare values in the live array before dereferencing an untrusted address.
++    if (!target || !ra2::guard_object_policy::matches(
++        ra2::guard_object::snapshot(target, player, ctx_->abi_),
++        uo().expected_target_native_id(), uo().expected_target_house(),
++        static_cast<int>(uo().expected_target_type()))) {
++      throw std::runtime_error("object guard target absent, changed or unsupported");
++    }
++    if (!ra2::abi::ClickMission::call(ctx_->abi_, reinterpret_cast<u32>(actor),
++                                     Mission::Area_Guard, reinterpret_cast<u32>(target),
++                                     nullptr, nullptr)) {
++      throw std::runtime_error("object guard input was rejected");
++    }
++  }
++
++  void guard() {
++    auto* actor = controlled_vehicle();
++    if (uo().target_object()) {
++      throw std::runtime_error("guard does not accept an object target");
++    }
++    const bool current = uo().action() == r2p::UNIT_ACTION_GUARD_CURRENT;
++    if ((current && uo().has_coordinates()) ||
++        (!current && !uo().has_coordinates())) {
++      throw std::runtime_error("guard target shape mismatch");
++    }
++    auto location = actor->Location;
++    if (!current) {
++      const auto& c = uo().coordinates();
++      if (c.z() != 0 || c.x() < 0 || c.y() < 0 ||
++          c.x() >= 512 * 256 || c.y() >= 512 * 256) {
++        throw std::runtime_error("guard coordinates out of range");
++      }
++      location = CoordStruct{c.x(), c.y(), 0};
++    }
++    const auto cell = CellClass::Coord2Cell(location);
++    auto* map = MapClass::Instance.get();
++    const auto& bounds = map->MapCoordBounds;
++    if (cell.X < bounds.Left || cell.Y < bounds.Top ||
++        cell.X > bounds.Right || cell.Y > bounds.Bottom) {
++      throw std::runtime_error("guard cell outside map bounds");
++    }
++    // Native G stores its Cell in Target, not Destination. Only the checked
++    // Cell pointer below can occupy ClickMission's packed-target argument.
++    auto* target = map->TryGetCellAt(cell);
++    if (!target || !ra2::abi::ClickMission::call(
++          ctx_->abi_, reinterpret_cast<u32>(actor), Mission::Area_Guard,
++          reinterpret_cast<u32>(target), nullptr, nullptr)) {
++      throw std::runtime_error("guard input was rejected");
++    }
++  }
++
+   void perform() {
++    if (uo().action() == r2p::UNIT_ACTION_GUARD_OBJECT) {
++      guard_object();
++      return;
++    }
++    if (uo().action() == r2p::UNIT_ACTION_PLAYER_ATTACK_TARGET) {
++      attack_target();
++      return;
++    }
++    if (uo().action() == r2p::UNIT_ACTION_PLAYER_STOP) {
++      player_stop();
++      return;
++    }
++    if (uo().action() == r2p::UNIT_ACTION_GUARD_CURRENT ||
++        uo().action() == r2p::UNIT_ACTION_GUARD_POSITION) {
++      guard();
++      return;
++    }
+     if (uo().action() == r2p::UnitAction::UNIT_ACTION_SELL_CELL) {
+       unit_action();
+     } else {
+diff --git a/src/hooks_yr.cpp b/src/hooks_yr.cpp
+index 088c38e..6eb25fb 100644
+--- a/src/hooks_yr.cpp
++++ b/src/hooks_yr.cpp
+@@ -143,6 +143,11 @@ struct StateSave : public GameDataInterface {
+ 
+     gbuf->set_crc(EventClass::CurrentFrameCRC);
+     gbuf->set_current_frame(Unsorted::CurrentFrame);
++    gbuf->set_guard_interface_version(1);
++    gbuf->set_stop_interface_version(1);
++    gbuf->set_target_observation_version(1);
++    gbuf->set_attack_interface_version(1);
++    gbuf->set_object_guard_interface_version(1);
+     gbuf->set_tech_level(Game::TechLevel);
+     ra2::parse_HouseClasses(gbuf);
+     ra2::parse_Objects(gbuf, abi());
+diff --git a/src/ra2/abi.hpp b/src/ra2/abi.hpp
+index 94fc296..bc19a6c 100644
+--- a/src/ra2/abi.hpp
++++ b/src/ra2/abi.hpp
+@@ -274,6 +274,10 @@ using HouseClass_CanBuild =
+            CanBuildResult __cdecl (*)(  // NOLINT
+                HouseClass* p_this, TechnoTypeClass const* pItem, bool, bool)>;
+ 
++// YRpp 173447cf: HouseClass::IsAlliedWith(HouseClass const*), fixed __thiscall.
++using HouseClass_IsAlliedWith =
++    Caller<0x4F9A50U, bool __cdecl (*)(HouseClass*, HouseClass const*)>;
++
+ int get_tiberium_value(const CellClass& cell);
+ int get_tiberium_type(int overlayTypeIndex);
+ 
+diff --git a/src/ra2/attack_policy.hpp b/src/ra2/attack_policy.hpp
+new file mode 100644
+index 0000000..2135736
+--- /dev/null
++++ b/src/ra2/attack_policy.hpp
+@@ -0,0 +1,25 @@
++#pragma once
++#include <cstdint>
++
++namespace ra2 {
++namespace attack_policy {
++struct Target {
++  std::uint32_t native_id;
++  std::uint32_t house;
++  int type;
++  bool live;
++  bool visible;
++  bool hostile;
++  bool transforming;
++};
++inline bool eligible(const Target& t) {
++  return t.native_id && t.house && (t.type == 1 || t.type == 6) &&
++         t.live && t.visible && t.hostile && !t.transforming;
++}
++inline bool matches(const Target& t, std::uint32_t id,
++                    std::uint32_t house, int type) {
++  return eligible(t) && id && house && t.native_id == id &&
++         t.house == house && t.type == type;
++}
++}  // namespace attack_policy
++}  // namespace ra2
+diff --git a/src/ra2/attack_target.hpp b/src/ra2/attack_target.hpp
+new file mode 100644
+index 0000000..dad4d18
+--- /dev/null
++++ b/src/ra2/attack_target.hpp
+@@ -0,0 +1,83 @@
++#pragma once
++#include "ra2/abi.hpp"
++#include "ra2/attack_policy.hpp"
++#include "ra2/target_observation.hpp"
++#include "ra2/yrpp_export.hpp"
++#include <ScenarioClass.h>
++#include <GameModeOptionsClass.h>
++#include <cstddef>
++
++// Additional relation fields, locked to YRpp 173447cf / MinGW i686.
++#pragma GCC diagnostic push
++#pragma GCC diagnostic ignored "-Winvalid-offsetof"
++static_assert(sizeof(void*) == 4, "Attack requires i686");
++static_assert(offsetof(HouseClass, Type) == 0x34, "House Type layout");
++static_assert(offsetof(HouseTypeClass, MultiplayPassive) == 0x1A6, "Neutral flag layout");
++#pragma GCC diagnostic pop
++
++namespace ra2 {
++namespace attack_target {
++// Same FogOfWar=No, shroud, cloak and disguise gate as Target v1.
++inline bool foreign_visible(const TechnoClass* object) {
++  auto* scenario = ScenarioClass::Instance.get();
++  auto* rules = RulesClass::Instance.get();
++  auto* map = MapClass::Instance.get();
++  if (!scenario || !rules || !map) return false;
++  const bool fog = scenario->SpecialFlags.FogOfWar || rules->FogOfWar ||
++                   GameModeOptionsClass::Instance->FogOfWar;
++  const auto& location = object->Location;
++  if (location.X < 0 || location.Y < 0 || location.X >= 512 * 256 ||
++      location.Y >= 512 * 256) return false;
++  const auto cell = CellClass::Coord2Cell(location);
++  const auto& bounds = map->MapCoordBounds;
++  if (cell.X < bounds.Left || cell.Y < bounds.Top ||
++      cell.X > bounds.Right || cell.Y > bounds.Bottom) return false;
++  auto* value = map->TryGetCellAt(cell);
++  if (!value) return false;
++  return target_observation::foreign_visible(
++      true, fog, (static_cast<int>(value->AltFlags) & 0x8) == 0,
++      static_cast<int>(object->CloakState),
++      object->Disguised || object->Disguise || object->DisguisedAsHouse);
++}
++
++template <typename T>
++inline bool member(T* object, DynamicVectorClass<T*>* array) {
++  if (!object || !array) return false;
++  for (auto* value : abi::DVCIterator(array)) {
++    if (value == object) return true;
++  }
++  return false;
++}
++
++inline bool hostile(HouseClass* player, HouseClass* owner, abi::ABIGameMD* abi) {
++  // Compare array members before reading owner or owner->Type. Never invoke a
++  // MinGW virtual method against game MSVC objects.
++  if (owner == player || !member(player, HouseClass::Array.get()) ||
++      !member(owner, HouseClass::Array.get()) ||
++      !member(player->Type, HouseTypeClass::Array.get()) ||
++      !member(owner->Type, HouseTypeClass::Array.get()) ||
++      player->Type->MultiplayPassive || owner->Type->MultiplayPassive ||
++      player->Defeated || player->IsWinner || player->IsLoser || owner->Defeated) {
++    return false;
++  }
++  return !ra2::abi::HouseClass_IsAlliedWith::call(abi, player, owner) &&
++         !ra2::abi::HouseClass_IsAlliedWith::call(abi, owner, player);
++}
++
++inline attack_policy::Target snapshot(TechnoClass* object, HouseClass* player,
++                                      abi::ABIGameMD* abi) {
++  const auto type = static_cast<int>(ra2::abi::AbstractClass_WhatAmI::call(abi, object));
++  const bool supported = type == 1 || type == 6;
++  bool transforming = false;
++  if (type == 1) {
++    auto* unit = static_cast<UnitClass*>(object);
++    transforming = unit->IsDeploying || unit->Deploying || unit->Undeploying;
++  }
++  const bool live = supported && object->IsAlive && object->IsOnMap &&
++                    !object->InLimbo && object->Health > 0;
++  return {object->UniqueID, reinterpret_cast<u32>(object->Owner), type,
++          live, live && foreign_visible(object),
++          live && hostile(player, object->Owner, abi), transforming};
++}
++}  // namespace attack_target
++}  // namespace ra2
+diff --git a/src/ra2/guard_object.hpp b/src/ra2/guard_object.hpp
+new file mode 100644
+index 0000000..94da323
+--- /dev/null
++++ b/src/ra2/guard_object.hpp
+@@ -0,0 +1,36 @@
++#pragma once
++#include "ra2/abi.hpp"
++#include "ra2/guard_object_policy.hpp"
++#include "ra2/yrpp_export.hpp"
++
++namespace ra2 {
++namespace guard_object {
++// Call only after comparing membership in TechnoClass::Array. No foreign
++// owner dereference, cached position, virtual call or attack Target access.
++inline guard_object_policy::Target snapshot(TechnoClass* object,
++                                            HouseClass* player,
++                                            abi::ABIGameMD* abi) {
++  const auto type = static_cast<int>(ra2::abi::AbstractClass_WhatAmI::call(abi, object));
++  bool transforming = false;
++  if (type == 1) {
++    auto* unit = static_cast<UnitClass*>(object);
++    transforming = unit->IsDeploying || unit->Deploying || unit->Undeploying;
++  }
++  const bool live = (type == 1 || type == 6) && object->IsAlive &&
++                    object->IsOnMap && !object->InLimbo && object->Health > 0;
++  bool valid_cell = false;
++  auto* map = MapClass::Instance.get();
++  const auto& location = object->Location;
++  if (map && location.X >= 0 && location.Y >= 0 &&
++      location.X < 512 * 256 && location.Y < 512 * 256) {
++    const auto cell = CellClass::Coord2Cell(location);
++    const auto& bounds = map->MapCoordBounds;
++    valid_cell = cell.X >= bounds.Left && cell.Y >= bounds.Top &&
++                 cell.X <= bounds.Right && cell.Y <= bounds.Bottom &&
++                 map->TryGetCellAt(cell);
++  }
++  return {object->UniqueID, reinterpret_cast<u32>(object->Owner), type,
++          live, player && object->Owner == player, transforming, valid_cell};
++}
++}  // namespace guard_object
++}  // namespace ra2
+diff --git a/src/ra2/guard_object_policy.hpp b/src/ra2/guard_object_policy.hpp
+new file mode 100644
+index 0000000..4dcc61f
+--- /dev/null
++++ b/src/ra2/guard_object_policy.hpp
+@@ -0,0 +1,25 @@
++#pragma once
++#include <cstdint>
++
++namespace ra2 {
++namespace guard_object_policy {
++struct Target {
++  std::uint32_t native_id;
++  std::uint32_t house;
++  int type;
++  bool live;
++  bool own;
++  bool transforming;
++  bool valid_cell;
++};
++inline bool eligible(const Target& t) {
++  return t.native_id && t.house && (t.type == 1 || t.type == 6) &&
++         t.live && t.own && !t.transforming && t.valid_cell;
++}
++inline bool matches(const Target& t, std::uint32_t id,
++                    std::uint32_t house, int type) {
++  return eligible(t) && id && house && t.native_id == id &&
++         t.house == house && t.type == type;
++}
++}  // namespace guard_object_policy
++}  // namespace ra2
+diff --git a/src/ra2/state_parser.cpp b/src/ra2/state_parser.cpp
+index 268e1ed..9c2dd44 100644
+--- a/src/ra2/state_parser.cpp
++++ b/src/ra2/state_parser.cpp
+@@ -1,4 +1,7 @@
+ #include "ra2/state_parser.hpp"
++#include "ra2/target_observation.hpp"
++#include "ra2/attack_target.hpp"
++
+ 
+ #include "ra2yrproto/ra2yr.pb.h"
+ 
+@@ -8,6 +11,11 @@
+ #include "ra2/abi.hpp"
+ #include "ra2/event_list.hpp"
+ #include "ra2/yrpp_export.hpp"
++
++#include <ScenarioClass.h>
++#include <GameModeOptionsClass.h>
++#include <cstddef>
++#undef ERROR
+ #include "utility/array_iterator.hpp"
+ #include "utility/serialize.hpp"
+ 
+@@ -76,6 +84,10 @@ void ClassParser::Techno() {
+   auto* P = reinterpret_cast<TechnoClass*>(c.src);
+   T->set_pointer_house(reinterpret_cast<u32>(P->Owner));
+   T->set_pointer_initial_owner(reinterpret_cast<u32>(P->InitialOwner));
++  T->clear_native_id();
++  if (P->Owner == HouseClass::CurrentPlayer.get()) {
++    T->set_native_id(P->UniqueID);
++  }
+   // TODO: armor multiplier
+ }
+ 
+@@ -123,6 +135,8 @@ void ClassParser::Infantry() {
+ }
+ 
+ void ClassParser::parse() {
++  T->clear_actual_target();
++  T->clear_order_target_native_id();
+   T->set_pointer_self(reinterpret_cast<u32>(c.src));
+   auto t = ra2::abi::AbstractClass_WhatAmI::call(
+       c.abi, reinterpret_cast<AbstractClass*>(c.src));
+@@ -322,6 +336,9 @@ void EventParser::parse() {
+   T->set_frame(src->Frame);
+   T->set_timing(time);
+   switch (src->Type) {
++    case EventType::IDLE:
++      parse_TargetClass(src->Data.Target.Whom, T->mutable_target()->mutable_whom());
++      break;
+     case EventType::DEPLOY:
+       Deploy();
+       break;
+@@ -645,11 +662,95 @@ int parse_object_array(ra2::abi::ABIGameMD* abi, T* src,
+   return j;
+ }
+ 
++// Locked YRpp 173447cf, MinGW i686: fail compilation on layout drift.
++#pragma GCC diagnostic push
++#pragma GCC diagnostic ignored "-Winvalid-offsetof"
++static_assert(sizeof(void*) == 4, "Target observation requires i686");
++static_assert(offsetof(AbstractClass, UniqueID) == 0x10, "UniqueID layout");
++static_assert(offsetof(TechnoClass, Target) == 0x2B4, "Target layout");
++static_assert(offsetof(TechnoClass, Owner) == 0x21C, "Owner layout");
++static_assert(offsetof(ObjectClass, IsAlive) == 0x90, "IsAlive layout");
++static_assert(offsetof(TechnoClass, Disguised) == 0x1D8, "Disguised layout");
++static_assert(offsetof(TechnoClass, CloakState) == 0x220, "CloakState layout");
++static_assert(offsetof(TechnoClass, Disguise) == 0x518, "Disguise layout");
++static_assert(offsetof(TechnoClass, DisguisedAsHouse) == 0x51C, "Disguise house layout");
++static_assert(offsetof(ScenarioClass, SpecialFlags) == 0, "Scenario flags layout");
++static_assert(sizeof(ScenarioFlags) == 4, "Scenario flags size");
++static_assert(offsetof(GameModeOptionsClass, FogOfWar) == 0xCF, "Session fog layout");
++static_assert(offsetof(RulesClass, FogOfWar) == 0x14B7, "Rules fog layout");
++static_assert(offsetof(CellClass, AltFlags) == 0x12C, "Cell visibility layout");
++#pragma GCC diagnostic pop
++
++
++static void parse_actual_targets(ra2yrproto::ra2yr::GameState* G,
++                                 ra2::abi::ABIGameMD* abi) {
++  namespace policy = ra2::target_observation;
++  auto* player = HouseClass::CurrentPlayer.get();
++  const auto house = reinterpret_cast<u32>(player);
++  std::unordered_map<u32, TechnoClass*> live;
++  for (auto* object : ra2::abi::DVCIterator(TechnoClass::Array.get())) {
++    if (object) {
++      live.emplace(reinterpret_cast<u32>(object), object);
++    }
++  }
++  policy::Members members;
++  for (const auto& observed : G->objects()) {
++    auto found = live.find(observed.pointer_self());
++    if (found == live.end()) {
++      continue;
++    }
++    auto* object = found->second;
++    const auto type = static_cast<int>(ra2::abi::AbstractClass_WhatAmI::call(abi, object));
++    const bool eligible = object->IsAlive && object->Health > 0 &&
++                          object->IsOnMap && !object->InLimbo &&
++                          policy::techno_type(type) && type == observed.object_type();
++    const bool own = player && object->Owner == player;
++    // Only own eligible actors' Target is read. Foreign actor targets stay hidden.
++    members.emplace(found->first, policy::Member{
++        found->first, object->UniqueID, reinterpret_cast<u32>(object->Owner),
++        type, eligible, !own && eligible && ra2::attack_target::foreign_visible(object),
++        own && eligible ? reinterpret_cast<u32>(object->Target) : 0});
++  }
++  for (auto& observed : *G->mutable_objects()) {
++    observed.clear_actual_target();
++    observed.clear_order_target_native_id();
++    auto live_target = live.find(observed.pointer_self());
++    if (live_target != live.end()) {
++      const auto candidate = ra2::attack_target::snapshot(live_target->second, player, abi);
++      if (candidate.type == observed.object_type() && ra2::attack_policy::eligible(candidate)) {
++        observed.set_order_target_native_id(candidate.native_id);
++      }
++    }
++    auto found = members.find(observed.pointer_self());
++    if (found == members.end()) {
++      continue;
++    }
++    auto result = policy::resolve(found->second, house, members);
++    if (result.status == policy::Status::not_provided) {
++      continue;
++    }
++    auto* target = observed.mutable_actual_target();
++    target->Clear();
++    target->set_status(static_cast<ra2yrproto::ra2yr::ActualTargetObservation_Status>(result.status));
++    if (result.target) {
++      TargetClass reference;
++      const u32 native_id = result.target->native_id;
++      static_assert(sizeof(reference.m_ID) == sizeof(native_id), "TargetClass ID width");
++      std::memcpy(&reference.m_ID, &native_id, sizeof(native_id));
++      reference.m_RTTI = static_cast<unsigned char>(AbstractType::Abstract);
++      parse_TargetClass(reference, target->mutable_reference());
++      target->set_object_type(static_cast<ra2yrproto::ra2yr::AbstractType>(result.target->object_type));
++      target->set_object_pointer(result.target->pointer);
++    }
++  }
++}
++
+ void ra2::parse_Objects(ra2yrproto::ra2yr::GameState* G,
+                         ra2::abi::ABIGameMD* abi) {
+   auto* H = G->mutable_objects();
+   (void)ra2yrcpp::protocol::truncate(
+       H, parse_object_array(abi, TechnoClass::Array.get(), H, 0));
++  parse_actual_targets(G, abi);
+ }
+ 
+ void ra2::parse_HouseClasses(ra2yrproto::ra2yr::GameState* G) {
+diff --git a/src/ra2/target_observation.hpp b/src/ra2/target_observation.hpp
+new file mode 100644
+index 0000000..1f375bd
+--- /dev/null
++++ b/src/ra2/target_observation.hpp
+@@ -0,0 +1,49 @@
++#pragma once
++
++#include <cstdint>
++#include <unordered_map>
++
++namespace ra2 {
++namespace target_observation {
++// Plain snapshots: resolution never dereferences an untrusted Target address.
++struct Member {
++  std::uint32_t pointer;
++  std::uint32_t native_id;
++  std::uint32_t house;
++  int object_type;
++  bool eligible;
++  bool foreign_visible;
++  std::uint32_t target;
++};
++using Members = std::unordered_map<std::uint32_t, Member>;
++enum class Status { not_provided = 0, unobservable = 1, none = 2, object = 3 };
++struct Result {
++  Status status;
++  const Member* target;
++};
++inline bool techno_type(int type) {
++  return type == 1 || type == 2 || type == 6 || type == 15;
++}
++inline bool foreign_visible(bool context_known, bool fog, bool shrouded,
++                            int cloak, bool disguised) {
++  return context_known && !fog && !shrouded && cloak == 0 && !disguised;
++}
++inline Result resolve(const Member& actor, std::uint32_t player,
++                      const Members& members) {
++  if (!player || actor.house != player || !actor.eligible ||
++      !techno_type(actor.object_type)) {
++    return {Status::not_provided, nullptr};
++  }
++  if (!actor.target) {
++    return {Status::none, nullptr};
++  }
++  auto found = members.find(actor.target);
++  if (found == members.end() || !found->second.eligible ||
++      !techno_type(found->second.object_type) ||
++      (found->second.house != player && !found->second.foreign_visible)) {
++    return {Status::unobservable, nullptr};
++  }
++  return {Status::object, &found->second};
++}
++}  // namespace target_observation
++}  // namespace ra2

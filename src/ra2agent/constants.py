@@ -50,6 +50,7 @@ class UnitAction(IntEnum):
     GUARD_POSITION = 14
     PLAYER_STOP = 15
     PLAYER_ATTACK_TARGET = 16
+    GUARD_OBJECT = 17
 
 
 #: 服务端 `UnitOrder` 的 switch 实际实现的动作。

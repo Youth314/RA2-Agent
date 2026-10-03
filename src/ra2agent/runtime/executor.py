@@ -14,6 +14,7 @@
 | `Stop` | 受控 `UnitOrder` | `PLAYER_STOP` | 玩家 Idle 输入，独立 Stop v1 门 |
 | `Attack` | `UnitOrder` | `ATTACK` | 任务类动作 |
 | `AttackTarget` | 受控 `UnitOrder` | `PLAYER_ATTACK_TARGET` | 新输入与合法实际 Target 双判据 |
+| `EscortUnit` / `GuardStructure` | 受控 `UnitOrder` | `GUARD_OBJECT` | 单次己方对象警戒输入，效果另验 |
 | `Sell` | `ClickEvent` | `Sell` | 刚放置的建筑处于 `Mission_Construction`，`UnitOrder` 会拒绝 |
 | `Deploy` | `ClickEvent` | `Deploy` | 同上 |
 | `Produce` | `ProduceOrder` | — | 只需类型条目 |
@@ -249,6 +250,8 @@ class Executor:
         "sell": "_plan_sell",
         "guard_current": "_plan_guard",
         "guard_position": "_plan_guard",
+        "escort_unit": "_plan_guard_object",
+        "guard_structure": "_plan_guard_object",
     }
 
     def __init__(self, client, identity, types=None, validator=None, log=None, *,
@@ -306,16 +309,18 @@ class Executor:
         try:
             # Freeze before _read(): an Observer-backed reader may remap a
             # transforming object while reading, preserving its Agent ID.
-            pinned = (self._attack_bindings(intent, state)
-                      if intent.kind == "attack_target" else None)
+            binding_reader = (self._attack_bindings if intent.kind == "attack_target"
+                              else self._guard_object_bindings
+                              if intent.kind in ("escort_unit", "guard_structure") else None)
+            pinned = binding_reader(intent, state) if binding_reader is not None else None
             latest = self._read()
             self._check_context(state, latest)
             self.identity.update(latest)
             if pinned is not None:
                 if latest.frame - state.frame > 150:
-                    raise InvalidCommand("Attack 依据帧已过期")
-                if self._attack_bindings(intent, latest) != pinned:
-                    raise InvalidCommand("Attack actor/target 身份已改变，拒绝追随新对象")
+                    raise InvalidCommand(f"{intent.kind} 依据帧已过期")
+                if binding_reader(intent, latest) != pinned:
+                    raise InvalidCommand(f"{intent.kind} actor/target 身份已改变，拒绝追随新对象")
             state = latest
             plan = self.plan(intent, state)
         except InvalidCommand as error:
@@ -388,6 +393,11 @@ class Executor:
     # ------------------------------------------------------------ 发送
     def _deliver(self, plan) -> CommandResult:
         """按选路结果调用客户端方法。"""
+        if plan.action == UnitAction.GUARD_OBJECT:
+            return self.client.guard_object_order(
+                plan.pointers[0], plan.native_id, plan.house_pointer,
+                plan.basis_frame, plan.target, plan.target_native_id,
+                plan.target_house, plan.target_type)
         if plan.action == UnitAction.PLAYER_ATTACK_TARGET:
             return self.client.attack_target_order(
                 plan.pointers[0], plan.native_id, plan.house_pointer,
@@ -554,6 +564,71 @@ class Executor:
             observations=evidence, facts={"frame": state.frame, "actor": intent.units[0],
                                          "target": intent.target,
                                          "verification": "native_input_and_target"})
+
+    def _guard_object_bindings(self, intent, state):
+        if (len(intent.units) != 1 or type(intent.units[0]) is not int
+                or type(intent.target) is not int):
+            raise InvalidCommand("对象警戒需要单车辆和整数目标 Agent ID")
+        result = []
+        for agent in (intent.units[0], intent.target):
+            tracked = self.identity.tracked(agent)
+            obj = state.object(tracked.pointer) if tracked is not None else None
+            if (obj is None or tracked.last_seen_frame != state.frame
+                    or obj.native_id is None or not 0 < obj.native_id <= 0xFFFFFFFF
+                    or tracked.native_id != obj.native_id or tracked.house != obj.house
+                    or tracked.object_type != obj.object_type
+                    or tracked.type_pointer != obj.type_pointer):
+                raise InvalidCommand("unsupported: 对象警戒缺少当帧固定身份")
+            result.append((obj.pointer, obj.native_id, obj.house, obj.object_type, obj.type_pointer))
+        return tuple(result)
+
+    def _plan_guard_object(self, intent, state):
+        bindings = self._guard_object_bindings(intent, state)
+        target_type = 1 if intent.kind == "escort_unit" else 6
+        actor, target = self.validator.check_guard_object(
+            state, (bindings[0][0],), bindings[1][0], target_type)
+        house = state.player_house()
+        before = {(e.house_index, e.timing, e.event_type, e.mega_mission)
+                  for e in state.native_events}
+        evidence = {"native_input": "unobserved",
+                    "target_kind": "unit" if target_type == 1 else "building"}
+
+        def verify(current):
+            try:
+                self._check_context(state, current)
+                self.identity.update(current)
+                if self._guard_object_bindings(intent, current) != bindings:
+                    return False
+                self.validator.check_guard_object(current, (actor.pointer,), target.pointer,
+                                                  target_type)
+            except InvalidCommand:
+                return False
+            for event in current.native_events:
+                m = event.mega_mission
+                if (event.event_type == 4 and event.house_index == house.array_index
+                        and event.frame >= state.frame and current.frame > state.frame
+                        and m is not None
+                        and (event.house_index, event.timing, event.event_type, m) not in before
+                        and m.mission == Mission.AREA_GUARD and m.whom is not None
+                        and m.whom.m_rtti == 52 and (m.whom.m_id & 0xFFFFFFFF) == actor.native_id
+                        and m.target is not None and m.target.m_rtti == 52
+                        and (m.target.m_id & 0xFFFFFFFF) == target.native_id
+                        and not m.is_planning_event
+                        and (m.destination is None or m.destination.is_null)
+                        and (m.follow is None or m.follow.is_null)):
+                    evidence.update(native_input="observed", input_observed_frame=current.frame,
+                                    input_event_frame=event.frame, input_timing=event.timing)
+                    return True
+            return False
+
+        return CommandPlan(
+            kind=intent.kind, command="UnitOrder", action=UnitAction.GUARD_OBJECT,
+            pointers=(actor.pointer,), target=target.pointer, verify=verify,
+            native_id=actor.native_id, house_pointer=actor.house, basis_frame=state.frame,
+            target_native_id=target.native_id, target_house=target.house,
+            target_type=target_type, verify_basis="native_input", observations=evidence,
+            facts={"frame": state.frame, "actor": intent.units[0], "target": intent.target,
+                   "target_kind": evidence["target_kind"], "verification": "native_input"})
 
     def _plan_stop(self, intent, state):
         pointers = self._pointers(intent.units)

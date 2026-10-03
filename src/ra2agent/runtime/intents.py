@@ -60,7 +60,7 @@ TERMINAL_STATES = frozenset({
 
 
 def command_actors(intent):
-    """实际被命令操作的对象；攻击目标不属于控制对象。"""
+    """实际被命令操作的对象；攻击 / 警戒目标不属于控制对象。"""
     if hasattr(intent, "units"):
         return tuple(intent.units)
     if hasattr(intent, "buildings"):
@@ -300,6 +300,24 @@ class GuardPosition(Intent):
 
     units: tuple[int, ...] = ()
     cell: tuple[int, int] = (0, 0)
+
+
+@register("escort_unit")
+@dataclass
+class EscortUnit(Intent):
+    """一次己方车辆对象警戒输入；不承诺持续护送关系。"""
+
+    units: tuple[int, ...] = ()
+    target: int = 0
+
+
+@register("guard_structure")
+@dataclass
+class GuardStructure(Intent):
+    """一次己方建筑对象警戒输入；不承诺作战保护效果。"""
+
+    units: tuple[int, ...] = ()
+    target: int = 0
 
 
 @register("produce")

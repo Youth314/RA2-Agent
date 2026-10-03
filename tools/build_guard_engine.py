@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build Guard, Stop, Target or Attack v1 using clean baseline dependencies.
+"""Build controlled interface features using clean baseline dependencies.
 
 No installation, network access, game launch or DLL deployment. See
 engine/ra2yrcpp/README.md and the project's Guard validation record.
@@ -31,8 +31,8 @@ def require(condition, message):
 def main():
     root = Path(os.environ.get("ENGINE_BUILD_ROOT", PROJECT / ".agents/tmp/engine-build")).resolve()
     feature = os.environ.get("ENGINE_FEATURE", "guard")
-    require(feature in ("guard", "stop", "target", "attack"),
-            "ENGINE_FEATURE must be guard, stop, target or attack")
+    require(feature in ("guard", "stop", "target", "attack", "object-guard"),
+            "ENGINE_FEATURE must be guard, stop, target, attack or object-guard")
     jobs = os.environ.get("ENGINE_BUILD_JOBS", "4")
     require(re.fullmatch(r"[1-9][0-9]*", jobs), "ENGINE_BUILD_JOBS must be positive")
     baseline = root / "sources/ra2yrcpp"
@@ -59,14 +59,17 @@ def main():
         for directory, patch, _ in specs:
             subprocess.run(["git", "-C", str(source / directory), "apply", "--check", str(patch)], check=True)
             subprocess.run(["git", "-C", str(source / directory), "apply", str(patch)], check=True)
-        if feature in ("target", "attack"):
+        if feature in ("target", "attack", "object-guard"):
             # Track the new header as intent-to-add so diff includes its patch
             # while the staged diff remains empty. No commit is created.
             subprocess.run(["git", "-C", str(source), "add", "--intent-to-add", "--",
                             "src/ra2/target_observation.hpp"], check=True)
-            if feature == "attack":
+            if feature in ("attack", "object-guard"):
                 subprocess.run(["git", "-C", str(source), "add", "--intent-to-add", "--",
                                 "src/ra2/attack_policy.hpp", "src/ra2/attack_target.hpp"], check=True)
+            if feature == "object-guard":
+                subprocess.run(["git", "-C", str(source), "add", "--intent-to-add", "--",
+                                "src/ra2/guard_object_policy.hpp", "src/ra2/guard_object.hpp"], check=True)
     for directory, patch, revision in specs:
         repo = source / directory
         require(output("git", "-C", str(repo), "rev-parse", "HEAD") == revision,
@@ -79,10 +82,12 @@ def main():
         allowed = ({"src/commands_game.cpp", "src/hooks_yr.cpp", "src/ra2/state_parser.cpp",
                     "src/protocol/ra2yrproto"} if directory == Path(".") else
                    {"ra2yrproto/commands_game.proto", "ra2yrproto/ra2yr.proto"})
-        if feature in ("target", "attack") and directory == Path("."):
+        if feature in ("target", "attack", "object-guard") and directory == Path("."):
             allowed.add("src/ra2/target_observation.hpp")
-            if feature == "attack":
+            if feature in ("attack", "object-guard"):
                 allowed.update({"src/ra2/abi.hpp", "src/ra2/attack_policy.hpp", "src/ra2/attack_target.hpp"})
+            if feature == "object-guard":
+                allowed.update({"src/ra2/guard_object.hpp", "src/ra2/guard_object_policy.hpp"})
         status = subprocess.check_output(["git", "-C", str(repo), "status", "--porcelain"], text=True)
         require(all(line[3:] in allowed for line in status.splitlines()),
                 "Unexpected modified files/submodules in feature source")

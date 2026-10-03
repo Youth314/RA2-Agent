@@ -116,6 +116,7 @@ return (ctx.intent(Wake, text="基地被打了，3 个建筑在掉血"),)
 | `Stop` | `units`（单个己方车辆 Agent ID） | 实验 Stop v1；一次玩家 Idle 输入，当前离线/构建通过，Grizzly 限定真机通过，其他型号未验，见[Stop 验证](../../notes/验证/Stop玩家接口验证.md) |
 | `GuardCurrent` | `units`（单个己方车辆 Agent ID） | 实验 Guard v1；一次原版 G 输入，当前位置由 DLL 执行时确定；回执不承诺后续效果 |
 | `GuardPosition` | `units`（单个己方车辆 Agent ID）、`cell` | 实验 Guard v1；一次地点警戒输入，确认不表示已到达或持续保护 |
+| `EscortUnit` / `GuardStructure` | `units`（单个己方车辆 Agent ID）、`target`（己方车辆 / 建筑 Agent ID） | 实验对象警戒 v1；目标不占 actor 租约，新输入确认后释放管理；DLL 未部署 / 真机未验，见[验证](../../notes/验证/对象警戒接口验证.md) |
 | `Attack` | `units`、`target` | 攻击指定对象 |
 | `Produce` | `type_pointer`、`type_name` | 开始生产 |
 | `Place` | `building`、`cell` | 放置已完工建筑；`building` 是 **agent id**，完工待放对象只有 `ctx.subject.agent_id(pointer)` 认得 |
@@ -191,6 +192,8 @@ Tactic(TacticInfo(
 | `has_map` | 已有底图 | |
 | `stop_v1` | GameState 声明 Stop 接口版本恰为 1；不含效果保证 | |
 | `guard_v1` | GameState 声明 Guard 接口版本恰为 1；不含具体单位适用性 | |
+| `object_guard_v1` | GameState 独立声明对象警戒 v1；不借旧 Guard 能力 | |
+| `own_guard_vehicle_target` / `own_guard_building_target` | 当前合法己方目标类型、存活和身份；从 observation.own 寻址，不要求目标属于 actor Squad | ✓ |
 | `has_enemies` / `no_enemies` | 当前看不看得见敌人 | |
 | `has_pending_building` | 手上有完工待放置的建筑 | |
 | `has_construction_yard` | 己方有一栋建造厂 | |

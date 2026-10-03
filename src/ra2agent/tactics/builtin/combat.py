@@ -14,9 +14,10 @@
 `hold_position` 只是旧 STOP 兼容入口；`guard_area` 的 Attack 可能追击，二者均不
 保证永久保持位置。技法内的到期检查还依赖再次求值，接战中不保证准时收尾。
 """
-from ...runtime.intents import Attack, GuardCurrent, GuardPosition, Hold
+from ...runtime.intents import (Attack, EscortUnit, GuardCurrent, GuardPosition,
+                               GuardStructure, Hold)
 from ..core import (REQUIRED, Param, Tactic, TacticInfo, is_bool,
-                    is_optional_cell, is_positive_number)
+                    is_optional_cell, is_positive_int, is_positive_number)
 
 
 def _native_guard(context):
@@ -26,6 +27,16 @@ def _native_guard(context):
     if cell is None:
         return (context.intent(GuardCurrent, units=units),)
     return (context.intent(GuardPosition, units=units, cell=cell),)
+
+
+def _escort_unit(context):
+    return (context.intent(EscortUnit, units=context.subject.agents(),
+                           target=context.params["target"]),)
+
+
+def _guard_structure(context):
+    return (context.intent(GuardStructure, units=context.subject.agents(),
+                           target=context.params["target"]),)
 
 
 def _distance_sq(one, other):
@@ -112,6 +123,22 @@ def _guard_area(context):
 
 
 TACTICS = (
+    Tactic(TacticInfo(
+        name="escort_unit",
+        summary="实验对象警戒 v1：单个己方车辆护送另一己方车辆；新输入观察后释放租约，"
+                "原生行为可继续，不承诺持续跟随或维修；新接口真机未验",
+        params=(Param("target", REQUIRED, "己方车辆目标 Agent ID", is_positive_int),),
+        requires=("has_units", "has_map", "object_guard_v1", "own_guard_vehicle_target"),
+    ), _escort_unit),
+
+    Tactic(TacticInfo(
+        name="guard_structure",
+        summary="实验对象警戒 v1：单个己方车辆保护己方建筑；新输入观察后释放租约，"
+                "原生行为可继续，不承诺到达、永久驻守或作战保护；新接口真机未验",
+        params=(Param("target", REQUIRED, "己方建筑目标 Agent ID", is_positive_int),),
+        requires=("has_units", "has_map", "object_guard_v1", "own_guard_building_target"),
+    ), _guard_structure),
+
     Tactic(TacticInfo(
         name="native_guard",
         summary="向单个己方车辆提交一次原生警戒；省略 cell 等同 G，提供 cell 为地点警戒；"

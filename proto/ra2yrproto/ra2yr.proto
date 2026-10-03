@@ -600,6 +600,8 @@ message GameState {
   // v1 read-only current target; does not declare controlled Attack.
   uint32 target_observation_version = 19;
   uint32 attack_interface_version = 20;
+  // v1 single own vehicle guarding a pinned own vehicle/building object.
+  uint32 object_guard_interface_version = 21;
 }
 
 message StorageValue {
@@ -629,6 +631,7 @@ enum UnitAction {
   UNIT_ACTION_GUARD_POSITION = 14;
   UNIT_ACTION_PLAYER_STOP = 15;
   UNIT_ACTION_PLAYER_ATTACK_TARGET = 16;
+  UNIT_ACTION_GUARD_OBJECT = 17;
 }
 
 enum ProduceAction {

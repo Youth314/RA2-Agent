@@ -30,3 +30,9 @@
 `patches/attack-v1-engine.patch` 与 `patches/attack-v1-protocol.patch` 包含 Target/Stop/Guard，相对同一固定未修改基线生成，不叠加旧补丁。`ENGINE_FEATURE=attack PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard_engine.py` 创建独立源码、build 和 attack-v1 产物；已配置的同版本失败构建可使用 `ENGINE_RESUME_BUILD=1` 续编，脚本核对 source/version 并继续校验完整源码差异，不重复配置。新纯策略与游戏线程目标门由新头文件提供，House 关系调用使用固定 ABI，布局漂移由断言阻断。
 
 新增 action=16、GameState.attack_interface_version=20、内部 Object.order_target_native_id=23 和 UnitOrder 目标身份字段 8–10。只支持单个己方车辆点名合法可见敌方车辆/建筑；公开 Observation 不携带内部目标身份。新请求复查 live 成员、目标身份、敌对关系、可见性与变身；不使用旧缓存取敌方坐标。相关离线检查与独立构建通过，产物未部署/加载，真机效果未验，完整指纹与范围见[Attack 验证](../../.agents/notes/验证/Attack玩家接口验证.md)。
+
+## 对象警戒 v1 功能组
+
+`patches/object-guard-v1-engine.patch` / `object-guard-v1-protocol.patch` 包含既有 Guard / Stop / Target / Attack，相对同一固定干净基线生成。`ENGINE_FEATURE=object-guard ENGINE_BUILD_JOBS=2 PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard_engine.py` 使用独立 sources / build / artifacts 目录和缓存依赖，不部署或修改游戏配置。
+
+新增 action=17、GameState.object_guard_interface_version=21，复用 UnitOrder 目标身份字段 8–10 与己方 Object.native_id。护送己方车辆和保护己方建筑共用一个受控对象输入，游戏线程复查成员 / 归属 / 身份 / 类型 / 存活 / 变身 / 地图位置，经固定 ClickMission ABI 提交 Area_Guard，对象 target 与空 destination / follow 分开。回执仅确认新输入，不借实际攻击 Target 宣称护送效果。必要离线检查与独立构建通过，未部署 / 加载，指纹及候选批次见[对象警戒验证](../../.agents/notes/验证/对象警戒接口验证.md)。
