@@ -41,3 +41,11 @@ Attack v1 双侧临时部署及 Attack/Target v1 加载通过，已恢复 Stop v
 本轮于 17:29:03 收尾，按本轮 PID / executable path / creation time 关闭 Alpha 27668 与 Beta 41800；独立复核无 gamemd、14521/14522 无监听，双侧恢复 Stop SHA-256=cf7bab758ea29152c032c83f2b3adf9b5b3d849a0bf1326c16313ea7226a5978 且 samefile=True，十项配置/崩溃报告指纹一致。临时清单 D:\Games\ra2probe\.ra2-agent-backups\attack-v1-20261003-171311\deployment.json 为 rolled_back，长期 Stop installed 清单保持 installed，无 cleanup_errors。生命周期收尾通过不等于 Attack A1–A4 通过。
 
 本轮生命周期报告与采集位于 .agents/tmp/attack-live/run-20261003-171304/，两侧各 7827 个样本；原生录像在终止 PID 前复制，gzip 尾部完整性未核验。已通过的离线 81 项、PE / 构建及本轮新版本加载检查不因准备范围调整而重跑；下次只核对本次进程所需前置，不增加旧 Stop / 空 Target 对照。仓库根既有 package-lock.json 保留，不作为本轮改动。
+
+## 已授权恢复批次（运行中）
+
+用户回复“好的，请开始”，确认同一 Attack DLL 临时部署、原配置重新起局、Beta 模型通过现有生产/放置技法补齐 GAPOWR / GAPILE / GAREFN / GAWEAP、只生产一台 MTNK、必要普通移动、原两次受控攻击/人工 D 与统一恢复 Stop；不含 fault、长期部署、配置或无关生产。现有和已在队列的对象复用，unknown 先回读，不重发。真实 Beta 通道由用户继续转交 DSH，所有 Agent ID 必须从新局自己的 status 取得。
+
+本批 run-20261003-174058 已起局，Alpha PID=26356、Beta PID=34112，两侧 stage=2、Attack/Target v1 前置通过。临时清单 D:\Games\ra2probe\.ra2-agent-backups\attack-v1-20261003-174105\deployment.json 当前 installed；临时使用 Attack DLL，长期 Stop 清单仍 installed，不能将其误读为当前 DLL 已恢复。报告、PID creation time、配置基线及 collector 状态位于 .agents/tmp/attack-live/run-20261003-174058/；实际进程和端口必须重新读取，不凭本段断言后续仍运行。
+
+准备阶段每 5 秒读取并刷新 capture/{Alpha,Beta}-latest.json，不保存逐帧原始状态；START_VERIFY 标记由主持侧在前置对象和玩家 D 窗口就绪后创建，从该时刻开始最多 600 秒高频采集，STOP 随时可控结束。准备阶段 3600 秒仅为无响应收尾上限；不沿用首轮准备时即启动的 900 秒短验证期限。父进程保留按实际 PID / path / creation time 收尾与 Stop 回滚。临时脚本改动只做语法核对，没有重跑离线 81 项或旧原版对照。A1–A4 尚未开始，最终结果须以收尾报告与证据更新本节。
