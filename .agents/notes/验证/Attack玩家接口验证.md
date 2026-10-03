@@ -58,6 +58,6 @@ A1 新输入/实际 Target 双证据限定通过：采到唯一 MegaMission even
 
 ## 使用方显示缺口与后续范围
 
-离线核查当前代码：AttackTarget 在 runtime/intents.py 注册 kind=attack_target；MicroLayer._advance 的 ENGAGING 分支仅匹配旧 kind=attack，新切片走 operation_observed 并由 _finish 保存 completion_basis / receipts / observations。command.py 的新结果文本仅渲染状态、计数、原因与 unknown 提示，省略上述依据；单位行也省略 health。故 Beta 报告依据/血量“未提供”符合当前工具输出，不能解释成新请求走了旧攻击分支。该代码核查复用既有离线证据，不作为本局隐藏字段的实际读数。
+原真机版本的离线代码核查：AttackTarget 在 runtime/intents.py 注册 kind=attack_target；MicroLayer._advance 的 ENGAGING 分支仅匹配旧 kind=attack，新切片走 operation_observed 并由 _finish 保存 completion_basis / receipts / observations。原真机版本 command.py 的新结果文本仅渲染状态、计数、原因与 unknown 提示，省略上述依据；原单位行也省略 health。故 Beta 报告依据/血量“未提供”符合当前工具输出，不能解释成新请求走了旧攻击分支。该代码核查复用既有离线证据，不作为本局隐藏字段的实际读数。
 
-用户转述的 placement_ready 早期误报与 frame 约 16301 的标识表静默重建尚未独立核验，按独立调查保留；不扩展本次真机范围或宣称已修复。下一组可离线处理玩家可读健康/完成依据与必要的身份重建提示，相关实现就绪后再选最少必要检查；展开/建筑未验不要求先补完，网络抢时序不作为默认流程。
+用户转述的 placement_ready 早期误报与 frame 约 16301 的标识表静默重建尚未独立核验，按独立调查保留；不扩展本次真机范围或宣称已修复。后续玩家可读健康、实际 Target 与完成依据已完成离线输出切片，当前状态与检查仅在[玩家状态输出验证](玩家状态输出验证.md)维护，不改变本页原真机版本的读数；身份重建提示尚待独立核查。展开/建筑未验不要求先补完，网络抢时序不作为默认流程。
