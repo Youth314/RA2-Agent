@@ -11,7 +11,7 @@ from ra2agent.engine.events import Event, EventKind, Subject
 from ra2agent.engine.observation import Observation
 from ra2agent.engine.state import GameState, MapData
 from ra2agent.watch import wake_text, watch
-from tests.fixtures import (PLAYER_HOUSE, build_game_state, build_house,
+from tests.fixtures import (PLAYER_HOUSE, build_factory, build_game_state, build_house,
                             build_map_soa, build_object)
 
 
@@ -53,10 +53,10 @@ class StubClient:
         return self._states.pop(0)
 
 
-def state_with(objects, number=100):
+def state_with(objects, number=100, factories=()):
     return GameState.parse(build_game_state(
         houses=[build_house(PLAYER_HOUSE, current_player=True)],
-        objects=list(objects), frame=number))
+        objects=list(objects), factories=list(factories), frame=number))
 
 
 def tank(pointer=0xB1):
@@ -66,6 +66,51 @@ def tank(pointer=0xB1):
 
 
 class TestWatchLoop(unittest.TestCase):
+    def test_quiet_placement_expiry_keeps_later_loss_wake(self):
+        from ra2agent.wake import WakePolicy
+        posted = []
+
+        def state(frame, units, timer=54, placed=False):
+            pending = build_object(0xC1, house=PLAYER_HOUSE,
+                                   object_type=AbstractType.BUILDING,
+                                   in_limbo=not placed, on_map=placed)
+            return state_with([*(tank(pointer) for pointer in units), pending], frame,
+                              [build_factory(PLAYER_HOUSE, 0xC1, timer=timer)])
+
+        client = StubClient([state(100, [0xA1, 0xA2], timer=53),
+                             state(101, [0xA2], timer=53),
+                             state(110, [0xA2]),
+                             state(120, [0xA2], placed=True),
+                             state(400, [], placed=True)])
+        records = watch(0, "sess-beta", interval=0, client=client,
+                        policy=WakePolicy(min_frames=180),
+                        poster=lambda e, p, t: (posted.append(p), (True, "ok"))[1],
+                        stop_after=5)
+        self.assertEqual(len(posted), 2)
+        self.assertIn("损失", posted[-1]["text"])
+        self.assertNotIn("完工待放置", posted[-1]["text"])
+        self.assertEqual(posted[-1]["session"], "sess-beta")
+        placement = next(record for record in records if record.get("placement_building"))
+        self.assertIn("expired", placement)
+
+    def test_probe_disconnect_ends_watch_without_sending(self):
+        from contextlib import redirect_stdout
+        from io import StringIO
+        from ra2agent.errors import ConnectionLost
+
+        class Disconnected(StubClient):
+            def get_state(self):
+                raise ConnectionLost("探针已关闭")
+
+        posted, output = [], StringIO()
+        with redirect_stdout(output):
+            records = watch(0, "sess-beta", interval=0, client=Disconnected([]),
+                            poster=lambda e, p, t: (posted.append(p), (True, "ok"))[1],
+                            stop_after=1)
+        self.assertEqual(records, [])
+        self.assertEqual(posted, [])
+        self.assertIn("监听结束", output.getvalue())
+
     def test_a_lost_unit_sends_one_wake_to_the_named_session(self):
         posted = []
         client = StubClient([state_with([tank()]), state_with([], number=110)])

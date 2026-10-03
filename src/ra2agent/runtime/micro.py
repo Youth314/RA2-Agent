@@ -196,6 +196,7 @@ class MicroLayer:
         暂停时下的令会留在队列里，等恢复后才执行，那时已脱离本次意图的语境。
         """
         observation = observation if observation is not None else self.observer.poll()
+        self.wake.update(observation, self.observer.identity)
         # 自动触发排在编队循环之前，这样本拍发起的任务同拍就能下令
         if self.on_tick is not None:
             self.on_tick(observation)
@@ -395,8 +396,7 @@ class MicroLayer:
         squad.wait_since = None            # 又动起来了，等待计时归零
         squad.wait_key = ""
         squad.wait_started = None
-        for intent in wakes:
-            self._request_wake(intent, observation, squad.intent.tactic)
+        self._request_wakes(wakes, observation, squad.intent.tactic)
         for intent in engine:
             self._dispatch(squad, active, intent, observation, outcomes)
             if squad.pending or squad.intent.is_terminal():
@@ -435,10 +435,13 @@ class MicroLayer:
         self._finish(squad, observation, outcomes, IntentState.IDLE,
                      reason="此刻无事可做，已交还单位")
 
-    def _request_wake(self, intent, observation, tactic) -> None:
-        """把一条 `Wake` 意图投给桥。投递失败不改任务状态——它是旁路，不是命令。"""
-        record = self.wake.request(intent.text, observation.frame, tactic=tactic)
-        self._record(observation.frame, "wake_requested", intent, record)
+    def _request_wakes(self, intents, observation, tactic) -> None:
+        """同批唤醒合并一次投递；失败不改游戏任务状态。"""
+        records = self.wake.request_many(
+            ((intent.text, intent.placement_building) for intent in intents),
+            observation.frame, tactic=tactic)
+        for intent, record in zip(intents, records):
+            self._record(observation.frame, "wake_requested", intent, record)
 
     def _dispatch(self, squad, active, intent, observation, outcomes) -> None:
         """下发一条意图，并按结果更新进度。"""

@@ -66,6 +66,7 @@ class Autopilot:
     # ------------------------------------------------------------ 执行
     def run(self, observation, events, subject) -> tuple:
         """跑这一拍该跑的技法，下发它们产出的意图。返回本拍记录。"""
+        self.wake.update(observation, getattr(subject, "identity", None))
         records = []
         for tactic in self.due(observation, events):
             self._last_run[tactic.info.name] = observation.frame
@@ -117,9 +118,9 @@ class Autopilot:
         if engine:
             record["outcomes"] = self._dispatch(engine, observation, record, subject)
         if wakes:
-            record["wakes"] = [self.wake.request(intent.text, observation.frame,
-                                                 tactic=name)
-                               for intent in wakes]
+            record["wakes"] = list(self.wake.request_many(
+                ((intent.text, intent.placement_building) for intent in wakes),
+                observation.frame, tactic=name))
         self._log(observation, "auto_ran", record)
         return record
 

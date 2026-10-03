@@ -576,6 +576,7 @@ class Commander:
         永久吞掉——「只报一次」不该变成「不报也不留」。
         """
         observation = observation if observation is not None else self.observer.poll()
+        self.layer.wake.update(observation, self.observer.identity)
         completed = self.layer.completed[self._seen_completed:]
         notices = self.layer.notices[self._seen_notices:]
         match, brief = self._match_info(observation)
@@ -809,7 +810,8 @@ class Commander:
         失败、被限流、没送出去的才要报，否则会静默丢事件。
         """
         records = self.layer.wake.records
-        missed = tuple(r for r in records[since:] if not r.get("sent"))
+        missed = tuple(r for r in records[since:]
+                       if not r.get("sent") and not r.get("expired"))
         return missed, len(records)
 
     def _match_info(self, observation):

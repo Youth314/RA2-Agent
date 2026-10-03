@@ -8,6 +8,8 @@
 `ra2agent.wake.WakeBridge`（`config/wake.json`：一局最多 30 次、两次至少隔 180 帧，
 被挡下的内容攒着下次并成一条投出去）。技法这一层只负责「确实出事了」这个判断。
 """
+from dataclasses import replace
+
 from ...engine.events import summarize
 from ...runtime.intents import Wake
 from ..core import Tactic, TacticInfo, Trigger
@@ -57,15 +59,28 @@ def _report_trouble(context):
     """有事就唤醒模型，附上事件原文；没事、或对局已结束则返回空。"""
     if match_over(context):
         return ()
-    happened = watched_only(context.events)
-    if not happened:
-        return ()
-    text = summarize(happened)
-    if not text:
-        return ()
-    if any(_kind_of(event) == "placement_ready" for event in happened):
-        text += "\n" + PLACEMENT_HINT
-    return (context.intent(Wake, text=text),)
+    return tuple(context.intent(Wake, text=text, placement_building=agent)
+                 for text, agent in wake_messages(context.events))
+
+
+def wake_messages(events):
+    """按建筑拆分可过期的放置通知；其他告警保留在独立说明中。"""
+    general, placements = [], []
+    for event in watched_only(events):
+        buildings = getattr(event, "data", {}).get("buildings")
+        if _kind_of(event) != "placement_ready" or not buildings:
+            general.append(event)
+            continue
+        for agent, name in buildings:
+            single = replace(event, data={"count": 1, "names": (f"{name} #{agent}",)})
+            placements.append((summarize((single,)) + "\n" + PLACEMENT_HINT, agent))
+    messages = []
+    if general:
+        text = summarize(general)
+        if any(_kind_of(event) == "placement_ready" for event in general):
+            text += "\n" + PLACEMENT_HINT
+        messages.append((text, None))
+    return tuple(messages + placements)
 
 
 def _kind_of(event) -> str:

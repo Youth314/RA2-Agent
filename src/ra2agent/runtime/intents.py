@@ -348,6 +348,8 @@ class Wake(Intent):
     """
 
     text: str = ""
+    #: 放置通知关联的己方 Agent ID；None 保持普通/旧通知的时间过期行为。
+    placement_building: int | None = None
 
 
 def split_wakes(intents) -> tuple:

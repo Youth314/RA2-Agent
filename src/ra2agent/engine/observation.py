@@ -92,7 +92,7 @@ class Observer:
         self.catalogue = catalogue
         self.last_state: GameState | None = None
         #: 事件队列。挂在 `poll()` 上，故 `tick()` 与 `status()` 共享同一份。
-        self.events = EventLog()
+        self.events = EventLog(identity=self.identity)
 
     # ------------------------------------------------------------ 初始化
     def bootstrap(self) -> "Observer":

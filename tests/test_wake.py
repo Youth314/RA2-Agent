@@ -199,6 +199,81 @@ class TestPluginVerdict(unittest.TestCase):
         self.assertEqual(bridge.pending, ("要紧的事",))
 
 
+class TestPlacementExpiry(WakeCase):
+    def setUp(self):
+        from ra2agent.engine.identity import IdentityTable
+        self.identity = IdentityTable()
+
+    def observation(self, frame, *, placed=False, native_id=100):
+        from ra2agent.constants import AbstractType
+        from ra2agent.engine.observation import Observation
+        from ra2agent.engine.proto import pb_uint
+        from ra2agent.engine.state import GameState
+        from tests.fixtures import PLAYER_HOUSE, build_factory, build_game_state, build_house, build_object
+        state = GameState.parse(build_game_state(frame=frame,
+            houses=[build_house(PLAYER_HOUSE, current_player=True)],
+            factories=[build_factory(PLAYER_HOUSE, 0xC1, timer=54)],
+            objects=[build_object(0xC1, object_type=AbstractType.BUILDING,
+                                 in_limbo=not placed, on_map=placed) + pb_uint(21, native_id)]))
+        self.identity.update(state)
+        return Observation(frame=frame, house=state.player_house(), state=state)
+
+    def test_placement_expires_on_a_quiet_frame_without_sending_or_spending(self):
+        self.build(min_frames=180)
+        self.bridge.update(self.observation(100), self.identity)
+        self.bridge.request("先前告警", 100)
+        record = self.bridge.request("待放建筑", 101, placement_building=1)
+        self.bridge.update(self.observation(102, placed=True), self.identity)
+        self.assertEqual(self.bridge.pending, ())
+        self.assertIn("不再待放置", record["expired"])
+        self.assertEqual(len(self.poster.calls), 1)
+        self.assertEqual(self.bridge.sent, 1)
+        expired = self.bridge.request("旧放置通知", 103, placement_building=1)
+        self.assertIn("expired", expired)
+        self.assertEqual(len(self.poster.calls), 1)
+
+    def test_expiring_failed_placement_keeps_unrelated_failed_alarm(self):
+        self.build(poster=FakePoster(ok=False), min_frames=1)
+        self.bridge.update(self.observation(100), self.identity)
+        self.bridge.request("待放建筑", 100, placement_building=1)
+        self.bridge.request("损失单位", 101)
+        self.bridge.update(self.observation(102, placed=True), self.identity)
+        self.assertEqual(self.bridge.pending, ("损失单位",))
+        self.poster.ok = True
+        self.bridge.request("新告警", 200)
+        self.assertIn("损失单位", self.poster.calls[-1][1]["text"])
+        self.assertNotIn("待放建筑", self.poster.calls[-1][1]["text"])
+        self.assertEqual(self.bridge.sent, 1)
+
+    def test_reused_pointer_does_not_keep_old_building_notification_alive(self):
+        self.build(poster=FakePoster(ok=False))
+        self.bridge.update(self.observation(100), self.identity)
+        old = self.identity.agent_id(0xC1)
+        self.bridge.request("旧建筑", 100, placement_building=old)
+        self.bridge.update(self.observation(101, native_id=101), self.identity)
+        self.assertNotEqual(old, self.identity.agent_id(0xC1))
+        self.assertEqual(self.bridge.pending, ())
+        self.assertEqual(len(self.poster.calls), 1)
+
+    def test_missing_identity_keeps_notice_until_existing_time_limit(self):
+        self.build(poster=FakePoster(ok=False), stale_frames=10)
+        self.bridge.request("未确认放置通知", 100, placement_building=1)
+        self.bridge.update(self.observation(105, placed=True))
+        self.assertEqual(self.bridge.pending, ("未确认放置通知",))
+        self.bridge.update(self.observation(111, placed=True))
+        self.assertEqual(self.bridge.pending, ())
+        self.assertEqual(self.bridge.records[-1]["expired"], "超过通知有效期")
+        self.assertEqual(len(self.poster.calls), 1)
+
+    def test_wake_binding_serializes_and_old_wake_remains_supported(self):
+        from ra2agent.runtime.intents import Intent, Wake
+        wake = Wake(text="待放置", placement_building=7)
+        self.assertEqual(Intent.from_dict(json.loads(json.dumps(wake.to_dict()))).placement_building, 7)
+        old = wake.to_dict()
+        del old["placement_building"]
+        self.assertIsNone(Intent.from_dict(old).placement_building)
+
+
 class TestPolicyConfig(unittest.TestCase):
     def load(self, payload):
         directory = tempfile.mkdtemp()

@@ -26,7 +26,8 @@ from .engine.client import Client
 from .engine.events import summarize
 from .deploy.match import MatchRoster
 from .engine.observation import Observer
-from .tactics.builtin.report import house_finished, watched_only
+from .errors import Ra2Error
+from .tactics.builtin.report import house_finished, wake_messages, watched_only
 from .wake import WakeBridge, WakePolicy
 
 #: 读局势的间隔（秒）。与 MCP 侧的 tick 同量级——事件是帧间差，别比游戏还密。
@@ -72,10 +73,10 @@ def watch(port, session, *, interval=DEFAULT_INTERVAL, client=None,
         if house_finished(observation.house):
             print("对局已分出胜负，监听结束", flush=True)
             break
+        bridge.update(observation, observer.identity)
         fresh, cursor = observer.events.new_since(cursor)
-        text = wake_text(fresh)
-        if text:
-            record = bridge.request(text, observation.frame, tactic="watch")
+        for record in bridge.request_many(wake_messages(fresh), observation.frame,
+                                          tactic="watch"):
             sent.append(record)
             if on_wake is not None:
                 on_wake(record)

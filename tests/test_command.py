@@ -1466,6 +1466,98 @@ class TestWakeRequests(Case):
         self.assertIn("唤醒未送达", text)
         self.assertIn("连接被拒绝", text)
 
+    def test_squad_wake_forwards_building_binding_without_extra_game_commands(self):
+        from ra2agent.runtime.intents import Deploy, Wake
+        self._build(lambda ctx: (ctx.intent(Deploy, units=(1,)),
+                                 ctx.intent(Wake, text="旧放置通知", placement_building=1)))
+        self.layer.on_tick = None
+        self.commander.call([CallRequest(tactic="ask_model", units=(1,))])
+        self.layer.tick(self.observation)
+        self.assertEqual(self.posts, [])
+        self.assertEqual([intent.kind for intent in self.executor.calls], ["deploy"])
+        self.assertIn("expired", self.layer.wake.records[-1])
+        self.assertEqual(self.layer.wake.sent, 0)
+
+
+class TestPlacementWakeExpiry(Case):
+    def test_quiet_placement_expires_only_its_notice_and_status_omits_it(self):
+        from ra2agent.wake import WakeBridge, WakePolicy
+        from tests.test_wake import FakePoster
+        other = 0xC3
+
+        def state(frame, timer=54, placed=False, lost=False):
+            objects = [building(YARD, (3, 3)),
+                       building(PENDING, (4, 3), in_limbo=not placed),
+                       building(other, (5, 3), in_limbo=True)]
+            if not lost:
+                objects.append(tank(ALLY_A, (1, 1)))
+            return make_state(frame=frame, objects=objects, factories=[
+                factory(PLAYER_HOUSE, PENDING, timer),
+                factory(PLAYER_HOUSE, other, timer)])
+
+        self.build(state(100, timer=53), types=make_types(),
+                   client=FakePlaceQueryClient())
+        self.observer.events = EventLog(identity=self.observer.identity)
+        self.observer.events.update(self.observation)
+        poster = FakePoster()
+        bridge = WakeBridge(policy=WakePolicy(min_frames=180), poster=poster)
+        self.layer.wake = self.commander.autopilot.wake = bridge
+        self.layer.on_tick = self.commander.auto
+        bridge.request("先前告警", 100)
+        first, second = self.agent(PENDING), self.agent(other)
+
+        def poll(current):
+            self.observer.identity.update(current)
+            observation = replace(self.observation, frame=current.frame, state=current,
+                                  own=tuple(obj for obj in current.objects if not obj.in_limbo))
+            self.observer.events.update(observation)
+            self.tick(current)
+
+        poll(state(101, lost=True))
+        self.assertEqual(len(bridge.pending), 3)
+        self.assertEqual(len(poster.calls), 1)
+        poll(state(102, placed=True, lost=True))
+        self.assertEqual(len(bridge.pending), 2)
+        self.assertTrue(any("损失" in text for text in bridge.pending))
+        self.assertTrue(any(f"#{second}" in text for text in bridge.pending))
+        self.assertFalse(any(f"#{first}" in text for text in bridge.pending))
+        report = self.commander.status(self.observation)
+        self.assertFalse(any(f"#{first}" in record["text"] for record in report.wakes))
+        self.assertEqual(len(poster.calls), 1, "静默帧与 status 不主动重试")
+        self.assertEqual(bridge.sent, 1)
+        self.assertEqual(self.executor.calls, [])
+        poll(state(400, placed=True, lost=True))
+        bridge.request("新告警", 400)
+        text = poster.calls[-1][1]["text"]
+        self.assertIn("损失", text)
+        self.assertIn(f"#{second}", text)
+        self.assertNotIn(f"#{first}", text)
+        self.assertEqual(bridge.sent, 2)
+
+    def test_same_frame_mixed_events_still_use_one_delivery(self):
+        from ra2agent.engine.events import Event, Subject
+        from ra2agent.wake import WakeBridge
+        from tests.test_wake import FakePoster
+        state = make_state(objects=[building(PENDING, (3, 3), in_limbo=True)],
+                           factories=[factory(PLAYER_HOUSE, PENDING)])
+        self.build(state, types=make_types())
+        self.layer.on_tick = self.commander.auto
+        poster = FakePoster()
+        self.layer.wake = self.commander.autopilot.wake = WakeBridge(poster=poster)
+        subject = Subject("house", 0, "me")
+        agent = self.agent(PENDING)
+        self.observer.events.record([
+            Event(EventKind.LOW_POWER, state.frame, subject),
+            Event(EventKind.PLACEMENT_READY, state.frame, subject,
+                  data={"buildings": ((agent, BUILDING_TYPE_NAME),)})])
+        self.layer.tick(self.observation)
+        self.assertEqual(len(poster.calls), 1)
+        self.assertIn("电力", poster.calls[0][1]["text"])
+        self.assertIn(f"#{agent}", poster.calls[0][1]["text"])
+        self.assertEqual(self.layer.wake.pending, ())
+        self.assertEqual(self.layer.wake.sent, 1)
+        self.assertEqual(self.executor.calls, [])
+
 
 # ---------------------------------------------------------------- 动作类技法走 call
 

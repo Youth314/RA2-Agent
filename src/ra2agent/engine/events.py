@@ -131,9 +131,10 @@ class EventLog:
     都挂在 `Observer.poll()` 后面，靠这条保证不重复。
     """
 
-    def __init__(self, capacity=256, policy=None):
+    def __init__(self, capacity=256, policy=None, identity=None):
         self.capacity = capacity
         self.policy = policy or Policy()
+        self.identity = identity
         self._events = collections.deque(maxlen=capacity)
         #: 累计记录过多少条。游标基于它，故被上限挤掉也不会错位。
         self._total = 0
@@ -145,7 +146,7 @@ class EventLog:
             return ()
         if self._last is not None and observation.frame == self._last.frame:
             return ()
-        events = detect(self._last, observation, self.policy)
+        events = detect(self._last, observation, self.policy, identity=self.identity)
         self._last = observation
         self.record(events)
         return events
@@ -207,7 +208,7 @@ def subject_of(house, me=None) -> Subject:
                    is_you=me is not None and house.pointer == me.pointer)
 
 
-def detect(before, after, policy=None) -> tuple:
+def detect(before, after, policy=None, *, identity=None) -> tuple:
     """`before` 到 `after` 之间发生了什么。`before` 为 `None` 时报空。
 
     第一帧没有「之前」，故不报——当前局面由本局简报负责，那不是事件。
@@ -222,12 +223,12 @@ def detect(before, after, policy=None) -> tuple:
     events += _detect_funds(before.house, me, after.frame, policy)
     events += _detect_infiltration(before.house, me, after.frame, policy)
     events += _detect_losses(before, after, policy)
-    events += _detect_placement(before, after, policy)
+    events += _detect_placement(before, after, policy, identity)
     events += _detect_defeats(before, after, me, policy)
     return tuple(events)
 
 
-def _detect_placement(before, after, policy):
+def _detect_placement(before, after, policy, identity=None):
     """**新**出现一栋完工待放置的建筑时报一次。
 
     放哪儿是模型的事（往矿区那边放、还是先占住路口），所以这条要能把它叫回来。
@@ -246,13 +247,19 @@ def _detect_placement(before, after, policy):
         return ()
     types = getattr(after, "types", None)
     names = []
+    buildings = []
     for obj in fresh:
         name = types.name(obj, "") if types is not None else ""
         if name and name not in names:
             names.append(name)
+        if identity is not None:
+            buildings.append((identity.agent_id(obj.pointer), name or "建筑"))
+    data = {"count": len(fresh), "names": tuple(names)}
+    if buildings and all(agent is not None for agent, _name in buildings):
+        data["buildings"] = tuple(buildings)
     return (Event(kind=EventKind.PLACEMENT_READY, frame=after.frame,
                   subject=subject_of(after.house, after.house),
-                  data={"count": len(fresh), "names": tuple(names)}),)
+                  data=data),)
 
 
 def _detect_losses(before, after, policy):
