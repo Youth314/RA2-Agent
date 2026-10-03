@@ -45,7 +45,7 @@ ENGINE_FEATURE=stop PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard_engine.p
 | halt | 已迁移为一次 Stop 输入；输入确认后释放租约，未知不重发，cancel 不发 Stop | 真机证据复用正式 stop 的 Grizzly 限定范围，其他型号与生产组合未验 |
 | hold_position | 多单位旧 Hold；按既有状态谓词结算，不保证玩家 S 等价或永久驻守；保留执行路径并修正卡片 | 明确单次停止与持续位置管理需求，再决定旧名兼容和多对象部分结果 |
 | hold_and_fire | 无目标发旧 Hold；有目标发 Attack，可能追击并进入接战管理；保留执行路径并修正卡片 | 明确选敌与位置约束、混合单位类型和攻击生命周期 |
-| focus_fire | 无目标或远目标且 chase=false 时发旧 Hold；默认远目标发 MoveTo；保留执行路径并修正卡片 | 先补 U08 实际目标回读与追近后过早结算问题，不把停止入口替换当连续集火修复 |
+| focus_fire | v2 默认直接旧 Attack，chase=false 的超半径 Hold 保留；不可见时 idle，不追加停止 | [组合结算离线修复](FocusFire组合结算验证.md)已完成；受控 Attack 迁移及原版效果仍需单独范围，不将 Hold 扩称玩家 S |
 | guard_area | 再次求值发现到期时发旧 Hold；接战中可能延后求值，max_frames 不是硬截止；保留执行路径并修正卡片 | 先明确持续管理、截止与租约语义，再迁移收尾动作 |
 | MoveTo(hold)，含 advance_to_cell、retreat、advance_covering | 忽略目的地并发旧 STOP；保留兼容，修正推进卡片中驻守及禁火承诺 | 后续分离移动模式与停止操作，不能解释为抵达后驻守 |
 

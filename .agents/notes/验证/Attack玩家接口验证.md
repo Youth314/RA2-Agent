@@ -4,7 +4,7 @@
 
 ## 当前契约
 
-AttackTarget → PLAYER_ATTACK_TARGET=16，只接受一个己方在场车辆与一个合法敌方车辆/建筑。thin attack_target 使用 attack_v1/Target v1 版本门；旧 Attack/action=8、focus_fire 与 guard_area 保留兼容行为，不采用新成功声明。模型只传 Agent ID，内部目标命令身份从 Object.order_target_native_id=23 取得，GameState.attack_interface_version=20 声明 v1；UnitOrder 5–7 同步已有 actor/依据帧扩展，8–10 固定目标 native ID、house 与具体 RTTI。
+AttackTarget → PLAYER_ATTACK_TARGET=16，只接受一个己方在场车辆与一个合法敌方车辆/建筑。thin attack_target 使用 attack_v1/Target v1 版本门；旧 Attack/action=8 与 guard_area 保留兼容行为；focus_fire 的 L1 v2 调度修复见[组合结算验证](FocusFire组合结算验证.md)，仍使用旧 Attack，不采用本接口的新成功声明。模型只传 Agent ID，内部目标命令身份从 Object.order_target_native_id=23 取得，GameState.attack_interface_version=20 声明 v1；UnitOrder 5–7 同步已有 actor/依据帧扩展，8–10 固定目标 native ID、house 与具体 RTTI。
 
 下令前先固定依据帧 actor/target 的 pointer、native ID、house、RTTI 与 type_pointer，再读取新帧；Observer 更新可能延续变身 Agent ID，不能据新绑定追随新对象。DLL 在游戏线程从 Techno 当前成员查地址，复查目标身份、live/on-map/non-limbo、非变身、关系与可见性，未知地址不解引用。敌对关系使用固定 ABI 的 HouseClass::IsAlliedWith(HouseClass const*)，双方 House/HouseType 先确认数组成员，双方盟友关系或中立时拒绝。首版只在三个 FogOfWar 标志关闭、当前目标格合法且未 shrouded、非 cloak/disguise 时导出内部身份。
 

@@ -1,6 +1,6 @@
 # FocusFire 组合结算验证
 
-日期：2026-10-03。状态：focus_fire v2 离线修复及 11 项相关检查通过；未启动游戏、修改 DLL / 配置、部署或重启 MCP / DSH。本次修改 L1 意图选择与生命周期声明，未改变 Executor、Validator、MicroLayer 或原生协议。旧 Attack 与受控 AttackTarget 的证据边界继续分开，见[Attack 验证](Attack玩家接口验证.md)。
+日期：2026-10-03。状态：实现提交 5125fcd，focus_fire v2 离线修复及 11 项相关检查通过；未启动游戏、修改 DLL / 配置、部署或重启 MCP / DSH。本次修改 L1 意图选择与生命周期声明，未改变 Executor、Validator、MicroLayer 或原生协议。旧 Attack 与受控 AttackTarget 的证据边界继续分开，见[Attack 验证](Attack玩家接口验证.md)。
 
 ## 问题与当前契约
 
