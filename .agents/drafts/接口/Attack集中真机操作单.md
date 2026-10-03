@@ -1,10 +1,10 @@
 # Attack 功能组集中真机操作单
 
-日期：2026-10-03。状态：待授权，未部署/起局/下令。源码、离线检查与产物指纹只在[Attack 验证](../../notes/验证/Attack玩家接口验证.md)维护，本页规定下一整批环境改动、玩家协作与动作范围。
+日期：2026-10-03。状态：用户已确认临时部署、同局两次正常目标攻击与展开窗口、起局和恢复 Stop；等待 DSH 主持会话确认 play_as_beta 可用，未部署/起局/下令。固定目标 ID fault 不在本次确认范围。源码、离线检查与产物指纹只在[Attack 验证](../../notes/验证/Attack玩家接口验证.md)维护，本页规定下一整批环境改动、玩家协作与动作范围。
 
 ## 1. 批次与回滚
 
-申请在 D:\Games\ra2probe 与 D:\Games\ra2probe-b 临时安装同一 Attack v1 DLL，保持双侧硬链接；从实际长期 Stop v1 创建持久备份和独立 deployment.json，原 Stop installed 清单不改。只使用已有配置和 MatchHost.launch 启动双窗口，不调用 render/up，不安装软件、改 spawn 配置或变更国家。开局仅确认本批 Attack/Target 版本与可用目标身份；不重跑旧加载/空 Target 对照。
+已获授权在 D:\Games\ra2probe 与 D:\Games\ra2probe-b 临时安装同一 Attack v1 DLL，保持双侧硬链接；从实际长期 Stop v1 创建持久备份和独立 deployment.json，原 Stop installed 清单不改。只使用已有配置和 MatchHost.launch 启动双窗口，不调用 render/up，不安装软件、改 spawn 配置或变更国家。开局仅确认本批 Attack/Target 版本与可用目标身份；不重跑旧加载/空 Target 对照。
 
 批次结束关闭本轮 PID与连接，核对端口已关闭，双側 DLL 恢复实际 Stop v1 基线，硬链接和配置指纹一致，临时清单写 rolled_back。回滚不得使用硬编码 Guard 指纹的旧 Stop rollback。确实出现 unknown 时按已提交处理，先回读，不重新提交相同请求。
 

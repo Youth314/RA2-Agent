@@ -1,6 +1,6 @@
 # Attack 玩家接口验证
 
-日期：2026-10-03。范围见[功能组方案](../../drafts/接口/U08受控Attack功能组方案.md)。用户已确认协议、Python、DLL 源码和一次项目内独立构建；本轮未获部署、配置或游戏动作授权。实现提交为 3946ba6，离线检查、独立 DLL 构建及 PE 检查通过；编译不证明玩家效果或联机同步。
+日期：2026-10-03。范围见[功能组方案](../../drafts/接口/U08受控Attack功能组方案.md)。用户已确认协议、Python、DLL 源码和一次项目内独立构建；用户后续已确认双侧临时部署、同局 MTNK→AMCV/GACNST 两次技法攻击、人工及时 D 窗口、起局与统一收尾；不包含配置修改、长期启用或目标 ID fault 注入。实现提交为 3946ba6，离线检查、独立 DLL 构建及 PE 检查通过；编译不证明玩家效果或联机同步。
 
 ## 当前契约
 
@@ -28,6 +28,12 @@ Observer 从所有公开 GameObject 清除 order_target_native_id 和原始 actu
 
 ## 真机范围与剩余边界
 
-Attack v1 产物未部署或加载，MTNK → AMCV / GACNST 受控请求、原生服务端目标 ID 不匹配拒绝、非空目标中的及时展开均未验。既有人工 MTNK → AMCV 非空 Target 证据只在[U08 验证](U08实际目标回读验证.md)维护，不证明新 DLL 请求可靠。操作批次见[集中真机操作单](../../drafts/接口/Attack集中真机操作单.md)，需单独确认部署和游戏动作范围。
+Attack v1 产物未部署或加载，MTNK → AMCV / GACNST 受控请求、原生服务端目标 ID 不匹配拒绝、非空目标中的及时展开均未验。既有人工 MTNK → AMCV 非空 Target 证据只在[U08 验证](U08实际目标回读验证.md)维护，不证明新 DLL 请求可靠。操作批次见[集中真机操作单](../../drafts/接口/Attack集中真机操作单.md)，本批部署和正常游戏动作已获确认，同范围不重复询问。
 
 其他型号与武器、步兵/飞机目标、盟友/中立目标、FogOfWar=Yes、Cell/ForceFire、请求去重、跨局身份、完整 DSH 生命周期及完整联机同步不属于已验证支持。长期游戏 DLL 基线仍为 Stop v1，具体环境事实见[Stop 部署](../环境/Stop部署与对照.md)。
+
+## 已授权批次的准备状态
+
+用户回复“同意”后完成部署前只读复核：双侧仍为 Stop v1、哈希和 samefile 正确，持久 Stop 清单仍为 installed；无 gamemd 进程、14521/14522 无监听；十项配置/崩溃报告指纹与上轮恢复基线一致，Attack 源产物指纹与构建清单一致。复用部署、采集和按 PID 收尾流程，准备 .agents/tmp/attack-live/{deploy,probe_readonly,capture_readonly,run_experiment}.py；仅修改本批源指纹、批次名、Attack 能力前置和诊断字段，脚本语法检查通过，不追加成套脚本测试。状态与指纹保存在 preparation.json，未替换 DLL、起局或执行游戏动作。
+
+DSH 主进程与普通无 --player 的 MCP 正在运行，目前未确认真实 Beta 玩家通道；本会话没有 play_as_beta 工具。已向用户提供转发给 DSH 主持会话的准备文本，只确认 play_as_beta 是否可用，暂不派玩家、不连接 Alpha 自动层、不启动游戏。按原分工等待用户确认通道后执行已授权部署和启动，不接管 DSH/MCP、不以普通 Codex 子 agent 或主持 Client 发单位动作。同组不要求补完整 DSH 生命周期，若工具可用直接进入本批；源码/离线 81 项、旧加载/Stop 对照不重跑。
