@@ -4,6 +4,7 @@
 各条独立）、撤销。全是离线假件，不碰游戏。
 """
 import unittest
+from dataclasses import replace
 
 from ra2agent.data.catalogue import Catalogue, Entry
 from ra2agent.command import (CallRequest, Commander, StatusReport, UnitPool,
@@ -16,7 +17,7 @@ from ra2agent.engine.client import CommandResult
 from ra2agent.engine.identity import IdentityTable
 from ra2agent.runtime.intents import IntentState, Scope, TacticCall
 from ra2agent.runtime.micro import MicroLayer, UnitMode
-from ra2agent.engine.observation import Observation
+from ra2agent.engine.observation import Observation, ObservedTarget
 from ra2agent.engine.state import GameState, MapData, TypeTable, cell_center
 from ra2agent.tactics import (Level, Mode, Tactic, TacticInfo, TacticPolicy,
                               TacticRegistry)
@@ -473,6 +474,79 @@ class TestStatus(Case):
 
 
 # ---------------------------------------------------------------- 撤销
+class TestStatusFacts(Case):
+    """玩家输出只扩展合法事实，不借原始帧暴露隐藏对象或诊断身份。"""
+
+    def test_health_and_own_target_stay_in_legal_observation(self):
+        hidden = 0xB2
+        snapshot = make_state(objects=[tank(ALLY_A, (1, 1), health=123),
+                                      tank(ENEMY, (4, 4), house=ENEMY_HOUSE, health=935),
+                                      tank(hidden, (7, 7), house=ENEMY_HOUSE, health=17777)])
+        self.build(snapshot)
+        actor, enemy = self.agent(ALLY_A), self.agent(ENEMY)
+        self.observer.observation = replace(
+            self.observation, visible_enemies=(snapshot.object(ENEMY),),
+            actual_targets={actor: ObservedTarget("object", enemy),
+                            enemy: ObservedTarget("object", actor)})
+        report = self.commander.status()
+        self.assertEqual(report.units[0]["health"], 123)
+        self.assertEqual(report.enemies[0]["health"], 935)
+        self.assertEqual(report.units[0]["actual_target"],
+                         {"status": "object", "agent_id": enemy})
+        self.assertNotIn("actual_target", report.enemies[0])
+        self.assertEqual(len(report.enemies), 1)
+        self.assertNotIn("17777", report.render())
+        self.assertIn(f"实际目标 #{enemy}", report.render())
+        # Even a malformed public projection must not expose a hidden ID.
+        self.observer.observation = replace(
+            self.observer.observation,
+            actual_targets={actor: ObservedTarget("object", self.agent(hidden))})
+        self.assertEqual(self.commander.status().units[0]["actual_target"],
+                         {"status": "unobservable", "agent_id": None})
+
+    def test_target_absence_is_not_none_and_raw_reference_is_never_used(self):
+        from ra2agent.engine.native_events import NativeTarget
+        from ra2agent.engine.state import ActualTarget
+        snapshot = make_state(objects=[tank(ALLY_A, (1, 1)),
+                                      tank(ENEMY, (4, 4), house=ENEMY_HOUSE)])
+        raw_actor = replace(snapshot.object(ALLY_A), actual_target=ActualTarget(
+            3, NativeTarget(82712345, 52), int(AbstractType.UNIT), ENEMY))
+        snapshot = replace(snapshot, objects=(raw_actor, snapshot.object(ENEMY)))
+        self.build(snapshot)
+        actor, enemy = self.agent(ALLY_A), self.agent(ENEMY)
+        self.assertEqual(self.commander.status().units[0]["actual_target"],
+                         {"status": "not_provided", "agent_id": None})
+        for status, label in (("none", "无目标"), ("unobservable", "不可观测"),
+                              ("not_provided", "未提供")):
+            with self.subTest(status=status):
+                self.observer.observation = replace(
+                    self.observation, actual_targets={actor: ObservedTarget(status, enemy)})
+                report = self.commander.status()
+                self.assertEqual(report.units[0]["actual_target"],
+                                 {"status": status, "agent_id": None})
+                self.assertIn(f"实际目标 {label}", report.render())
+                self.assertNotIn("82712345", report.render())
+
+    def test_partial_receipt_only_reports_allowed_facts_without_false_completion(self):
+        receipt = {"receipt": "observed_match", "evidence": "late_match", "frame": 105,
+                   "observations": {"native_input": "observed", "input_observed_frame": 101,
+                                    "actual_target": "unconfirmed", "target_status": "unobservable",
+                                    "target_observed_frame": 104, "native_id": 82712345,
+                                    "pointer": 99887766, "input_timing": 77665544}}
+        event = {"tactic": "attack_target", "intent_id": "test", "state": "superseded",
+                 "arrived": [], "lost": [], "failed": [], "unverified": 1,
+                 "receipts": [receipt], "completion_basis": {}}
+        text = StatusReport(frame=105, summary="x", results=(event,)).render()
+        self.assertIn("结果未知", text)
+        self.assertIn("完成依据：未提供", text)
+        self.assertIn("native_input=observed（帧 101）", text)
+        self.assertIn("actual_target=unconfirmed", text)
+        self.assertNotIn("帧 104", text)
+        self.assertNotIn("operation_observed", text)
+        for internal in ("82712345", "99887766", "77665544"):
+            self.assertNotIn(internal, text)
+
+
 class TestCancel(Case):
     def setUp(self):
         self.build(make_state(objects=[tank(ALLY_A, (1, 1))]))

@@ -258,7 +258,7 @@ MISSION_WORDS = {
 
 
 def _unit_line(item) -> str:
-    """一个单位一行：id、名字、格，以及它此刻在干什么。
+    """一个对象一行：身份、位置、健康、状态和己方合法实际目标。
 
     在管任务优先报（那是模型自己下的）；没有在管任务时才看游戏自身的 `Mission`，
     两者都没有才是「空闲」。
@@ -267,7 +267,48 @@ def _unit_line(item) -> str:
         state = f"在管 {item['tactic']}"
     else:
         state = MISSION_WORDS.get(item.get("mission", ""), "空闲")
-    return f"- {item['id']}｜{item['name']}｜格 ({item['cell'][0]},{item['cell'][1]})｜{state}"
+    parts = [f"- {item['id']}", item['name'],
+             f"格 ({item['cell'][0]},{item['cell'][1]})"]
+    if "health" in item:
+        parts.append(f"健康 {item['health']}")
+    parts.append(state)
+    target = item.get("actual_target")
+    if target is not None:
+        description = (f"#{target['agent_id']}" if target["status"] == "object"
+                       else {"none": "无目标", "unobservable": "不可观测",
+                             "not_provided": "未提供"}[target["status"]])
+        parts.append(f"实际目标 {description}")
+    return "｜".join(parts)
+
+
+def _receipt_lines(receipts) -> list[str]:
+    """只展示最近回执及明确允许的观测字段，不展开内部诊断。"""
+    if not receipts:
+        return []
+    latest = receipts[-1]
+    line = f"  最近回执：{latest['receipt']}/{latest['evidence']}"
+    if type(latest.get("frame")) is int:
+        line += f"（帧 {latest['frame']}）"
+    lines = [line]
+    observations = latest.get("observations", {})
+    parts = []
+    for key, allowed, frame_key in (
+        ("native_input", ("observed", "unobserved"), "input_observed_frame"),
+        ("actual_target", ("preexisting_match", "state_changed", "unconfirmed"),
+         "target_observed_frame"),
+        ("target_status", ("object", "none", "unobservable", "not_provided"), None),
+    ):
+        value = observations.get(key)
+        if value not in allowed:
+            continue
+        text = f"{key}={value}"
+        if (frame_key and value in ("observed", "preexisting_match", "state_changed")
+                and type(observations.get(frame_key)) is int):
+            text += f"（帧 {observations[frame_key]}）"
+        parts.append(text)
+    if parts:
+        lines.append("  观测：" + "；".join(parts))
+    return lines
 
 
 def _mission_name(value) -> str:
@@ -362,7 +403,7 @@ class CallResult:
 class StatusReport:
     """模型每次醒来先看的东西：局势、单位、在管任务、它上次之后发生的事。
 
-    `units` 与 `enemies` 给的是事实（id、名字、所在格、是否已在任务里），不含建议；
+    `units` 与 `enemies` 给合法对象的身份、位置、健康和任务状态，己方另含实际目标；
     模型没有这些就无从指定落点。
     """
 
@@ -456,9 +497,8 @@ class StatusReport:
                     lines.append("  命令结果未知：保留任务与租约，等待观测，不自动重发")
                 receipts = item.get("receipts", ())
                 if receipts:
-                    latest = receipts[-1]
-                    lines.append(f"  最近回执：{latest['receipt']}/{latest['evidence']}"
-                                 "（回执匹配不表示任务完成）")
+                    lines.extend(_receipt_lines(receipts))
+                    lines.append("  回执匹配不表示任务完成")
         else:
             lines.append("在管 0 项")
         if self.results:
@@ -476,6 +516,13 @@ class StatusReport:
                 if event.get("unverified"):
                     line += "｜仍有结果未知的已提交命令；结束任务不撤销引擎队列"
                 lines.append(line)
+                basis = event.get("completion_basis", {})
+                descriptions = {"operation_observed": "本次操作已观察",
+                                "goal_satisfied": "目标条件已满足"}
+                parts = [f"{agent}={value}（{descriptions[value]}）"
+                         for agent, value in basis.items() if value in descriptions]
+                lines.append("  完成依据：" + ("、".join(parts) or "未提供"))
+                lines.extend(_receipt_lines(event.get("receipts", ())))
         if self.notices:
             lines.append(f"告警 {len(self.notices)} 条：")
             for notice in self.notices:
@@ -788,29 +835,46 @@ class Commander:
 
     def _own_units(self, observation) -> tuple:
         """己方单位清单，含它是否已被某条任务占用。"""
-        return self._listing(observation.own, observation)
+        return self._listing(observation.own, observation, with_targets=True)
 
     def _enemy_units(self, observation) -> tuple:
         """可见敌方清单。"""
         return self._listing(observation.visible_enemies, observation)
 
-    def _listing(self, objects, observation) -> tuple:
-        """把对象列成「id、名字、格、在管」四件事。"""
+    def _listing(self, objects, observation, with_targets=False) -> tuple:
+        """只从合法观测列对象；实际目标只取己方已过滤的投影。"""
         busy = {}
         for item in self.layer.progress():
             for agent in item["units"]:
                 busy[agent] = item["tactic"]
         out = []
+        legal_targets = {self.observer.identity.agent_id(obj.pointer)
+                         for obj in (*observation.own, *observation.visible_enemies,
+                                     *observation.neutral)
+                         if obj.on_map and not obj.in_limbo and obj.health > 0}
         for obj in objects:
             if obj.in_limbo:
                 continue
             agent = self.observer.identity.agent_id(obj.pointer)
             if agent is None:
                 continue
-            out.append({"id": agent, "name": self._name(obj),
-                        "cell": obj.coordinates.cell,
-                        "mission": _mission_name(obj.mission),
-                        "tactic": busy.get(agent, "")})
+            item = {"id": agent, "name": self._name(obj), "health": obj.health,
+                    "cell": obj.coordinates.cell,
+                    "mission": _mission_name(obj.mission),
+                    "tactic": busy.get(agent, "")}
+            if with_targets:
+                target = observation.actual_targets.get(agent)
+                status = target.status if target is not None else "not_provided"
+                target_id = target.agent_id if target is not None else None
+                if status == "object":
+                    if type(target_id) is not int or target_id not in legal_targets:
+                        status, target_id = "unobservable", None
+                elif status in ("none", "unobservable", "not_provided"):
+                    target_id = None
+                else:
+                    status, target_id = "unobservable", None
+                item["actual_target"] = {"status": status, "agent_id": target_id}
+            out.append(item)
         return tuple(out)
 
     def _name(self, obj) -> str:

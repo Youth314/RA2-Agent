@@ -236,6 +236,16 @@ class TestAttackTactic(unittest.TestCase):
         self.assertEqual(self.layer.tick(self.obs)[0].observations['native_input'], 'observed')
         self.assertEqual(self.layer.squads(), ())
         self.assertEqual(self.layer.completed[-1]['completion_basis'], {self.agent: 'operation_observed'})
+        report = self.commander.status(self.observer.poll())
+        text = report.render()
+        self.assertIn('operation_observed', text)
+        self.assertIn('native_input=observed', text)
+        self.assertIn('actual_target=state_changed', text)
+        self.assertIn('native_input_and_target_observed', text)
+        self.assertEqual(report.units[0]['actual_target'],
+                         {'status': 'object', 'agent_id': self.target})
+        self.assertNotIn(str(ACTOR_ID), text)
+        self.assertEqual(self.commander.status(self.observer.poll()).results, ())
         self.layer.tick(self.observer.poll())
         self.assertEqual(len(self.client.sent), 1)
 
@@ -249,6 +259,9 @@ class TestAttackTactic(unittest.TestCase):
             self.assertEqual(len(self.client.sent), 1)
             if cancel:
                 self.assertTrue(self.layer.cancel(accepted.intent_id))
+            text = self.commander.status(self.observer.poll()).render()
+            self.assertIn('结果未知', text)
+            self.assertNotIn('operation_observed', text)
             self.client.timeline.append(state(104, target_status=3))
             self.client.advance()
             self.layer.tick(self.observer.poll())
