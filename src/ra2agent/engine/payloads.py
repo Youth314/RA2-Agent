@@ -61,6 +61,23 @@ def _controlled_order(pointer, action, native_id, house_pointer, basis_frame, co
             + pb_uint(7, basis_frame))
 
 
+def attack_target_order(pointer, native_id, house_pointer, basis_frame,
+                        target, target_native_id, target_house, target_type):
+    """L0-only Attack v1; a pinned object target, no cell or Mission argument."""
+    from ..errors import InvalidCommand
+
+    for label, value in (("target", target), ("target_native_id", target_native_id),
+                         ("target_house", target_house)):
+        if type(value) is not int or not 0 < value <= 0xFFFFFFFF:
+            raise InvalidCommand(f"Attack {label} 需要非零 uint32")
+    if type(target_type) is not int or target_type not in (1, 6):
+        raise InvalidCommand("unsupported: Attack 目标只接受车辆或建筑")
+    return (_controlled_order(pointer, UnitAction.PLAYER_ATTACK_TARGET, native_id,
+                              house_pointer, basis_frame)
+            + pb_uint(3, target) + pb_uint(8, target_native_id)
+            + pb_uint(9, target_house) + pb_uint(10, target_type))
+
+
 def click_event(units, event) -> bytes:
     """`ClickEvent{object_addresses, event}`。
 

@@ -147,8 +147,10 @@ class Observer:
             if agent is not None:
                 targets[agent] = self._actual_target(state, actor, legal)
         # Raw target references must not accompany GameObjects exposed to L1.
-        clean = lambda objects: tuple(replace(obj, actual_target=None)
-                                      if obj.actual_target is not None else obj
+        clean = lambda objects: tuple(replace(obj, actual_target=None,
+                                              order_target_native_id=None)
+                                      if (obj.actual_target is not None
+                                          or obj.order_target_native_id is not None) else obj
                                       for obj in objects)
         return Observation(frame=state.frame, house=house, own=clean(own),
                            visible_enemies=clean(enemies), neutral=clean(neutral),
@@ -181,6 +183,9 @@ class Observer:
         # The v1 DLL only emits foreign references under verified FogOfWar=No,
         # shroud and cloak/disguise gates. Recheck the client's legal set too.
         if target.house == actor.house and target.native_id != raw.native_id:
+            return ObservedTarget("unobservable")
+        if (target.order_target_native_id is not None
+                and target.order_target_native_id != raw.native_id):
             return ObservedTarget("unobservable")
         agent = self.identity.agent_id(target.pointer)
         tracked = self.identity.tracked(agent) if agent is not None else None

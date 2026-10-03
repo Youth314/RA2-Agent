@@ -252,6 +252,15 @@ class Attack(Intent):
     target: int = 0
 
 
+@register("attack_target")
+@dataclass
+class AttackTarget(Intent):
+    """一次受控指定攻击；输入和当前目标匹配不表示开火或击毁。"""
+
+    units: tuple[int, ...] = ()
+    target: int = 0
+
+
 @register("hold")
 @dataclass
 class Hold(Intent):

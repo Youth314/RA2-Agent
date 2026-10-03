@@ -161,6 +161,27 @@ class Validator:
             raise InvalidCommand("unsupported: DLL 未提供 Stop 接口 v1")
         return self._check_controlled_vehicle(state, pointers)
 
+    def check_attack_target(self, state, pointers, target_pointer):
+        """DLL identity presence certifies hostility/visibility; recheck local map/live set."""
+        self.check_state(state)
+        if state.attack_interface_version != 1 or state.target_observation_version != 1:
+            raise InvalidCommand("unsupported: DLL 未提供 Attack/Target 接口 v1")
+        actor = self._check_controlled_vehicle(state, pointers)
+        target = state.object(target_pointer)
+        if (target is None or target.in_limbo or not target.on_map or target.health <= 0
+                or target.object_type not in (1, 6) or target.deploying or target.undeploying
+                or target.house == actor.house
+                or target.order_target_native_id is None
+                or not 0 < target.order_target_native_id <= 0xFFFFFFFF):
+            raise InvalidCommand("unsupported: Attack 目标缺席、改变或缺少合法敌方身份")
+        owner = next((h for h in state.houses if h.pointer == target.house), None)
+        if owner is None or owner.is_neutral:
+            raise InvalidCommand("unsupported: Attack 目标归属未知或中立")
+        self.check_coordinates(target.coordinates)
+        if self.map_data.shrouded(*target.coordinates.cell):
+            raise InvalidCommand("unsupported: Attack 目标不在合法可见集合")
+        return actor, target
+
     def _check_controlled_vehicle(self, state, pointers, coordinates=None):
         from ..constants import AbstractType
 

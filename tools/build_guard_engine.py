@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build Guard, Stop or Target v1 using prepared, clean baseline dependencies.
+"""Build Guard, Stop, Target or Attack v1 using clean baseline dependencies.
 
 No installation, network access, game launch or DLL deployment. See
 engine/ra2yrcpp/README.md and the project's Guard validation record.
@@ -31,8 +31,8 @@ def require(condition, message):
 def main():
     root = Path(os.environ.get("ENGINE_BUILD_ROOT", PROJECT / ".agents/tmp/engine-build")).resolve()
     feature = os.environ.get("ENGINE_FEATURE", "guard")
-    require(feature in ("guard", "stop", "target"),
-            "ENGINE_FEATURE must be guard, stop or target")
+    require(feature in ("guard", "stop", "target", "attack"),
+            "ENGINE_FEATURE must be guard, stop, target or attack")
     jobs = os.environ.get("ENGINE_BUILD_JOBS", "4")
     require(re.fullmatch(r"[1-9][0-9]*", jobs), "ENGINE_BUILD_JOBS must be positive")
     baseline = root / "sources/ra2yrcpp"
@@ -59,11 +59,14 @@ def main():
         for directory, patch, _ in specs:
             subprocess.run(["git", "-C", str(source / directory), "apply", "--check", str(patch)], check=True)
             subprocess.run(["git", "-C", str(source / directory), "apply", str(patch)], check=True)
-        if feature == "target":
+        if feature in ("target", "attack"):
             # Track the new header as intent-to-add so diff includes its patch
             # while the staged diff remains empty. No commit is created.
             subprocess.run(["git", "-C", str(source), "add", "--intent-to-add", "--",
                             "src/ra2/target_observation.hpp"], check=True)
+            if feature == "attack":
+                subprocess.run(["git", "-C", str(source), "add", "--intent-to-add", "--",
+                                "src/ra2/attack_policy.hpp", "src/ra2/attack_target.hpp"], check=True)
     for directory, patch, revision in specs:
         repo = source / directory
         require(output("git", "-C", str(repo), "rev-parse", "HEAD") == revision,
@@ -76,8 +79,10 @@ def main():
         allowed = ({"src/commands_game.cpp", "src/hooks_yr.cpp", "src/ra2/state_parser.cpp",
                     "src/protocol/ra2yrproto"} if directory == Path(".") else
                    {"ra2yrproto/commands_game.proto", "ra2yrproto/ra2yr.proto"})
-        if feature == "target" and directory == Path("."):
+        if feature in ("target", "attack") and directory == Path("."):
             allowed.add("src/ra2/target_observation.hpp")
+            if feature == "attack":
+                allowed.update({"src/ra2/abi.hpp", "src/ra2/attack_policy.hpp", "src/ra2/attack_target.hpp"})
         status = subprocess.check_output(["git", "-C", str(repo), "status", "--porcelain"], text=True)
         require(all(line[3:] in allowed for line in status.splitlines()),
                 "Unexpected modified files/submodules in feature source")
@@ -97,7 +102,7 @@ def main():
         print(f"{name}: complete", flush=True)
 
     runtime = str(Path(output("i686-w64-mingw32-g++", "-print-file-name=libgcc_s_dw2-1.dll")).parent)
-    run_step(f"{feature}-configure", ["cmake", "-S", str(source), "-B", str(build),
+    configure_args = ["cmake", "-S", str(source), "-B", str(build),
              "--toolchain", str(source / "toolchains/mingw-w64-i686.cmake"),
              "-DCMAKE_BUILD_TYPE=Release", f"-DRA2YRCPP_VERSION=0.01-ee215f5-{feature}-v1",
              "-DRA2YRCPP_BUILD_TESTS=OFF", "-DRA2YRCPP_BUILD_CLI_TOOL=OFF",
@@ -107,7 +112,18 @@ def main():
              "-DZLIB_INCLUDE_DIR=/usr/i686-w64-mingw32/include",
              f"-DCMAKE_INCLUDE_PATH={runtime}",
              f"-DCMAKE_SHARED_LINKER_FLAGS=-L{root / 'prefix/runtime'}",
-             f"-DFETCHCONTENT_SOURCE_DIR_GOOGLETEST={root / 'build/ra2yrcpp-i686/_deps/googletest-src'}"])
+             f"-DFETCHCONTENT_SOURCE_DIR_GOOGLETEST={root / 'build/ra2yrcpp-i686/_deps/googletest-src'}"]
+    if os.environ.get("ENGINE_RESUME_BUILD") == "1":
+        cache = build / "CMakeCache.txt"
+        require(cache.is_file(), "Resume requires an existing configured feature build")
+        contents = cache.read_text()
+        require(f"CMAKE_HOME_DIRECTORY:INTERNAL={source}\n" in contents
+                and re.search(r"^RA2YRCPP_VERSION:(?:STRING|UNINITIALIZED)="
+                              + re.escape(f"0.01-ee215f5-{feature}-v1") + r"$", contents, re.M),
+                "Resume cache differs from this feature; configure normally")
+        print(f"{feature}-configure: reusing verified feature cache", flush=True)
+    else:
+        run_step(f"{feature}-configure", configure_args)
     run_step(f"{feature}-build", ["cmake", "--build", str(build), "--target", "ra2yrcpp_dll", "--parallel", jobs])
     dll = artifact / "libra2yrcpp.dll"
     shutil.copyfile(build / "bin/libra2yrcpp.dll", dll)

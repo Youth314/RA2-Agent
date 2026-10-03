@@ -106,7 +106,7 @@ class IdentityTable:
         reused = set()
         for pointer, obj in observed.items():
             agent = self._by_pointer.get(pointer)
-            native_id = getattr(obj, "native_id", None)
+            native_id = _native_id(obj)
             if agent is not None and native_id is not None:
                 previous = self._tracked[agent].native_id
                 if previous is not None and previous != native_id:
@@ -150,16 +150,17 @@ class IdentityTable:
             agent_id=agent, pointer=obj.pointer, first_seen_frame=frame,
             last_seen_frame=frame, house=obj.house, object_type=obj.object_type,
             type_pointer=obj.type_pointer, cell=obj.coordinates.cell,
-            native_id=getattr(obj, "native_id", None))
+            native_id=_native_id(obj))
         self._by_pointer[obj.pointer] = agent
         return agent
 
     def _refresh(self, tracked, obj, frame):
         tracked.last_seen_frame = frame
+        tracked.house = obj.house
         tracked.type_pointer = obj.type_pointer
         tracked.object_type = obj.object_type
         tracked.cell = obj.coordinates.cell
-        native_id = getattr(obj, "native_id", None)
+        native_id = _native_id(obj)
         if native_id is not None:
             tracked.native_id = native_id
 
@@ -205,6 +206,11 @@ class IdentityTable:
 
 def _pointer_of(obj) -> int:
     return obj.pointer if hasattr(obj, "pointer") else int(obj)
+
+
+def _native_id(obj):
+    own = getattr(obj, "native_id", None)
+    return own if own is not None else getattr(obj, "order_target_native_id", None)
 
 
 def _id_of(agent) -> int:

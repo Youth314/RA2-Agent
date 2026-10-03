@@ -259,6 +259,14 @@ class Client:
             NS + "UnitOrder", payloads.stop_order(
                 pointer, native_id, house_pointer, basis_frame), poll_timeout_ms)
 
+    def attack_target_order(self, pointer, native_id, house_pointer, basis_frame,
+                            target, target_native_id, target_house, target_type,
+                            poll_timeout_ms=5000) -> CommandResult:
+        """Controlled Attack v1; no fallback to legacy ATTACK."""
+        return self.send_command(NS + "UnitOrder", payloads.attack_target_order(
+            pointer, native_id, house_pointer, basis_frame, target,
+            target_native_id, target_house, target_type), poll_timeout_ms)
+
     def click_event(self, units, event, poll_timeout_ms=5000) -> CommandResult:
         """下发 `ClickEvent`。"""
         return self.send_command(NS + "ClickEvent",

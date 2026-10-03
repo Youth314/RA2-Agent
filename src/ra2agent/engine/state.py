@@ -146,6 +146,8 @@ class GameObject:
     native_id: int | None = None
     # Raw same-frame reference; Observation only exposes its stable-ID projection.
     actual_target: ActualTarget | None = field(default=None, repr=False)
+    # Internal Attack v1 binding, removed from public Observation objects.
+    order_target_native_id: int | None = field(default=None, repr=False)
 
     @property
     def is_building(self) -> bool:
@@ -249,15 +251,18 @@ def parse_object(blob) -> GameObject:
         destination=parse_coordinates(sub(blob, 17)),
         initial_owner=get(11),
         native_id=_optional_uint32(fields, 21),
+        order_target_native_id=_optional_uint32(fields, 23, unique=True),
         actual_target=(ActualTarget.parse(_target_field(fields, 22, 2))
                        if 22 in fields else None),
     )
 
 
-def _optional_uint32(fields, number):
+def _optional_uint32(fields, number, *, unique=False):
     entries = fields.get(number)
     if not entries:
         return None
+    if unique and len(entries) != 1:
+        raise ProtocolError(f"字段 {number} 重复")
     wire, value = entries[-1]
     if wire != 0 or not 0 <= value <= 0xFFFFFFFF:
         raise ProtocolError(f"字段 {number} 需要 uint32")
@@ -347,6 +352,7 @@ class GameState:
     guard_interface_version: int = 0
     stop_interface_version: int = 0
     target_observation_version: int = 0
+    attack_interface_version: int = 0
 
     def __post_init__(self):
         self._by_pointer = {o.pointer: o for o in self.objects}
@@ -369,6 +375,7 @@ class GameState:
             guard_interface_version=_optional_uint32(fields, 17) or 0,
             stop_interface_version=_optional_uint32(fields, 18) or 0,
             target_observation_version=_optional_uint32(fields, 19) or 0,
+            attack_interface_version=_optional_uint32(fields, 20, unique=True) or 0,
         )
 
     @property

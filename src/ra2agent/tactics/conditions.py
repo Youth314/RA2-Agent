@@ -62,6 +62,7 @@ def check_conditions(names, context) -> tuple:
 HINTS = {
     "stop_v1": "DLL 未声明 Stop 接口 v1；不能使用玩家停止输入",
     "guard_v1": "DLL 未声明 Guard 接口 v1；不能使用原生警戒输入",
+    "attack_v1": "DLL 未声明 Attack/Target 接口 v1；不能使用受控指定攻击",
     "prereq_met": "建造前提没满足，或这个类型不在可造清单里（见 status 的「可造」段）",
     "cell_passable": "目标格不可通行或在地图外（水、岩石、墙）",
     "can_afford": "钱不够",
@@ -99,6 +100,13 @@ def guard_v1(context) -> bool:
     """仅使用已声明且认识的接口版本，不通过下令探测能力。"""
     state = context.observation.state
     return state is not None and state.guard_interface_version == 1
+
+
+@condition("attack_v1")
+def attack_v1(context) -> bool:
+    state = context.observation.state
+    return (state is not None and state.attack_interface_version == 1
+            and state.target_observation_version == 1)
 
 
 @condition("has_enemies")

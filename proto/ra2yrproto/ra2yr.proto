@@ -263,6 +263,8 @@ message Object {
   optional uint32 native_id = 21;
   // Own actor current target, filtered for legal observation.
   ActualTargetObservation actual_target = 22;
+  // Attack v1 internal identity; eligible, legally visible enemy Unit/Building only.
+  optional uint32 order_target_native_id = 23;
 }
 
 enum LoadStage {
@@ -597,6 +599,7 @@ message GameState {
   uint32 stop_interface_version = 18;
   // v1 read-only current target; does not declare controlled Attack.
   uint32 target_observation_version = 19;
+  uint32 attack_interface_version = 20;
 }
 
 message StorageValue {
@@ -625,6 +628,7 @@ enum UnitAction {
   UNIT_ACTION_GUARD_CURRENT = 13;
   UNIT_ACTION_GUARD_POSITION = 14;
   UNIT_ACTION_PLAYER_STOP = 15;
+  UNIT_ACTION_PLAYER_ATTACK_TARGET = 16;
 }
 
 enum ProduceAction {

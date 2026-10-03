@@ -277,7 +277,8 @@ class MicroLayer:
                 squad.pending.remove(pending)
                 squad.receipts.append({"intent_id": pending["intent"].id,
                                        "receipt": "observed_match",
-                                       "evidence": "late_match", "frame": state.frame})
+                                       "evidence": "late_match", "frame": state.frame,
+                                       "observations": dict(plan.observations)})
         enemies = {self.observer.identity.agent_id(obj.pointer)
                    for obj in observation.visible_enemies}
         for unit in squad.units:
@@ -475,6 +476,7 @@ class MicroLayer:
         squad.receipts.append({"intent_id": intent.id,
                                "receipt": outcome.receipt,
                                "evidence": outcome.evidence,
+                               "observations": outcome.observations,
                                "frame": outcome.state.frame})
         self._advance(squad, intent, outcome.state)
 
