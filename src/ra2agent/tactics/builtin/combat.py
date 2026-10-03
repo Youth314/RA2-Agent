@@ -14,7 +14,7 @@
 `hold_position` 只是旧 STOP 兼容入口；`guard_area` 的 Attack 可能追击，二者均不
 保证永久保持位置。技法内的到期检查还依赖再次求值，接战中不保证准时收尾。
 """
-from ...runtime.intents import Attack, GuardCurrent, GuardPosition, Hold, MoveTo, Stance
+from ...runtime.intents import Attack, GuardCurrent, GuardPosition, Hold
 from ..core import (REQUIRED, Param, Tactic, TacticInfo, is_bool,
                     is_optional_cell, is_positive_number)
 
@@ -56,29 +56,26 @@ def _nearest(mine, enemies, radius):
 
 
 def _focus_fire(context):
-    """集火指定目标：半径内发 Attack，半径外按 chase 推进或发旧 Hold。
+    """指定目标攻击由原生任务追近；不以 MoveTo 到位结算集火。
 
-    实测一个玩家点了 15 格外的建筑，旧的实现把 4 台坦克**原地驻守**，他不但没打，
-    还整体后撤、白松了压力——「点名一个目标」的语义就是去打它，够不着时该走过去，
-    而不是站住。要「只打半径内的」就用 `chase=false`，或改用 `engage_nearest`。
+    chase=false 时才用 radius 筛选首次下令，超出者保留旧 Hold。
+    目标不再合法可见时返回空，由 idle_ends_task 交还管理权，不追加停止。
     """
     target = int(context.params["target"])
     radius = float(context.params["radius"])
     chase = bool(context.params["chase"])
     enemy = _enemy_of(context, target)
+    if enemy is None:
+        return ()
     out = []
     for agent in context.subject.agents():
         mine = context.subject.object_of(agent)
-        far = (enemy is not None and mine is not None
+        far = (mine is not None
                and _distance_sq(mine.coordinates.cell, enemy.coordinates.cell)
                > radius * radius)
-        if enemy is None or mine is None:
-            out.append(context.intent(Hold, units=(agent,)))
-        elif far and chase:
-            out.append(context.intent(MoveTo, units=(agent,),
-                                      cell=enemy.coordinates.cell,
-                                      stance=Stance.AGGRESSIVE))
-        elif far:
+        if mine is None:
+            continue
+        if far and not chase:
             out.append(context.intent(Hold, units=(agent,)))
         else:
             out.append(context.intent(Attack, units=(agent,), target=target))
@@ -126,18 +123,22 @@ TACTICS = (
 
     Tactic(TacticInfo(
         name="focus_fire",
-        summary="集火指定的可见敌方 id；半径外默认向目标推进，chase=false 或目标消失时发旧 STOP",
+        summary="集火指定的可见敌方 id；默认由原生攻击推进，可见期间保持在管，不逐拍重发；"
+                "chase=false 时超半径者发旧 Hold；目标不可见时交还管理，不确认击毁或追加 Stop",
+        version=2,
         params=(
             # 必填：`target` 默认 0 时是「所有人都驻守」，任务还记成 satisfied——
             # 模型少写一个参数却拿到「成功」，看不出自己其实什么都没打。
-            Param("target", REQUIRED, "要打的敌方单位 id，取自 status 的可见敌方",
+            Param("target", REQUIRED, "要打的敌方对象 id，取自 status 的可见敌方",
                   is_positive_number),
             Param("chase", True,
-                  "目标在半径外时向目标推进；false 则发旧 STOP；追近后的连续攻击尚有生命周期限制",
+                  "true 直接指定目标攻击并由原生任务追击；false 首次超半径者发旧 Hold，不保证禁火或持续不追击",
                   is_bool),
-            Param("radius", 12, "只在目标这么近时才开火（格）", is_positive_number),
+            Param("radius", 12, "chase=false 时首次下令的距离阈值（格）；不是武器射程或持续禁追击范围",
+                  is_positive_number),
         ),
         requires=("has_units",),
+        idle_ends_task=True,
     ), _focus_fire),
 
     Tactic(TacticInfo(

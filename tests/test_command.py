@@ -1561,6 +1561,120 @@ class TestPlacementWakeExpiry(Case):
 
 # ---------------------------------------------------------------- 动作类技法走 call
 
+class TestFocusFireLifecycle(Case):
+    def prepare(self, *, chase=True, ttl_frames=None, units=2):
+        objects = [tank(ALLY_A, (7, 7)),
+                   tank(ENEMY, (8, 7), house=ENEMY_HOUSE)]
+        if units == 2:
+            objects.append(tank(ALLY_B, (1, 1)))
+        state = make_state(objects=objects)
+        observation = Observation(
+            frame=state.frame, house=state.player_house(), state=state, map_data=MAP,
+            own=tuple(obj for obj in state.objects if obj.house == PLAYER_HOUSE),
+            visible_enemies=(state.object(ENEMY),))
+        self.build(state, observation=observation)
+        actors = (self.agent(ALLY_A),) + ((self.agent(ALLY_B),) if units == 2 else ())
+        reply = self.commander.call([CallRequest(
+            tactic="focus_fire", units=actors,
+            params={"target": self.agent(ENEMY), "radius": 2, "chase": chase},
+            ttl_frames=ttl_frames)])[0]
+        self.assertTrue(reply.accepted, reply.error)
+        return reply.intent_id, actors
+
+    def poll(self, frame, *, visible=True, far_cell=(1, 1), target_cell=(8, 7)):
+        # 完整 state 仍有目标；公开投影为空时不允许据此续发点名攻击。
+        state = make_state(frame=frame, objects=[
+            tank(ALLY_A, (7, 7)), tank(ALLY_B, far_cell),
+            tank(ENEMY, target_cell, house=ENEMY_HOUSE)])
+        self.observer.identity.update(state)
+        self.observation = replace(
+            self.observation, frame=frame, state=state,
+            own=tuple(obj for obj in state.objects if obj.house == PLAYER_HOUSE),
+            visible_enemies=((state.object(ENEMY),) if visible else ()))
+        self.observer.observation = self.observation
+        return self.layer.tick(self.observation)
+
+    def test_near_and_far_units_keep_named_attack_managed_without_arrival_success(self):
+        _, actors = self.prepare()
+        self.layer.tick(self.observation)
+        self.assertEqual([intent.kind for intent in self.executor.calls], ["attack", "attack"])
+        self.assertEqual([intent.units for intent in self.executor.calls], [(actors[0],), (actors[1],)])
+        self.assertTrue(all(intent.target == self.agent(ENEMY) for intent in self.executor.calls))
+        self.poll(120, far_cell=(8, 7))
+        self.poll(140, far_cell=(8, 7), target_cell=(6, 5))
+        self.assertEqual(len(self.executor.calls), 2, "到达旧目标格或目标换位不重发")
+        self.assertEqual(self.layer.completed, [])
+        self.assertTrue(all(unit.mode == UnitMode.ENGAGING for unit in self.layer.squads()[0].units))
+        self.assertEqual(self.layer.squads()[0].intent.state, IntentState.ACTIVE)
+        self.assertTrue(all(unit.completion_basis is None for unit in self.layer.squads()[0].units))
+        blocked = self.commander.call([CallRequest(tactic="hold_position", units=(actors[1],))])[0]
+        self.assertFalse(blocked.accepted, "集火在管时仍占用租约")
+
+    def test_visibility_loss_ends_idle_without_stop_or_kill_claim_and_releases_lease(self):
+        _, actors = self.prepare()
+        self.layer.tick(self.observation)
+        self.poll(120, visible=False)
+        self.assertEqual([intent.kind for intent in self.executor.calls], ["attack", "attack"])
+        self.assertEqual(self.layer.squads(), ())
+        result = self.layer.completed[-1]
+        self.assertEqual(result["state"], "idle")
+        self.assertEqual(result["arrived"], [])
+        self.assertEqual(result["completion_basis"], {})
+        self.assertNotIn("击毁", result["reason"])
+        self.assertEqual(len(self.layer.completed), 1)
+        reply = self.commander.call([CallRequest(tactic="hold_position", units=(actors[0],))])[0]
+        self.assertTrue(reply.accepted, reply.error)
+
+    def test_invisible_target_at_first_tick_does_not_issue_an_order(self):
+        self.prepare()
+        self.poll(100, visible=False)
+        self.assertEqual(self.executor.calls, [])
+        self.assertEqual(self.layer.completed[-1]["state"], "idle")
+        self.assertEqual(self.layer.squads(), ())
+
+    def test_no_chase_retains_hold_only_for_the_initial_far_unit(self):
+        _, actors = self.prepare(chase=False)
+        self.layer.tick(self.observation)
+        self.assertEqual([intent.kind for intent in self.executor.calls], ["attack", "hold"])
+        squad = self.layer.squads()[0]
+        self.assertEqual(squad.units[0].mode, UnitMode.ENGAGING)
+        self.assertEqual(squad.units[1].completion_basis, "operation_observed")
+        self.assertEqual(self.layer.completed, [])
+        self.poll(120, visible=False)
+        self.assertEqual(len(self.executor.calls), 2, "目标不可见后不追加 Hold")
+        self.assertEqual(self.layer.completed[-1]["state"], "idle")
+        self.assertEqual(self.layer.completed[-1]["completion_basis"], {actors[1]: "operation_observed"})
+
+    def test_unknown_attack_is_not_resent_or_stopped_when_target_becomes_invisible(self):
+        from ra2agent.errors import Timeout
+        intent_id, actors = self.prepare(units=1)
+        self.executor.error = Timeout("提交结果未知")
+        self.layer.tick(self.observation)
+        self.poll(120, visible=False)
+        self.poll(140)
+        self.assertEqual(len(self.executor.calls), 1)
+        self.assertEqual(self.layer.squads()[0].units[0].mode, UnitMode.UNVERIFIED)
+        self.assertEqual(self.layer.completed, [])
+        self.assertFalse(self.commander.call([CallRequest(
+            tactic="hold_position", units=(actors[0],))])[0].accepted)
+        self.assertTrue(self.commander.cancel([intent_id])[0]["cancelled"])
+        self.assertEqual(len(self.executor.calls), 1)
+        self.assertEqual(self.layer.completed[-1]["unverified"], 1)
+        self.assertEqual(self.layer.completed[-1]["state"], "superseded")
+
+    def test_expiry_and_cancel_release_management_without_an_extra_order(self):
+        for cancel in (False, True):
+            with self.subTest(cancel=cancel):
+                intent_id, _ = self.prepare(ttl_frames=10, units=1)
+                self.layer.tick(self.observation)
+                if cancel:
+                    self.commander.cancel([intent_id])
+                else:
+                    self.poll(111)
+                self.assertEqual([intent.kind for intent in self.executor.calls], ["attack"])
+                self.assertEqual(self.layer.squads(), ())
+                self.assertEqual(self.layer.completed[-1]["state"], "superseded" if cancel else "expired")
+
 #: 我的测试用的单位类型（注册名与显示名各一条路径）。
 MTNK_TYPE = 0xD1
 MTNK_NAME = "Grizzly Battle Tank"

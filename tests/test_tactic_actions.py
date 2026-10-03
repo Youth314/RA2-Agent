@@ -264,20 +264,19 @@ class TestCombat(unittest.TestCase):
 
     def test_focus_fire_attacks_the_named_target(self):
         intents = self.run_("focus_fire", {"target": 501})
-        # 够得着的打、够不着的**开过去打**——点名的目标默认去追（实测旧实现把 4 台
-        # 坦克原地驻守，玩家不但没打成还整体后撤）
-        self.assertEqual([i.kind for i in intents], ["attack", "move_to"])
+        # 远近单位都点名同一对象，由原生攻击任务追近，不分出可提前结算的移动。
+        self.assertEqual([i.kind for i in intents], ["attack", "attack"])
         self.assertEqual(intents[0].target, 501)
         self.assertEqual(intents[0].units, (1,))
-        self.assertEqual(intents[1].stance, "aggressive")
+        self.assertEqual(intents[1].target, 501)
 
     def test_focus_fire_can_stay_put_instead_of_chasing(self):
         intents = self.run_("focus_fire", {"target": 501, "chase": False})
         self.assertEqual([i.kind for i in intents], ["attack", "hold"])
 
-    def test_focus_fire_holds_everyone_when_target_is_gone(self):
+    def test_focus_fire_does_not_order_when_target_is_not_visible(self):
         intents = self.run_("focus_fire", {"target": 501}, enemy=False)
-        self.assertEqual([i.kind for i in intents], ["hold", "hold"])
+        self.assertEqual(intents, ())
 
     def test_guard_area_only_orders_units_with_a_target(self):
         # 没有目标的单位不下令：任务留在在管里，下一拍再看
