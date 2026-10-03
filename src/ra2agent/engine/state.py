@@ -422,6 +422,22 @@ class GameState:
         mine = self.player_house()
         return [f for f in self.factories if f.owner == mine.pointer]
 
+    def ready_building_factories(self) -> tuple[Factory, ...]:
+        """已完成且己方建筑产出物仍等待放置的工厂。
+
+        建筑开工时已经进入 limbo；仅 limbo 或仅 completed 均不足以判定。
+        """
+        mine = self.player_house().pointer
+        ready = []
+        for factory in self.factories:
+            if factory.owner != mine or not factory.completed:
+                continue
+            obj = self.object(factory.object)
+            if (obj is not None and obj.house == mine and obj.is_building
+                    and obj.health > 0 and obj.in_limbo and not obj.on_map):
+                ready.append(factory)
+        return tuple(ready)
+
     def enemy_houses(self) -> list[House]:
         """除己方、中立与特殊之外的阵营。"""
         mine = self.player_house()

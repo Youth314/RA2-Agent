@@ -23,12 +23,7 @@ def _ready_building(context):
     state = context.observation.state
     if state is None:
         return None
-    for factory in state.own_factories():
-        if not factory.completed:
-            continue
-        building = state.object(factory.object)
-        if building is None:
-            continue
+    for factory in state.ready_building_factories():
         agent = context.subject.agent_id(factory.object)
         if agent is None:
             continue

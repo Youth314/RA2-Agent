@@ -10,7 +10,7 @@ from ra2agent.engine.events import (MAX_LISTED_PER_KIND, Event, EventKind, Event
 from ra2agent.engine.observation import Observation
 from ra2agent.engine.state import GameState
 from tests.fixtures import (ENEMY_HOUSE, NEUTRAL_HOUSE, PLAYER_HOUSE,
-                            build_game_state, build_house)
+                            build_factory, build_game_state, build_house)
 
 
 def frame(houses, frame_number=100):
@@ -79,9 +79,10 @@ class TestObjectLoss(unittest.TestCase):
 class TestPlacementReady(unittest.TestCase):
     """新出现一栋完工待放置的建筑时报一次——放哪儿是模型的事，得把它叫回来。"""
 
-    def _frame(self, objects, number=100):
+    def _frame(self, objects, number=100, factories=()):
         state = GameState.parse(build_game_state(
-            houses=[me()], objects=list(objects), frame=number))
+            houses=[me()], objects=list(objects), frame=number,
+            factories=factories))
         return Observation(frame=state.frame, house=state.player_house(),
                            own=tuple(state.objects), state=state)
 
@@ -93,17 +94,20 @@ class TestPlacementReady(unittest.TestCase):
                             mission=Mission.CONSTRUCTION, x=300, y=300,
                             in_limbo=in_limbo, on_map=not in_limbo)
 
-    def test_entering_limbo_reports_once(self):
-        before = self._frame([self._building()])
-        after = self._frame([self._building(in_limbo=True)], number=110)
+    def test_completion_while_already_in_limbo_reports_once(self):
+        before = self._frame([self._building(in_limbo=True)],
+                             factories=[build_factory(PLAYER_HOUSE, 0xC1, timer=53)])
+        after = self._frame([self._building(in_limbo=True)], number=110,
+                            factories=[build_factory(PLAYER_HOUSE, 0xC1, timer=54)])
         ready = [e for e in detect(before, after)
                  if e.kind is EventKind.PLACEMENT_READY]
         self.assertEqual(len(ready), 1)
         self.assertIn("完工待放置", ready[0].render())
 
     def test_staying_in_limbo_does_not_report_again(self):
-        before = self._frame([self._building(in_limbo=True)])
-        after = self._frame([self._building(in_limbo=True)], number=120)
+        factories = [build_factory(PLAYER_HOUSE, 0xC1, timer=54)]
+        before = self._frame([self._building(in_limbo=True)], factories=factories)
+        after = self._frame([self._building(in_limbo=True)], number=120, factories=factories)
         self.assertEqual(
             [e for e in detect(before, after)
              if e.kind is EventKind.PLACEMENT_READY], [])
@@ -116,17 +120,45 @@ class TestPlacementReady(unittest.TestCase):
                             mission=Mission.GUARD, x=300, y=300, in_limbo=True,
                             on_map=False)
         before = self._frame([])
-        after = self._frame([unit], number=140)
+        after = self._frame([unit], number=140,
+                            factories=[build_factory(PLAYER_HOUSE, 0xE1, timer=54)])
         self.assertEqual(
             [e for e in detect(before, after)
              if e.kind is EventKind.PLACEMENT_READY], [])
 
     def test_a_placed_building_is_not_reported(self):
         before = self._frame([self._building()])
-        after = self._frame([self._building()], number=130)
+        after = self._frame([self._building()], number=130,
+                            factories=[build_factory(PLAYER_HOUSE, 0xC1, timer=54)])
         self.assertEqual(
             [e for e in detect(before, after)
              if e.kind is EventKind.PLACEMENT_READY], [])
+
+    def test_production_pause_completion_and_placement_event_cycle(self):
+        log = EventLog()
+        log.update(self._frame([]))
+        for number, timer, held in ((101, 0, False), (102, 25, True), (103, 53, False)):
+            events = log.update(self._frame([self._building(in_limbo=True)], number,
+                factories=[build_factory(PLAYER_HOUSE, 0xC1, timer=timer, on_hold=held)]))
+            self.assertEqual(events, ())
+        ready = self._frame([self._building(in_limbo=True)], 104,
+                            factories=[build_factory(PLAYER_HOUSE, 0xC1, timer=54)])
+        self.assertEqual([e.kind for e in log.update(ready)], [EventKind.PLACEMENT_READY])
+        self.assertEqual(log.update(ready), ())
+        self.assertEqual(log.update(self._frame([self._building(in_limbo=True)], 105,
+            factories=[build_factory(PLAYER_HOUSE, 0xC1, timer=54)])), ())
+        self.assertEqual(log.update(self._frame([self._building()], 106,
+            factories=[build_factory(PLAYER_HOUSE, 0xC1, timer=54)])), ())
+        self.assertEqual(len(log), 1)
+
+    def test_reused_pointer_with_new_native_identity_is_a_new_ready_building(self):
+        from ra2agent.engine.proto import pb_uint
+        factories = [build_factory(PLAYER_HOUSE, 0xC1, timer=54)]
+        before = self._frame([self._building(in_limbo=True) + pb_uint(21, 100)],
+                             factories=factories)
+        after = self._frame([self._building(in_limbo=True) + pb_uint(21, 101)],
+                            number=110, factories=factories)
+        self.assertEqual([e.kind for e in detect(before, after)], [EventKind.PLACEMENT_READY])
 
 
 class TestPureFunction(unittest.TestCase):

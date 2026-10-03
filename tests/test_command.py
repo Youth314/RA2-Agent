@@ -74,7 +74,7 @@ def tank(pointer, cell, house=PLAYER_HOUSE, mission=Mission.GUARD, **kwargs):
 
 
 def building(pointer, cell, in_limbo=False, type_pointer=None):
-    """一个己方建筑。`in_limbo=True` 即完工待放置的那一栋。"""
+    """一个己方建筑；limbo 对象可能仍在生产，须结合工厂完成状态。"""
     x, y = at(cell)
     return build_object(pointer,
                         type_pointer=(BUILDING_TYPE if type_pointer is None
@@ -726,6 +726,72 @@ class TestPlacement(Case):
         self.assertEqual(report.placement, ())
         self.assertEqual(report.sites, ())
         self.assertEqual(self.client.queries, [])
+
+
+class TestPlacementReadiness(Case):
+    def test_non_ready_objects_do_not_offer_placement_or_accept_call(self):
+        def output(**kwargs):
+            options = dict(type_pointer=BUILDING_TYPE, house=PLAYER_HOUSE,
+                           object_type=AbstractType.BUILDING, in_limbo=True, on_map=False)
+            options.update(kwargs)
+            return build_object(PENDING, **options)
+
+        completed = [factory(PLAYER_HOUSE, PENDING)]
+        cases = (
+            ("unfinished", output(), [factory(PLAYER_HOUSE, PENDING, timer=53)]),
+            ("paused", output(), [build_factory(PLAYER_HOUSE, PENDING, timer=25, on_hold=True)]),
+            ("no_factory", output(), []),
+            ("missing_output", None, completed),
+            ("unit_output", output(object_type=AbstractType.UNIT), completed),
+            ("placed", output(in_limbo=False, on_map=True), completed),
+            ("on_map_limbo", output(on_map=True), completed),
+            ("dead", output(health=0), completed),
+            ("enemy_output", output(house=ENEMY_HOUSE), completed),
+            ("enemy_factory", output(), [factory(ENEMY_HOUSE, PENDING)]),
+        )
+        for name, pending, factories in cases:
+            with self.subTest(name=name):
+                objects = [building(YARD, (3, 3))] + ([] if pending is None else [pending])
+                current = make_state(objects=objects, factories=factories)
+                client = FakePlaceQueryClient(legal=[(4, 3)])
+                self.build(current, client=client, types=make_types())
+                report = self.commander.status()
+                self.assertEqual(report.placement, ())
+                self.assertEqual(client.queries, [])
+                self.assertNotIn("完工待放置", "\n".join(report.production))
+                self.assertNotIn("place_ready_building", [card.name for card in self.commander.tactics()])
+                result = self.commander.call([CallRequest(
+                    tactic="place_ready_building", units=(self.agent(YARD),), params={})])[0]
+                self.assertFalse(result.accepted)
+                self.assertIn("has_pending_building", result.error)
+                self.assertEqual(self.executor.calls, [])
+
+    def test_completed_building_has_consistent_event_status_and_place_intent(self):
+        objects = [building(YARD, (3, 3)), building(PENDING, (3, 3), in_limbo=True)]
+        before = make_state(frame=100, objects=objects,
+                            factories=[factory(PLAYER_HOUSE, PENDING, timer=53)])
+        after = make_state(frame=101, objects=objects,
+                           factories=[factory(PLAYER_HOUSE, PENDING)])
+        self.build(before, client=FakePlaceQueryClient(legal=[(4, 3)]), types=make_types())
+        log = EventLog()
+        log.update(self.observation)
+        self.tick(after)
+        self.observer.events = log
+        log.update(self.observation)
+        report = self.commander.status()
+        self.assertEqual([e.kind for e in report.events], [EventKind.PLACEMENT_READY])
+        self.assertEqual(report.placement_count, 1)
+        self.assertIn("完工待放置", report.production[0])
+        self.assertIn("place_ready_building", [card.name for card in self.commander.tactics()])
+        result = self.commander.call([CallRequest(
+            tactic="place_ready_building", units=(self.agent(YARD),), params={})])[0]
+        self.assertTrue(result.accepted, result.error)
+        self.tick(after)
+        placed = [call for call in self.executor.calls if call.kind == "place"]
+        self.assertEqual(len(placed), 1)
+        self.assertEqual(placed[0].building, self.agent(PENDING))
+        log.update(self.observation)
+        self.assertEqual(self.commander.status().events, ())
 
 
 # ---------------------------------------------------------------- 电力与生产

@@ -231,20 +231,17 @@ def _detect_placement(before, after, policy):
     """**新**出现一栋完工待放置的建筑时报一次。
 
     放哪儿是模型的事（往矿区那边放、还是先占住路口），所以这条要能把它叫回来。
-    已经报过的（上一帧就在 limbo 里）不再报——否则每拍都会叫一次。
+    开工已进入 limbo，不代表完工；对相邻帧的真实待放置集合做差。
     """
     if after.state is None or before.state is None:
         return ()
+    previous = {(factory.object, before.state.object(factory.object).native_id)
+                for factory in before.state.ready_building_factories()}
     fresh = []
-    for obj in after.state.own_objects():
-        # **只认建筑**：生产出来的单位出厂时也会短暂进 limbo（实测每出一台坦克都报
-        # 一次「完工待放置」），而「放哪儿」只对建筑成立。单位出厂不是需要模型决定的事。
-        if not obj.in_limbo or not obj.is_building:
-            continue
-        old = before.state.object(obj.pointer)
-        if old is not None and old.in_limbo:
-            continue                     # 上一帧就在等放置，不是新事
-        fresh.append(obj)
+    for factory in after.state.ready_building_factories():
+        obj = after.state.object(factory.object)
+        if (obj.pointer, obj.native_id) not in previous:
+            fresh.append(obj)
     if not fresh:
         return ()
     types = getattr(after, "types", None)

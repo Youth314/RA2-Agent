@@ -173,7 +173,8 @@ def describe_production(factory, state, types) -> str:
     progress = f"{factory.progress_timer}/{PRODUCTION_STEPS}"
     marks = []
     if factory.completed:
-        marks.append("完工待放置")
+        ready = state is not None and factory in state.ready_building_factories()
+        marks.append("完工待放置" if ready else "已完工")
     if factory.on_hold:
         marks.append("已暂停")
     mark = f"（{'，'.join(marks)}）" if marks else ""
@@ -661,7 +662,7 @@ class Commander:
         """已完工、等玩家放置的那些工厂条目。"""
         if state is None:
             return ()
-        return tuple(factory for factory in state.own_factories() if factory.completed)
+        return state.ready_building_factories()
 
     def _base_center(self, state, types):
         """方位参照点：建造厂所在格；没有就取己方建筑的中心。

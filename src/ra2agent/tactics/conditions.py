@@ -131,7 +131,7 @@ def has_pending_building(context) -> bool:
     state = context.observation.state
     if state is None:
         return False
-    return any(obj.in_limbo for obj in state.own_objects())
+    return bool(state.ready_building_factories())
 
 
 @condition("cell_explored", needs_params=True)
