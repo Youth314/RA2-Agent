@@ -23,4 +23,10 @@
 
 `patches/target-v1-engine.patch` 与 `patches/target-v1-protocol.patch` 相对同一未修改固定基线生成，包含 Stop/Guard v1；不与旧补丁叠加。新字段为 `Object.actual_target=22` 和 `GameState.target_observation_version=19`，只读己方 actor 的合法当前对象目标，区分未提供、不可观测、无目标和对象；RTTI=52 的原版引用与具体对象类型分开，L1 经 Observer 投影为稳定 Agent ID。Cell、灰雾/隐形/伪装或无法确认的目标不导出有效引用，不代表受控 Attack 已完成。
 
-`ENGINE_FEATURE=target PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard_engine.py` 生成独立源码、构建与 target-v1 产物。补丁新增纯策略头文件，构建脚本在复制的源码仓库中用 intent-to-add 纳入 diff 校验，不提交该临时仓库；其他版本构建路径不变。布局 static_assert 使用锁定 YRpp/i686 偏移。相关离线检查和构建通过，产物未加载/部署；指纹、合法观测及未验边界见 [U08 验证](../../.agents/notes/验证/U08实际目标回读验证.md)。
+`ENGINE_FEATURE=target PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard_engine.py` 生成独立源码、构建与 target-v1 产物。补丁新增纯策略头文件，构建脚本在复制的源码仓库中用 intent-to-add 纳入 diff 校验，不提交该临时仓库；其他版本构建路径不变。布局 static_assert 使用锁定 YRpp/i686 偏移。相关离线检查、独立构建与限定双侧临时加载/MTNK→AMCV 非空目标回读通过，已恢复 Stop v1；指纹、合法观测及未验边界见 [U08 验证](../../.agents/notes/验证/U08实际目标回读验证.md)。
+
+## Attack v1 功能组
+
+`patches/attack-v1-engine.patch` 与 `patches/attack-v1-protocol.patch` 包含 Target/Stop/Guard，相对同一固定未修改基线生成，不叠加旧补丁。`ENGINE_FEATURE=attack PYTHONDONTWRITEBYTECODE=1 python3 tools/build_guard_engine.py` 创建独立源码、build 和 attack-v1 产物；已配置的同版本失败构建可使用 `ENGINE_RESUME_BUILD=1` 续编，脚本核对 source/version 并继续校验完整源码差异，不重复配置。新纯策略与游戏线程目标门由新头文件提供，House 关系调用使用固定 ABI，布局漂移由断言阻断。
+
+新增 action=16、GameState.attack_interface_version=20、内部 Object.order_target_native_id=23 和 UnitOrder 目标身份字段 8–10。只支持单个己方车辆点名合法可见敌方车辆/建筑；公开 Observation 不携带内部目标身份。新请求复查 live 成员、目标身份、敌对关系、可见性与变身；不使用旧缓存取敌方坐标。相关离线检查与独立构建通过，产物未部署/加载，真机效果未验，完整指纹与范围见[Attack 验证](../../.agents/notes/验证/Attack玩家接口验证.md)。
