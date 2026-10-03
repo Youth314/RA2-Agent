@@ -1,6 +1,6 @@
 # Attack 玩家接口验证
 
-日期：2026-10-03。范围见[功能组方案](../../drafts/接口/U08受控Attack功能组方案.md)。用户已确认协议、Python、DLL 源码和一次项目内独立构建；用户后续已确认双侧临时部署、同局 MTNK→AMCV/GACNST 两次技法攻击、人工及时 D 窗口、起局与统一收尾；不包含配置修改、长期启用或目标 ID fault 注入。实现提交为 3946ba6，离线检查、独立 DLL 构建及 PE 检查通过；编译不证明玩家效果或联机同步。
+日期：2026-10-03。范围见[功能组方案](../../drafts/接口/U08受控Attack功能组方案.md)。用户已确认协议、Python、DLL 源码和一次项目内独立构建；用户后续已确认双侧临时部署、同局 MTNK→AMCV/GACNST 两次技法攻击、人工及时 D 窗口、起局与统一收尾，并补充确认完整 Beta 建造/放置、一台 MTNK 与必要普通移动；不包含配置修改、长期启用或目标 ID fault 注入。实现提交为 3946ba6，离线检查、独立 DLL 构建及 PE 检查通过；编译不证明玩家效果或联机同步。
 
 ## 当前契约
 
@@ -28,7 +28,7 @@ Observer 从所有公开 GameObject 清除 order_target_native_id 和原始 actu
 
 ## 真机范围与剩余边界
 
-Attack v1 双侧临时部署及 Attack/Target v1 加载通过，已恢复 Stop v1；MTNK → AMCV / GACNST 受控请求、原生服务端目标 ID 不匹配拒绝、非空目标中的及时展开均未验。既有人工 MTNK → AMCV 非空 Target 证据只在[U08 验证](U08实际目标回读验证.md)维护，不证明新 DLL 请求可靠。操作批次见[集中真机操作单](../../drafts/接口/Attack集中真机操作单.md)，本批部署和正常游戏动作已获确认，同范围不重复询问。
+Attack v1 双侧临时部署及 Attack/Target v1 加载通过，恢复批次 MTNK → AMCV 的新攻击输入/实际 Target 双证据限定通过，已恢复 Stop v1；真实 Beta 的受理 / satisfied / 租约释放限定通过，模型面未显示完成依据；MTNK → GACNST、原生服务端目标 ID 不匹配拒绝、非空目标中的及时展开均未完成。既有人工 MTNK → AMCV 非空 Target 证据只在[U08 验证](U08实际目标回读验证.md)维护，不证明新 DLL 请求可靠。操作批次见[集中真机操作单](../../drafts/接口/Attack集中真机操作单.md)，本批部署和正常游戏动作已获确认，同范围不重复询问。
 
 其他型号与武器、步兵/飞机目标、盟友/中立目标、FogOfWar=Yes、Cell/ForceFire、请求去重、跨局身份、完整 DSH 生命周期及完整联机同步不属于已验证支持。长期游戏 DLL 基线仍为 Stop v1，具体环境事实见[Stop 部署](../环境/Stop部署与对照.md)。
 
@@ -42,10 +42,22 @@ Attack v1 双侧临时部署及 Attack/Target v1 加载通过，已恢复 Stop v
 
 本轮生命周期报告与采集位于 .agents/tmp/attack-live/run-20261003-171304/，两侧各 7827 个样本；原生录像在终止 PID 前复制，gzip 尾部完整性未核验。已通过的离线 81 项、PE / 构建及本轮新版本加载检查不因准备范围调整而重跑；下次只核对本次进程所需前置，不增加旧 Stop / 空 Target 对照。仓库根既有 package-lock.json 保留，不作为本轮改动。
 
-## 已授权恢复批次（运行中）
+## 恢复批次结果与证据
 
-用户回复“好的，请开始”，确认同一 Attack DLL 临时部署、原配置重新起局、Beta 模型通过现有生产/放置技法补齐 GAPOWR / GAPILE / GAREFN / GAWEAP、只生产一台 MTNK、必要普通移动、原两次受控攻击/人工 D 与统一恢复 Stop；不含 fault、长期部署、配置或无关生产。现有和已在队列的对象复用，unknown 先回读，不重发。真实 Beta 通道由用户继续转交 DSH，所有 Agent ID 必须从新局自己的 status 取得。
+用户回复“好的，请开始”，确认同一 Attack DLL 临时部署、原配置重新起局、Beta 模型通过现有生产/放置技法补齐 GAPOWR / GAPILE / GAREFN / GAWEAP、只生产一台 MTNK、必要普通移动、原两次受控攻击/人工 D 与统一恢复 Stop；不含 fault、长期部署、配置或无关生产。现有和已在队列的对象复用，unknown 先回读，不重发。真实 Beta 通道由用户转交 DSH，Beta 自读确认 MTNK Agent ID=220、可见 AMCV Agent ID=212，健康未在它的 MCP status 单位行提供，主持侧合法只读健康另记。Beta 报告未发移动指令，受试车移至 (40,81) 的来源未确认，不归因于 automatic；该项不作为本次新攻击输入。
 
-本批 run-20261003-174058 已起局，Alpha PID=26356、Beta PID=34112，两侧 stage=2、Attack/Target v1 前置通过。临时清单 D:\Games\ra2probe\.ra2-agent-backups\attack-v1-20261003-174105\deployment.json 当前 installed；临时使用 Attack DLL，长期 Stop 清单仍 installed，不能将其误读为当前 DLL 已恢复。报告、PID creation time、配置基线及 collector 状态位于 .agents/tmp/attack-live/run-20261003-174058/；实际进程和端口必须重新读取，不凭本段断言后续仍运行。
+本批 run-20261003-174058 双侧临时部署与新局前置通过，使用原配置；准备阶段每 5 秒读取，未启动短攻击计时。低频增量观测未及时取得目标格探索信息，新鲜只读 bootstrap 已确认目标合法可见且命令身份提供；故短采集使用同轮新鲜地图建立的 capture-verification，而非用低频缓存缺席否认玩家可见性。准备就绪与攻击前 AMCV 健康为 935，偏离操作单的满血 1000，MTNK 健康 300、当前实际 Target=none，目标在射程外；按 935 记本轮基线，不重起局补满血。Beta 再次自读确认对象后，用户转交 A1 开始指令并确认执行；主持未下单位命令。
 
-准备阶段每 5 秒读取并刷新 capture/{Alpha,Beta}-latest.json，不保存逐帧原始状态；START_VERIFY 标记由主持侧在前置对象和玩家 D 窗口就绪后创建，从该时刻开始最多 600 秒高频采集，STOP 随时可控结束。准备阶段 3600 秒仅为无响应收尾上限；不沿用首轮准备时即启动的 900 秒短验证期限。父进程保留按实际 PID / path / creation time 收尾与 Stop 回滚。临时脚本改动只做语法核对，没有重跑离线 81 项或旧原版对照。A1–A4 尚未开始，最终结果须以收尾报告与证据更新本节。
+A1 新输入/实际 Target 双证据限定通过：采到唯一 MegaMission event_type=4、Mission_Attack=1、house_index=0、timing=421007657，actor native ID=1043934 / RTTI=52、target native ID=1043808 / RTTI=52，destination / follow 的 RTTI 均为 0、is_planning_event=false。首次采样 frame=56654，该输入仅见于 Beta，out/do 三次采样属于同一输入，不作三次下令或完整联机同步结论；is_executed 和事件 frame 不单独证明执行。此前短采集不存在本输入，首次匹配实际 Target 在 frame=56670，此前为 none；其后到 frame=57534 共 169 项非空目标样本匹配原 AMCV，公开投影为 object / Agent ID=212。单写入者与窗口关联仍是证据限制；真实 Beta 已有记录由用户转回：下令前 frame=56584，受理 attack_target#67a9058eba7c，唯一一次回读 frame=56690 显示 satisfied / 到位 1 / 损失 0 / 失败 0 / 在管 0 项；没有 unknown、补发或 cancel。薄技法受理、结算及租约释放限定通过；模型面没有 completion_basis / observations 字段，不把它们写成 Beta 实读值。
+
+另行记录 AMCV 健康从 935 按 65 递减至 25 的效果，不能将一次输入确认等同于永久接战。frame=56873 首次采到健康 675，距首次匹配 Target 约 4.51 秒；聊天多轮提示无法可靠赶上健康 ≥700 的人工 D 窗口。短采集没有 GACNST 样本，A2/A3 未完成、A4 未执行，不发第二次攻击或重起局补尾窗。随后采集触发 Alpha match boundary；边界检查在写出该帧前终止，不能仅凭异常文本认定具体胜负标志、击毁或崩溃原因。记录与原生录像保留，gzip 尾部完整性未核验。
+
+本轮 18:03:17 按 Alpha PID=26356 / Beta PID=34112、executable path 与 creation time 收尾。双侧 DLL 恢复 Stop SHA-256=cf7bab758ea29152c032c83f2b3adf9b5b3d849a0bf1326c16313ea7226a5978、samefile=True；独立复核无 gamemd、14521/14522 无监听、十项配置/崩溃报告指纹一致。临时清单 D:\Games\ra2probe\.ra2-agent-backups\attack-v1-20261003-174105\deployment.json 为 rolled_back，长期 Stop 清单仍 installed，rollback_passed=True、cleanup_errors=[]。父流程 status=failed / passed=False 来自采集的对局边界，必须与回滚成功和限定 A1 证据分开，不能改写为整批通过。
+
+生命周期与证据位于 .agents/tmp/attack-live/run-20261003-174058/，a1-evidence.json 汇总输入、Target 与健康序列；capture-verification 两侧各 1154 项高频样本，frame 范围 Alpha 51584–57538、Beta 51582–57534，低频准备两侧各 255 项仅刷新 latest。81 项离线、构建 / PE、旧 Stop / 空 Target 对照均未重跑。用户指出网络不适合实时协调；未来若另获补测授权，采用提前下达的本机连续操作单、玩家直接看游戏画面判断 D 时机与事后读记录，不再经主持聊天提示抢秒级窗口。未完成的展开 / 建筑分支不作为其他离线功能组开发的前置。
+
+## 使用方显示缺口与后续范围
+
+离线核查当前代码：AttackTarget 在 runtime/intents.py 注册 kind=attack_target；MicroLayer._advance 的 ENGAGING 分支仅匹配旧 kind=attack，新切片走 operation_observed 并由 _finish 保存 completion_basis / receipts / observations。command.py 的新结果文本仅渲染状态、计数、原因与 unknown 提示，省略上述依据；单位行也省略 health。故 Beta 报告依据/血量“未提供”符合当前工具输出，不能解释成新请求走了旧攻击分支。该代码核查复用既有离线证据，不作为本局隐藏字段的实际读数。
+
+用户转述的 placement_ready 早期误报与 frame 约 16301 的标识表静默重建尚未独立核验，按独立调查保留；不扩展本次真机范围或宣称已修复。下一组可离线处理玩家可读健康/完成依据与必要的身份重建提示，相关实现就绪后再选最少必要检查；展开/建筑未验不要求先补完，网络抢时序不作为默认流程。
