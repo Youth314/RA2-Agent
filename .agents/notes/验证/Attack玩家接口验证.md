@@ -28,7 +28,7 @@ Observer 从所有公开 GameObject 清除 order_target_native_id 和原始 actu
 
 ## 真机范围与剩余边界
 
-Attack v1 双侧临时部署及 Attack/Target v1 加载通过，恢复批次 MTNK → AMCV 的新攻击输入/实际 Target 双证据限定通过，已恢复 Stop v1；真实 Beta 的受理 / satisfied / 租约释放限定通过，模型面未显示完成依据；MTNK → GACNST、原生服务端目标 ID 不匹配拒绝、非空目标中的及时展开均未完成。既有人工 MTNK → AMCV 非空 Target 证据只在[U08 验证](U08实际目标回读验证.md)维护，不证明新 DLL 请求可靠。操作批次见[集中真机操作单](../../drafts/接口/Attack集中真机操作单.md)，本批部署和正常游戏动作已获确认，同范围不重复询问。
+Attack v1 双侧临时部署及 Attack/Target v1 加载通过，恢复批次 MTNK → AMCV 的新攻击输入/实际 Target 双证据限定通过；独立 DSH 建筑批次 MTNK → GACNST 双证据、真实 Beta 的受理 / satisfied / operation_observed / 租约释放限定通过，见下节。各批已恢复 Stop v1。原生服务端目标 ID 不匹配拒绝、非空目标中的及时展开均未完成。既有人工 MTNK → AMCV 非空 Target 证据只在[U08 验证](U08实际目标回读验证.md)维护，不证明新 DLL 请求可靠。操作批次见[集中真机操作单](../../drafts/接口/Attack集中真机操作单.md)，已结束批次的授权不延续到新实验。
 
 其他型号与武器、步兵/飞机目标、盟友/中立目标、FogOfWar=Yes、Cell/ForceFire、请求去重、跨局身份、完整 DSH 生命周期及完整联机同步不属于已验证支持。长期游戏 DLL 基线仍为 Stop v1，具体环境事实见[Stop 部署](../环境/Stop部署与对照.md)。
 
@@ -60,4 +60,20 @@ A1 新输入/实际 Target 双证据限定通过：采到唯一 MegaMission even
 
 原真机版本的离线代码核查：AttackTarget 在 runtime/intents.py 注册 kind=attack_target；MicroLayer._advance 的 ENGAGING 分支仅匹配旧 kind=attack，新切片走 operation_observed 并由 _finish 保存 completion_basis / receipts / observations。原真机版本 command.py 的新结果文本仅渲染状态、计数、原因与 unknown 提示，省略上述依据；原单位行也省略 health。故 Beta 报告依据/血量“未提供”符合当前工具输出，不能解释成新请求走了旧攻击分支。该代码核查复用既有离线证据，不作为本局隐藏字段的实际读数。
 
-用户转述的 placement_ready 早期误报与 frame 约 16301 的标识表静默重建尚未独立核验，按独立调查保留；不扩展本次真机范围或宣称已修复。后续玩家可读健康、实际 Target 与完成依据已完成离线输出切片，当前状态与检查仅在[玩家状态输出验证](玩家状态输出验证.md)维护，不改变本页原真机版本的读数；身份重建提示尚待独立核查。展开/建筑未验不要求先补完，网络抢时序不作为默认流程。
+用户转述的 placement_ready 早期误报与 frame 约 16301 的标识表静默重建按独立调查保留，不据此认定该局 ID 变化的具体原因。后续玩家输出及重连修复分别见[玩家状态输出验证](玩家状态输出验证.md)、[会话重建验证](会话重建与身份验证.md)，不改变本页旧真机版本的读数。未验展开不要求先补完，网络抢时序不作为默认流程。
+
+## 独立 DSH 建筑批次与报告复核
+
+2026-10-03，用户委派的测试协调者完成一次 MTNK → 合法可见 GACNST 的 attack_target，并授权临时部署既有 Attack DLL、原配置起局、真人与真实 Beta 准备、单次攻击、短只读采集和恢复 Stop；不包含非空 AMCV 展开、fault、配置修改或长期部署。报告为 .agents/tmp/attack-gacnst/BATCH-REPORT.md，原始证据为 capture/prep-run/observations.jsonl、raw/ 和 report.json。本次开发复核只读取这些已有记录及 DLL，不重跑游戏、加载或已有离线测试。
+
+真实 Beta 由 play_as_beta 创建，报告记录 child=37682908-e992-459e-8845-bdea6dd61a16，MCP 使用 --roster config/match.json --player Beta。请求的玩家 ID 为 units=[219]、target=223；采集侧 MTNK Agent ID=221 / native ID=1043915，目标 GACNST 在 Alpha 采集侧 Agent ID=225 / native ID=1044520 / object_type=6。玩家与采集身份空间分别维护，不能交叉使用 Agent ID。
+
+原始记录复核：此前采集侧 MTNK 实际 Target 为 none；唯一新攻击输入 timing=423080040，actor native ID=1043915 / RTTI=52、target native ID=1044520 / RTTI=52。首次采样 frame=21339、source=out，事件自身 frame=21336；后续 do 两次采样为 21344 / 21349，事件自身 frame=21352，三条记录属于同一个输入。实际 Target 在采样 frame=21354 变为 native ID=1044520 / object_type=6，保持到窗口结束。事件 frame、Mission 与 is_executed 不单独作执行判据。
+
+合法性与结算仅按报告转述的真实 Beta 工具输出登记：可见敌方 GACNST #223、health=1000；受理 attack_target#0479be853364 一次，结果 satisfied / 到位 1 / 损失 0 / 失败 0，在管 0 项；219=operation_observed，最近回执 observed_match/native_input_and_target_observed（21354），observations 为 native_input=observed（21351）、actual_target=state_changed（21354）、target_status=object。采集侧底图未刷新，公开 Target 为 unobservable，故合法公开目标证明来自 Beta 工具转述，采集仅提供原生身份和帧序旁证；未取得采集侧 object 投影的独立证明。无 unknown、重发或 attack cancel；本批没有执行 cancel，不登记为新的 cancel / Stop 对照。目标健康保持 1000，不宣称开火、掉血、击毁或持续接战。
+
+附带 attack-evidence.json 误以玩家 Agent ID=219 查询采集侧对象，读到 Chrono Miner；其 actual_target_sample_count 也将 status=none 的非空字典计入，不能用于 Target 判定。开发复核改按 diagnostic_own.native_id=1043915 对齐原始行，得到上述 none → 1044520 序列；保留原报告和提取文件，不覆盖原始产物。报告中的“out 首采 21336 / do 回声 21352”均是事件自身帧，本页以采样帧明确修正。
+
+版本限制：起局 revision=ad48163，批中主开发并行修改 command.py 与相关测试；DLL 和 Attack 判定未变，但玩家 Python 输出版本未冻结。健康 / 实际目标 / 依据文本按报告实读记载，不归因于 f854bf5 的固定运行版本，也不作为该提交的完整 DSH 回归。主持侧旧 MCP 进程发生 AttackTarget 导入错误，协调者未重启或接管；本批只读采集替代主持工具，不证明旧进程问题已解决。后续测试必须固定源码工作区和 MCP 版本。
+
+收尾 report.json 为 capture_stopped、两侧各 326 项、connections_closed=true。报告按本批 Alpha PID=26964 / Beta PID=29548 及 executable path 停止，报告复核无 gamemd、14521/14522 无监听；未记录 creation time 核验，不补写该项。持久清单 D:\Games\ra2probe\.ra2-agent-backups\attack-v1-20261003-182826\deployment.json 为 rolled_back，restored_hardlinked=true、unchanged_after_rollback=true，十项配置/崩溃文件指纹一致；长期 Stop 清单保持 installed。开发只读复核两侧当前 DLL SHA-256=cf7bab758ea29152c032c83f2b3adf9b5b3d849a0bf1326c16313ea7226a5978，samefile=true；Windows 只读复核当前无 gamemd 进程、14521/14522 无监听，十项配置/崩溃文件指纹仍与部署前一致。录像在停 PID 前复制，gzip 尾部未验证。归档为普通 MTNK → GACNST 的限定正例，未验展开、其他目标/型号、跨局与完整联机同步继续保留。

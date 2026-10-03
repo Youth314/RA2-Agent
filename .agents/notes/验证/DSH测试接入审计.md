@@ -55,6 +55,7 @@ MCP 已增加活动对局、有效席位及游戏帧推进门控，同帧不执�
 | 冷玩家子 agent 唤醒无法走普通 resolver | binding.ts:145；DSH resolver 拒绝 subagent | 使用专用 continuation/delivery，测试完整释放后恢复 |
 | watcher 不推进 L1 | watch.py:48 | 对局服务持续运行契约，勿仅靠 watcher 宣称任务继续 |
 | MCP 游戏帧门控 | mcp.py:GameSession._advance | 已实现并通过离线边界回归；真实宿主、暂停恢复待验 |
+| MCP 重建身份与上下文 | GameSession / IdentityTable | 同一会话重建的 ID 不复用和 status 门控已离线通过，见[会话重建验证](会话重建与身份验证.md)；跨进程 / 真实 DSH 恢复未验 |
 | 玩家认领表只在内存 | dsh-players/src/players.ts:166 起 | DSH 重启后 player/child 恢复策略需明确 |
 | 玩家工具边界文档自相矛盾 | dsh-players/README.md 前面说明屏蔽 bash/派生等，后面旧“边界”段却称照旧可用 | 以 src/players.ts 的实际过滤和执行守卫为准，实施时修正文档 |
 | 通用文档混用 MCP 生命周期/连接约束 | 指挥层、真机测试手册、watch 模块说明 | 区分普通 preset、玩家 agent、历史部署限制 |

@@ -20,13 +20,13 @@
 
 Stop 切片与长期部署事实、Attack 离线检查/独立构建/双侧加载事实均从验证记录复用。Attack 的 MTNK→AMCV 已取得唯一新攻击输入、匹配实际 Target、真实 Beta satisfied 与租约释放的限定证据，不为熟悉流程重跑。
 
-新 AttackTarget 的 kind 是 attack_target，与旧 attack 不同，内部按 operation_observed 结算；旧 status 文本没有显示 completion_basis / observations，也没有显示单位 health。读不到就记未提供，不能把代码推断、主持侧读数或 Mission_Attack 写成玩家工具的实读值。后续界面改动须等开发 agent 交付 revision；默认离线验证，真机文本只在已有相关场景顺带核查，不为输出格式另起局。
+新 AttackTarget 的 kind 是 attack_target，与旧 attack 不同，内部按 operation_observed 结算；旧 status 文本没有显示 completion_basis / observations，也没有显示单位 health。读不到就记未提供，不能把代码推断、主持侧读数或 Mission_Attack 写成玩家工具的实读值。玩家显示已交付 f854bf5；本次建筑报告含新字段但运行版本未冻结，不能作为该 revision 的固定版本回归。后续运行必须固定 revision；默认离线验证，真机文本只在已有相关场景顺带核查，不为输出格式另起局。
 
-placement_ready 早期误报、断连后 ID 静默重建仅有用户转述，保留为独立调查项；不在本批临时扩展测试或修改系统。完整 DSH 生命周期、跨局身份、完整联机同步和其他型号 Stop 不是当前默认验收范围。
+placement_ready 早期误报仍待离线调查；同一 MCP 会话重建的 ID 不复用 / 旧任务提示 / status 门控已离线修复，未重启现存 MCP，不覆盖跨进程恢复；不在测试中临时改系统。完整 DSH 生命周期、跨局身份、完整联机同步和其他型号 Stop 不是当前默认验收范围。
 
 ### 3. 当前待测队列与最小批次
 
-第一优先候选：普通 MTNK→合法可见 GACNST 的一次受控 attack_target。用户先在 Alpha 展开 AMCV，Beta 准备一台普通 MTNK、揭图并停在武器射程外；真实 Beta 重新读取新建筑合法 Agent ID 后只下令一次。只需确认该请求的新攻击输入与建筑实际 Target 均匹配，并记录任务结算。取得证据后结束，不追求击毁；这一场景不需要 AMCV→GACNST 的秒级人工窗口，也不再攻击 AMCV 复测已有正例。
+普通 MTNK→合法可见 GACNST 的单次 attack_target 已由独立协调者完成并经开发复核，限定事实见 Attack 验证；该项移出待测队列，不因提取文件错误或输出版本未冻结重跑。当前没有默认新真机批次。重连身份 / 提示切片已离线完成，见 .agents/notes/验证/会话重建与身份验证.md；今后仅在固定版本的相关授权批次顺带核对，不单独起局。
 
 可选后续：非空 AMCV Target 中展开，核对旧身份移除、新建筑身份及 Target 的实际变化。仅在用户愿意且场景确有必要时纳入同一已授权批次；开始前一次给用户完整本机连续步骤。用户保持 Alpha AMCV 选中，看游戏画面直接判断攻击发生后的 D 时机，不等待远端 agent 的“现在按 D”。是否满足非空 Target 与健康阈值由事后记录判定；错过即记未完成，不盲目重试或另起局补尾窗，不预设原生 Target 一定清空。
 
