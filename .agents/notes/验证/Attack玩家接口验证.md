@@ -28,12 +28,16 @@ Observer 从所有公开 GameObject 清除 order_target_native_id 和原始 actu
 
 ## 真机范围与剩余边界
 
-Attack v1 产物未部署或加载，MTNK → AMCV / GACNST 受控请求、原生服务端目标 ID 不匹配拒绝、非空目标中的及时展开均未验。既有人工 MTNK → AMCV 非空 Target 证据只在[U08 验证](U08实际目标回读验证.md)维护，不证明新 DLL 请求可靠。操作批次见[集中真机操作单](../../drafts/接口/Attack集中真机操作单.md)，本批部署和正常游戏动作已获确认，同范围不重复询问。
+Attack v1 双侧临时部署及 Attack/Target v1 加载通过，已恢复 Stop v1；MTNK → AMCV / GACNST 受控请求、原生服务端目标 ID 不匹配拒绝、非空目标中的及时展开均未验。既有人工 MTNK → AMCV 非空 Target 证据只在[U08 验证](U08实际目标回读验证.md)维护，不证明新 DLL 请求可靠。操作批次见[集中真机操作单](../../drafts/接口/Attack集中真机操作单.md)，本批部署和正常游戏动作已获确认，同范围不重复询问。
 
 其他型号与武器、步兵/飞机目标、盟友/中立目标、FogOfWar=Yes、Cell/ForceFire、请求去重、跨局身份、完整 DSH 生命周期及完整联机同步不属于已验证支持。长期游戏 DLL 基线仍为 Stop v1，具体环境事实见[Stop 部署](../环境/Stop部署与对照.md)。
 
-## 已授权批次的准备状态
+## 首轮集中批次结果与后续准备
 
-用户回复“同意”后完成部署前只读复核：双侧仍为 Stop v1、哈希和 samefile 正确，持久 Stop 清单仍为 installed；无 gamemd 进程、14521/14522 无监听；十项配置/崩溃报告指纹与上轮恢复基线一致，Attack 源产物指纹与构建清单一致。复用部署、采集和按 PID 收尾流程，准备 .agents/tmp/attack-live/{deploy,probe_readonly,capture_readonly,run_experiment}.py；仅修改本批源指纹、批次名、Attack 能力前置和诊断字段，脚本语法检查通过，不追加成套脚本测试。状态与指纹保存在 preparation.json，未替换 DLL、起局或执行游戏动作。
+已授权批次于 2026-10-03 17:13 起局，两侧 stage=2、attack_interface_version=1、target_observation_version=1，max_connections=16。真实 Beta 玩家通道由用户转交 DSH 主持会话；用户转述 Beta 的电厂待放置、电力 0/0，后续 GAPILE / GAREFN / GAWEAP 与 MTNK 生产准备不在原两次攻击授权内。采集仅出现 Alpha 的 AMCV、Beta 的 AMCV / GACNST，无 MTNK、无采到的 MegaMission；A1–A4 未执行，不作攻击效果、卡片调用或完整 DSH 生命周期结论。既有 Beta 自动开局与两次显式攻击范围分开记录，不能把待放置状态解释为 Attack 实现失败。
 
-DSH 主进程与普通无 --player 的 MCP 正在运行，目前未确认真实 Beta 玩家通道；本会话没有 play_as_beta 工具。已向用户提供转发给 DSH 主持会话的准备文本，只确认 play_as_beta 是否可用，暂不派玩家、不连接 Alpha 自动层、不启动游戏。按原分工等待用户确认通道后执行已授权部署和启动，不接管 DSH/MCP、不以普通 Codex 子 agent 或主持 Client 发单位动作。同组不要求补完整 DSH 生命周期，若工具可用直接进入本批；源码/离线 81 项、旧加载/Stop 对照不重跑。
+本轮固定 900 秒采集等待耗于准备，不能在前置对象未就绪时用相同短期限驱动下一轮。下一批须先明确准备动作的授权边界，准备完成后再进入短攻击验证窗口；准备状态低频读取，不以高频采集等待生产。具体候选授权及准备要求见集中操作单，尚未确认，不能据建议提前下令或重开局。
+
+本轮于 17:29:03 收尾，按本轮 PID / executable path / creation time 关闭 Alpha 27668 与 Beta 41800；独立复核无 gamemd、14521/14522 无监听，双侧恢复 Stop SHA-256=cf7bab758ea29152c032c83f2b3adf9b5b3d849a0bf1326c16313ea7226a5978 且 samefile=True，十项配置/崩溃报告指纹一致。临时清单 D:\Games\ra2probe\.ra2-agent-backups\attack-v1-20261003-171311\deployment.json 为 rolled_back，长期 Stop installed 清单保持 installed，无 cleanup_errors。生命周期收尾通过不等于 Attack A1–A4 通过。
+
+本轮生命周期报告与采集位于 .agents/tmp/attack-live/run-20261003-171304/，两侧各 7827 个样本；原生录像在终止 PID 前复制，gzip 尾部完整性未核验。已通过的离线 81 项、PE / 构建及本轮新版本加载检查不因准备范围调整而重跑；下次只核对本次进程所需前置，不增加旧 Stop / 空 Target 对照。仓库根既有 package-lock.json 保留，不作为本轮改动。
