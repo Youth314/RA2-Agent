@@ -51,7 +51,8 @@ MCP 已增加活动对局、有效席位及游戏帧推进门控，同帧不执�
 
 | 项目 | 证据 | 后续处理 |
 |---|---|---|
-| watch 异常分支未导入 Ra2Error | watch.py:67 使用名称但文件没有 import；当前 test_watch 主要覆盖正常事件 | 补异常路径测试并修复，当前未运行触发验证 |
+| watch 异常分支 Ra2Error | 已补 import，替身探针断开检查通过 | 相关证据见[放置通知时效验证](放置通知时效验证.md)，不代表真实宿主生命周期通过 |
+| 积压放置通知时效 | 已按建筑 Agent ID 清理过期待发说明，同批仍合并投递一次 | [离线通过](放置通知时效验证.md)；真实 DSH 送达与冷恢复未验 |
 | 冷玩家子 agent 唤醒无法走普通 resolver | binding.ts:145；DSH resolver 拒绝 subagent | 使用专用 continuation/delivery，测试完整释放后恢复 |
 | watcher 不推进 L1 | watch.py:48 | 对局服务持续运行契约，勿仅靠 watcher 宣称任务继续 |
 | MCP 游戏帧门控 | mcp.py:GameSession._advance | 已实现并通过离线边界回归；真实宿主、暂停恢复待验 |

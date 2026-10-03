@@ -22,7 +22,7 @@ Stop 切片与长期部署事实、Attack 离线检查/独立构建/双侧加载
 
 新 AttackTarget 的 kind 是 attack_target，与旧 attack 不同，内部按 operation_observed 结算；旧 status 文本没有显示 completion_basis / observations，也没有显示单位 health。读不到就记未提供，不能把代码推断、主持侧读数或 Mission_Attack 写成玩家工具的实读值。玩家显示已交付 f854bf5；本次建筑报告含新字段但运行版本未冻结，不能作为该 revision 的固定版本回归。后续运行必须固定 revision；默认离线验证，真机文本只在已有相关场景顺带核查，不为输出格式另起局。
 
-placement_ready 的就绪判据已修复并离线通过，见 .agents/notes/验证/待放置判据验证.md；积压通知过期与真实送达仍未验；同一 MCP 会话重建的 ID 不复用 / 旧任务提示 / status 门控已离线修复，未重启现存 MCP，不覆盖跨进程恢复；不在测试中临时改系统。完整 DSH 生命周期、跨局身份、完整联机同步和其他型号 Stop 不是当前默认验收范围。
+placement_ready 的就绪判据与积压通知关联过期均已修复并离线通过，分别见 .agents/notes/验证/待放置判据验证.md 与 .agents/notes/验证/放置通知时效验证.md；真实 DSH 送达仍未验，相关授权生产 / 放置场景顺带核查即可，不单独起局或新建通知测试批次；同一 MCP 会话重建的 ID 不复用 / 旧任务提示 / status 门控已离线修复，未重启现存 MCP，不覆盖跨进程恢复；不在测试中临时改系统。完整 DSH 生命周期、跨局身份、完整联机同步和其他型号 Stop 不是当前默认验收范围。
 
 ### 3. 当前待测队列与最小批次
 

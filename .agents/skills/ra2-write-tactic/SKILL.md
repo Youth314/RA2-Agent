@@ -121,7 +121,7 @@ return (ctx.intent(Wake, text="基地被打了，3 个建筑在掉血"),)
 | `Place` | `building`、`cell` | 放置已完工建筑；`building` 是 **agent id**，完工待放对象只有 `ctx.subject.agent_id(pointer)` 认得 |
 | `Sell` | `buildings` | 变卖建筑 |
 | `Deploy` | `units` | 展开基地车（走 `ClickEvent`，不是 `UnitOrder`） |
-| `Wake` | `text` | **不落到引擎**：请求唤醒模型，`split_wakes` 把它交给唤醒桥。限度见下 |
+| `Wake` | `text`、可选 `placement_building` | **不落到引擎**：请求唤醒模型；放置通知可关联己方建筑 Agent ID，不传 pointer / native_id。同批合并投递，分别过期，见[时效验证](../../notes/验证/放置通知时效验证.md) |
 | `TacticCall` | `tactic`、`params` | 指挥层意图，不是你要返回的东西——它是模型 `call` 的载荷 |
 
 Guard 首版只有限定新 DLL 场景通过，具体已验证对象、适用性与剩余边界见[Guard 接口验证](../../notes/验证/Guard接口验证.md)。未经声明 v1 的 DLL 会被 L0 明确拒绝；禁止为新意图自行连接 Client、开放任意 Mission 或每拍重发。S4 的正式 native_guard、CMIN 采矿兼容分支和自动冷却已最小接入，证据与长期启用边界见[Guard 技法迁移验证](../../notes/验证/Guard技法迁移验证.md)；持续任务与完整迁移仍未完成。
@@ -133,7 +133,7 @@ Guard 首版只有限定新 DLL 场景通过，具体已验证对象、适用性
 - **常规失败原因不要用 `Wake` 传**——那是每拍都能算出来的事实。任务失败的原因会随
   `status` 的「新结果」报给模型（带 `reason`），不需要你再叫一次。
 - `Wake` 只留给**只有模型能决定**的事：该扩张还是防守、这笔钱怎么花。
-- 被限流挡住的内容不会丢，会攒进待发队列下次合并投出。
+- 被限流或失败的有效内容留在待发队列，后续请求合并投出，不主动重试。关联放置通知可由已有观测判定过期；普通及旧无关联通知按时间期限处理，同批说明只合并投递一次。
 
 ### 空单位：目前做不到
 
